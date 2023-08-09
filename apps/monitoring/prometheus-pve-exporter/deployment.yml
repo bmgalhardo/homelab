@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pve-exporter
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-pve-exporter
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus-pve-exporter
+    spec:
+      containers:
+      - name: prometheus-pve-exporter
+        image: prompve/prometheus-pve-exporter
+        imagePullPolicy: Always
+        env:
+        - name: PVE_USER
+          value: root@pam
+        - name: PVE_TOKEN_NAME
+          value: prometheus-pve-exporter
+        - name: PVE_TOKEN_VALUE
+          valueFrom:
+            secretKeyRef:
+              name: pve-secret
+              key: pve-secret
+        - name: PVE_VERIFY_SSL
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-pve-exporter
+spec:
+  selector:
+    app: prometheus-pve-exporter
+  ports:
+  - name: http
+    port: 9221

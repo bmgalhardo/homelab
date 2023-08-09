@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vault
+
+resources:
+- namespace.yml
+- vault-storage.yml
+
+helmCharts:
+- name: vault
+  releaseName: vault
+  repo: https://helm.releases.hashicorp.com
+  version: 0.24.1
+  valuesFile: values.yml

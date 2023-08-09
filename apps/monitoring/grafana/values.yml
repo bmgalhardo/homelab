@@ -1,0 +1,28 @@
+imageRenderer:
+  enabled: true
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  pathType: ImplementationSpecific
+  hosts: 
+  - grafana.home
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.prometheus-system
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.logging
+sidecar:
+  dashboards: 
+    enabled: true
+testFramework:
+  enabled: false
+adminPassword: admin
+grafana.ini:
+  auth.anonymous:
+    enabled: true
+plugins: ["grafana-clock-panel"]

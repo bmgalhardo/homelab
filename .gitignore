@@ -1,0 +1,5 @@
+*charts/
+talos/
+infrastructure/vault/vault-storage.yml
+apps/monitoring/prometheus/values.yml
+apps/logging/loki/temp/

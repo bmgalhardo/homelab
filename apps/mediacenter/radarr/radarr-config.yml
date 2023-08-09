@@ -1,0 +1,15 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: radarr-config
+spec:
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: radarr-config
+  data:
+  - secretKey: config.xml
+    remoteRef:
+      key: kv/hal9000-control-1/arr-configs
+      property: radarr

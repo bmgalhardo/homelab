@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sabnzbd-hl
+spec:
+  selector:
+    app: sabnzbd
+  ports:
+    - port: 8080
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sabnzbd
+spec:
+  selector:
+    app: sabnzbd
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sabnzbd
+spec:
+  serviceName: sabnzbd-hl
+  selector:
+    matchLabels:
+      app: sabnzbd
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sabnzbd
+    spec:
+      containers:
+      - name: sabnzbd
+        image: lscr.io/linuxserver/sabnzbd:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /config
+          name: data
+        - mountPath: /downloads
+          name: downloads
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Lisbon
+      volumes:
+      - name: downloads
+        persistentVolumeClaim:
+          claimName: downloads
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 100Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sabnzbd
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sabnzbd.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sabnzbd
+            port:
+              number: 8080

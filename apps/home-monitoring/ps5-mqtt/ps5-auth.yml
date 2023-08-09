@@ -1,0 +1,15 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: ps5-mqtt
+spec:
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: ps5-mqtt
+  data:
+  - secretKey: PSN_ACCOUNTS
+    remoteRef:
+      key: kv/hal9000-control-1/ps5-mqtt
+      property: PSN_ACCOUNTS

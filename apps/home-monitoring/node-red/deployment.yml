@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-red
+spec:
+  selector:
+    matchLabels:
+      app: node-red
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: node-red
+    spec:
+      containers:
+      - name: node-red
+#        image: nodered/node-red
+        image: bgalhardo/node-red-ha-integration:dev
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /data/settings.js
+          name: files
+          subPath: settings.js
+        - mountPath: /data/flows-original.json
+          name: files
+          subPath: flows.json
+        - mountPath: /data/flows_cred.json
+          name: secret
+          subPath: flows_cred.json
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "cp /data/flows-original.json /data/flows.json"]
+      volumes:
+      - name: files
+        configMap:
+          name: node-files
+      - name: secret
+        secret:
+          secretName: node-red-ha-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-red
+spec:
+  selector:
+    app: node-red
+  ports:
+  - name: http
+    port: 1880
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: node-red
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: node-red.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: node-red
+            port:
+              number: 1880

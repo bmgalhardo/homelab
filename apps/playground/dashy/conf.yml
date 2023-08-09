@@ -1,0 +1,131 @@
+appConfig:
+  statusCheck: true
+  hideComponents:
+    hideHeading: true
+    hideNav: true
+    hideSearch: true
+    hideSettings: true
+    hideFooter: true
+  layout: auto
+  iconSize: small
+  theme: callisto
+sections:
+  - name: Homelab
+    icon: fas fa-server
+    items:
+      - title: Router
+        url: https://192.168.1.254
+        icon: hl-router
+      - title: Switch
+        url: http://192.168.1.100
+        icon: hl-assetgrid
+      - title: Proxmox
+        url: https://192.168.1.198:8006
+        icon: hl-proxmox
+        statusCheckAllowInsecure: true
+      - title: TrueNAS
+        url: https://192.168.1.199
+        icon: hl-truenas-scale
+        statusCheckAllowInsecure: true
+      - title: Longhorn
+        url: http://longhorn.home
+        icon: hl-longhorn
+        statusCheckUrl: http://longhorn-frontend.longhorn-system
+      - title: Atlas
+        url: http://192.168.1.199:9000
+        icon: hl-minio
+        statusCheckAcceptCodes: 403
+      - title: Phoenix
+        url: https://phoenix.home
+        icon: hl-minio
+        statusCheckUrl: http://phoenix-console.tenant-phoenix:9090
+      - title: Vault
+        url: http://vault.home
+        icon: hl-vault
+        statusCheckUrl: http://vault.vault:8200
+      - title: pgAdmin
+        url: http://pgadmin.home
+        icon: hl-pgadmin
+        statusCheckUrl: http://pgadmin.postgres-system
+  - name: Media
+    icon: fas fa-film
+    items:
+      - title: Plex
+        url: http://plex.home
+        icon: hl-plex
+        statusCheckUrl: http://plex.mediacenter:32400
+        statusCheckAcceptCodes: 401
+      - title: Overseerr
+        url: https://overseerr.bgalhardo.com
+        icon: hl-overseerr
+      - title: Sonarr
+        url: http://sonarr.home
+        icon: hl-sonarr
+        statusCheckUrl: http://sonarr.mediacenter:8989
+      - title: Radarr
+        url: http://radarr.home
+        icon: hl-radarr
+        statusCheckUrl: http://radarr.mediacenter:7878
+      - title: Prowlarr
+        url: http://prowlarr.home
+        icon: hl-prowlarr
+        statusCheckUrl: http://prowlarr.mediacenter:9696
+        statusCheckAcceptCodes: 401
+      - title: SABnzbd
+        url: http://sabnzbd.home
+        icon: hl-sabnzbd
+        statusCheckUrl: http://sabnzbd.mediacenter:8080
+      - title: Nextcloud
+        url: https://nextcloud.home
+        icon: hl-nextcloud
+        statusCheckUrl: http://nextcloud.playground
+        statusCheckAcceptCodes: 400
+  - name: Monitoring
+    icon: fas fa-chart-bar
+    items:
+      - title: Grafana
+        url: http://grafana.home
+        icon: hl-grafana
+        statusCheckUrl: http://grafana.monitoring
+      - title: Home Assistant
+        url: https://home.bgalhardo.com
+        icon: hl-home-assistant
+      - title: ESPHome
+        url: http://esphome.home
+        icon: hl-esphome
+        statusCheckUrl: http://esphome.home-monitoring:8080
+      - title: Node-Red
+        url: http://node-red.home
+        icon: hl-nodered
+        statusCheckUrl: http://node-red.home-monitoring:1880
+  - name: Bookmarks
+    icon: fas fa-bookmark
+    items:
+      - title: GitHub
+        url: https://github.com/bmgalhardo
+        icon: hl-github-light
+        statusCheck: false
+      - title: Cloudflare
+        url: https://dash.cloudflare.com
+        icon: hl-cloudflare
+        statusCheck: false
+      - title: Wanikani
+        url: https://www.wanikani.com
+        icon: hl-wanikani
+        statusCheck: false
+      - title: Homelab icons
+        url: https://github.com/walkxcode/dashboard-icons#icons
+        icon: hl-whooglesearch
+        statusCheck: false
+      - title: Ngroup Ninja
+        url: https://www.newsgroup.ninja/en/member
+        icon: hl-files
+        statusCheck: false
+      - title: Newshosting
+        url: https://controlpanel.newshosting.com/customer/
+        icon: hl-files
+        statusCheck: false
+      - title: NZB.su
+        url: https://nzb.su
+        icon: hl-whooglesearch
+        statusCheck: false

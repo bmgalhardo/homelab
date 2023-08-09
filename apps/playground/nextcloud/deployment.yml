@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+spec:
+  selector:
+    matchLabels:
+      app: nextcloud
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      containers:
+      - name: nextcloud
+        image: nextcloud:latest
+        imagePullPolicy: Always
+        envFrom:
+        - secretRef:
+            name: nextcloud
+        env:
+        - name: POSTGRES_DB
+          value: nextcloud
+        - name: POSTGRES_USER
+          value: nextcloud
+        - name: POSTGRES_HOST
+          value: postgres-hl.postgres-system
+        - name: REDIS_HOST
+          value: redis
+        - name: OBJECTSTORE_S3_HOST
+          value: phoenix-hl.tenant-phoenix
+        - name: OBJECTSTORE_S3_BUCKET
+          value: nextcloud
+        - name: OBJECTSTORE_S3_KEY
+          value: nextcloud
+        - name: OBJECTSTORE_S3_PORT
+          value: "9000"
+        - name: OBJECTSTORE_S3_SSL
+          value: "false"
+        - name: OBJECTSTORE_S3_USEPATH_STYLE 
+          value: "true"
+        - name: NEXTCLOUD_TRUSTED_DOMAINS
+          value: nextcloud.bgalhardo.com nextcloud.home
+        - name: OVERWRITECLIURL
+          value: https://nextcloud.bgalhardo.com
+        - name: OVERWRITEPROTOCOL
+          value: https
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: nextcloud-ephemeral
+      - name: cron
+        image: nextcloud:latest
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c", "while true; do php -f cron.php; sleep 300; done"]
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: nextcloud-ephemeral
+        securityContext:
+          runAsUser: 33
+      volumes:
+      - name: nextcloud-ephemeral
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+spec:
+  selector:
+    app: nextcloud
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 0
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: nextcloud.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: nextcloud
+            port:
+              number: 80

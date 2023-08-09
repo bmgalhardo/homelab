@@ -1,0 +1,34 @@
+esphome:
+  name: esphome-web-02409b
+  friendly_name: esp-kitchen
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+  password: !secret ota_pwd
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+captive_portal:
+
+sensor:
+  - platform: dht
+    model: DHT11
+    pin: 2
+    temperature:
+      name: "Kitchen Temperature"
+    humidity:
+      name: "Kitchen Humidity"
+    update_interval: 60s
+

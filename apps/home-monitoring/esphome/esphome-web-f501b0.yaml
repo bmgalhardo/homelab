@@ -1,0 +1,118 @@
+esphome:
+  name: esphome-web-f501b0
+  friendly_name: esp-ble2ha
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+  password: !secret ota_pwd
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+captive_portal:
+
+# my applications
+esp32_ble_tracker:
+  scan_parameters:
+    active: false
+  on_ble_advertise:
+  # living room
+  - mac_address: A4:C1:38:EC:C6:28
+    then:
+    - lambda: |-
+        for (auto data : x.get_manufacturer_datas()) {
+          if(data.data.size()==6) {
+            const int basenum = (int16_t(data.data[1]) << 16) + (int16_t(data.data[2]) << 8) + int16_t(data.data[3]);
+            const float temperature = basenum / 10000.0f;
+            const float humidity = (basenum % 1000) / 10.0f;
+            const float battery_level = uint16_t(data.data[4]) / 1.0f;
+            int16_t rssi=x.get_rssi();
+            id(govee_livingroom_humidity).publish_state(humidity);
+            id(govee_livingroom_temp).publish_state(temperature);
+            id(govee_livingroom_rssi).publish_state(rssi);
+            id(govee_livingroom_battery).publish_state(battery_level);
+          } 
+        }
+  # Bedroom
+  - mac_address: A4:C1:38:00:5D:34
+    then:
+    - lambda: |-
+        for (auto data : x.get_manufacturer_datas()) {
+          if(data.data.size()==6) {
+            const int basenum = (int16_t(data.data[1]) << 16) + (int16_t(data.data[2]) << 8) + int16_t(data.data[3]);
+            const float temperature = basenum / 10000.0f;
+            const float humidity = (basenum % 1000) / 10.0f;
+            const float battery_level = uint16_t(data.data[4]) / 1.0f;
+            int16_t rssi=x.get_rssi();
+            id(govee_bedroom_humidity).publish_state(humidity);
+            id(govee_bedroom_temp).publish_state(temperature);
+            id(govee_bedroom_rssi).publish_state(rssi);
+            id(govee_bedroom_battery).publish_state(battery_level);
+          } 
+        }
+
+sensor:
+  # Living Room Govee
+  - platform: template
+    name: "Living Room Temperature"
+    id: govee_livingroom_temp
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+  - platform: template
+    name: "Living Room Humidity"
+    id: govee_livingroom_humidity
+    unit_of_measurement: '%'
+    accuracy_decimals: 0
+  - platform: template
+    name: "Living Room Sensor Battery Level"
+    id: govee_livingroom_battery
+    unit_of_measurement: '%'
+    accuracy_decimals: 0
+  - platform: template
+    name: "Living Room Sensor Signal Strengh"
+    id: govee_livingroom_rssi
+    unit_of_measurement: 'dBm'
+    accuracy_decimals: 0
+  # Bedroom Govee
+  - platform: template
+    name: "Bedroom Temperature"
+    id: govee_bedroom_temp
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+  - platform: template
+    name: "Bedroom Humidity"
+    id: govee_bedroom_humidity
+    unit_of_measurement: '%'
+    accuracy_decimals: 0
+  - platform: template
+    name: "Bedroom Sensor Battery Level"
+    id: govee_bedroom_battery
+    unit_of_measurement: '%'
+    accuracy_decimals: 0
+  - platform: template
+    name: "Bedroom Sensor Signal Strengh"
+    id: govee_bedroom_rssi
+    unit_of_measurement: 'dBm'
+    accuracy_decimals: 0
+  # DHT11 sensor
+  - platform: dht
+    model: DHT11
+    pin: 23
+    temperature:
+      name: "Office Temperature"
+    humidity:
+      name: "Office Humidity"
+    update_interval: 60s

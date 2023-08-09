@@ -1,0 +1,22 @@
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  host: longhorn.home
+csi:
+  attacherReplicaCount: 1
+  provisionerReplicaCount: 1
+  resizerReplicaCount: 1
+  snapshotterReplicaCount: 1
+longhornConversionWebhook:
+  replicas: 1
+longhornAdmissionWebhook:
+  replicas: 1
+longhornRecoveryBackend:
+  replicas: 1
+longhornUI:
+  replicas: 1
+defaultSettings:
+  systemManagedComponentsNodeSelector: "custom/storage:longhorn"
+  backupTarget: s3://longhorn@dummy/
+  backupTargetCredentialSecret: minio-secret
+  defaultReplicaCount: 1

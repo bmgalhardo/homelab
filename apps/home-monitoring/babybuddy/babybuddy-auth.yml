@@ -1,0 +1,13 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: babybuddy-auth
+spec:
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: babybuddy-auth
+  dataFrom:
+  - extract:
+      key: kv/hal9000-control-1/babybuddy-auth

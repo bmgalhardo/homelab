@@ -1,0 +1,3 @@
+speaker:
+  nodeSelector:
+    custom/role: worker

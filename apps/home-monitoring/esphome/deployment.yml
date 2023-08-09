@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: esphome
+spec:
+  selector:
+    matchLabels:
+      app: esphome
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: esphome
+    spec:
+      containers:
+      - name: esphome
+        image: esphome/esphome
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /config/secrets.yaml
+          name: secrets
+          subPath: secrets.yaml
+        - mountPath: /temp/esphome-web-f501b0.yaml
+          name: files
+          subPath: esphome-web-f501b0.yaml
+        - mountPath: /temp/esphome-web-02409b.yaml
+          name: files
+          subPath: esphome-web-02409b.yaml
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "cp /temp/* /config/"]
+      volumes:
+      - name: files
+        configMap:
+          name: esphome-files
+      - name: secrets
+        secret:
+          secretName: esphome-secrets
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: esphome
+spec:
+  selector:
+    app: esphome
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 6052
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: esphome
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: esphome.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: esphome
+            port:
+              number: 8080

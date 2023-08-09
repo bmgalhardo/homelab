@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+spec:
+  selector:
+    matchLabels:
+      app: prowlarr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      containers:
+      - name: prowlarr
+        image: lscr.io/linuxserver/prowlarr:develop
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /config.xml
+          subPath: config.xml
+          name: config
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Lisbon
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "cp /config.xml /config/config.xml"]
+      volumes:
+      - name: config
+        secret:
+          secretName: prowlarr-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prowlarr
+spec:
+  selector:
+    app: prowlarr
+  ports:
+    - name: http
+      port: 9696
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prowlarr
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: prowlarr.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: prowlarr
+            port:
+              number: 9696

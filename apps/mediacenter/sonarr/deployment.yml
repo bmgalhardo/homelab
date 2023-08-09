@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+spec:
+  selector:
+    matchLabels:
+      app: sonarr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      containers:
+      - name: sonarr
+        image: lscr.io/linuxserver/sonarr:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /config
+          name: sonarr
+        - mountPath: /downloads
+          name: downloads
+        - mountPath: /series
+          name: series
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Lisbon
+      volumes:
+      - name: sonarr
+        persistentVolumeClaim:
+          claimName: sonarr
+      - name: series
+        persistentVolumeClaim:
+          claimName: series
+      - name: downloads
+        persistentVolumeClaim:
+          claimName: downloads
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarr
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sonarr.home
+    http:
+      paths:
+      - pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sonarr
+            port:
+              number: 8989
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi

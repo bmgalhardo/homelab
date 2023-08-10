@@ -4,7 +4,6 @@ namespace: prometheus-system
 
 resources:
 - namespace.yml
-- nfs-pv.yml
 
 helmCharts:
 - name: prometheus

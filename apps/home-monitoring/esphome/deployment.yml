@@ -17,15 +17,15 @@ spec:
         image: esphome/esphome
         imagePullPolicy: Always
         volumeMounts:
-        - mountPath: /config/secrets.yaml
+        - mountPath: /temp/secrets.yaml
           name: secrets
           subPath: secrets.yaml
-        - mountPath: /temp/esphome-web-f501b0.yaml
+        - mountPath: /temp/esp-01.yaml
           name: files
-          subPath: esphome-web-f501b0.yaml
-        - mountPath: /temp/esphome-web-02409b.yaml
+          subPath: esp-01.yaml
+        - mountPath: /temp/esp-02.yaml
           name: files
-          subPath: esphome-web-02409b.yaml
+          subPath: esphome-02.yaml
         lifecycle:
           postStart:
             exec:

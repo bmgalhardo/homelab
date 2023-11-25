@@ -55,6 +55,18 @@ spec:
         env:
         - name: TZ
           value: Europe/Lisbon
+        - name: BACKUPS
+          value: "true"
+        - name: BACKUPS_CRON
+          value: "0 * * * *"
+        - name: BACKUPS_MAX_AGE
+          value: "3"
+        - name: BACKUPS_MAX_COUNT
+          value: "0"
+        - name: BACKUPS_IF_IDLE
+          value: "false"
+        - name: BACKUPS_IDLE_GRACE_PERIOD
+          value: "3600"
         - name: BACKUPS_DIRECTORY
           value: /backups
         volumeMounts:
@@ -64,9 +76,8 @@ spec:
           name: backups
       volumes:
       - name: backups
-        nfs:
-          server: 192.168.1.199
-          path: /mnt/Phoenix/valheim-backups/original
+        hostPath:
+          path: /disks/Titan/valheim-backups/original
   volumeClaimTemplates:
   - metadata:
       name: config

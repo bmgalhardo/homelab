@@ -1,5 +1,5 @@
 esphome:
-  name: esphome-web-02409b
+  name: esp-01
   friendly_name: esp-kitchen
 
 esp8266:
@@ -31,4 +31,3 @@ sensor:
     humidity:
       name: "Kitchen Humidity"
     update_interval: 60s
-

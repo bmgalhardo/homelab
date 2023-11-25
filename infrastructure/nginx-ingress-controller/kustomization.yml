@@ -9,6 +9,12 @@ helmCharts:
 - name: ingress-nginx
   repo: https://kubernetes.github.io/ingress-nginx
   releaseName: ingress-nginx
-  version: v3.1.0
+  version: v4.8.1
   namespace: nginx-ingress-controller
   valuesFile: values.yml
+- name: ingress-nginx
+  repo: https://kubernetes.github.io/ingress-nginx
+  releaseName: ingress-nginx-external
+  version: v4.8.1
+  namespace: nginx-ingress-controller
+  valuesFile: values-external.yml

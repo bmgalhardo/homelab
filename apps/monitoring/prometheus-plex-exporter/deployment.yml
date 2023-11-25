@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-plex-exporter
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-plex-exporter
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus-plex-exporter
+    spec:
+      containers:
+      - name: prometheus-plex-exporter
+        image: ghcr.io/jsclayton/prometheus-plex-exporter
+        imagePullPolicy: Always
+        env:
+        - name: PLEX_SERVER
+          value: http://plex.mediacenter:32400
+        - name: PLEX_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: plex-secret
+              key: plex-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-plex-exporter
+spec:
+  selector:
+    app: prometheus-plex-exporter
+  ports:
+  - name: http
+    port: 9000

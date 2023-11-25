@@ -34,12 +34,26 @@ spec:
         lifecycle:
           postStart:
             exec:
-              command: ["/bin/sh", "-c", "cp /config.xml /config/config.xml"]
+              command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                cp /config.xml /config/config.xml;
+                sleep 30;
+                api_key=$(xmlstarlet sel -t -v "/Config/ApiKey" /config.xml);
+                data=$(curl -XGET -H "X-Api-Key: $api_key" localhost:7878/api/v3/movie | jq '{"name":"RefreshMovie","movieIds": [ .[].id ]}');
+                curl -s -d "$data" -XPOST -H "X-Api-Key: $api_key" -H "Content-Type: application/json" localhost:7878/api/v3/command
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 7878
+          initialDelaySeconds: 10
+          periodSeconds: 5
       volumes:
       - name: config
         secret:
-          secretName: radarr-config
-      - name: 
+          secretName: radarr-config        
+      - name: downloads
         persistentVolumeClaim:
           claimName: downloads
       - name: movies

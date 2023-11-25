@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    email: bgalhardo@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: issuer-lets-encrypt-prod
+    solvers:
+    - dns01:
+        cloudflare:
+          email: bgalhardo@gmail.com
+          apiTokenSecretRef:
+            name: cloudflare-api-token
+            key: cloudflare-api-token
+      selector:
+        dnsZones:
+        - 'bgalhardo.com'

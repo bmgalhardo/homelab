@@ -1,41 +1,62 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-movies
+  name: local-movies
 spec:
-  storageClassName: ""
+  storageClassName: "local-path"
   capacity:
     storage: 1Gi
   accessModes:
     - ReadWriteMany
-  nfs:
-    server: 192.168.1.199
-    path: /mnt/Phoenix/Movies
+  local:
+    path: /disks/Leviathan/Movies
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker-1
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-series
+  name: local-series
 spec:
-  storageClassName: ""
+  storageClassName: "local-path"
   capacity:
     storage: 1Gi
   accessModes:
     - ReadWriteMany
-  nfs:
-    server: 192.168.1.199
-    path: /mnt/Phoenix/Series
+  local:
+    path: /disks/Bahamut/Series
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker-1
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-downloads
+  name: local-downloads
 spec:
-  storageClassName: ""
+  storageClassName: "local-path"
   capacity:
     storage: 1Gi
   accessModes:
     - ReadWriteMany
-  nfs:
-    server: 192.168.1.199
-    path: /mnt/Phoenix/downloads
+  local:
+    path: /disks/Titan/downloads
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker-1

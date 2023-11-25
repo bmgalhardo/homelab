@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openwakeword
+spec:
+  selector:
+    matchLabels:
+      app: openwakeword
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: openwakeword
+    spec:
+      containers:
+      - name: openwakeword
+        image: rhasspy/wyoming-openwakeword
+        imagePullPolicy: IfNotPresent
+        args:
+        - --preload-model 
+        - ok_nabu
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openwakeword
+spec:
+  selector:
+    app: openwakeword
+  ports:
+    - name: http
+      port: 10400

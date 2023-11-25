@@ -23,22 +23,13 @@ sections:
         url: https://192.168.1.198:8006
         icon: hl-proxmox
         statusCheckAllowInsecure: true
-      - title: TrueNAS
-        url: https://192.168.1.199
-        icon: hl-truenas-scale
-        statusCheckAllowInsecure: true
       - title: Longhorn
         url: http://longhorn.home
         icon: hl-longhorn
         statusCheckUrl: http://longhorn-frontend.longhorn-system
-      - title: Atlas
-        url: http://192.168.1.199:9000
-        icon: hl-minio
-        statusCheckAcceptCodes: 403
       - title: Phoenix
-        url: https://phoenix.home
+        url: https://phoenix.bgalhardo.com/ui/
         icon: hl-minio
-        statusCheckUrl: http://phoenix-console.tenant-phoenix:9090
       - title: Vault
         url: http://vault.home
         icon: hl-vault
@@ -51,10 +42,8 @@ sections:
     icon: fas fa-film
     items:
       - title: Plex
-        url: http://plex.home
+        url: https://app.plex.tv
         icon: hl-plex
-        statusCheckUrl: http://plex.mediacenter:32400
-        statusCheckAcceptCodes: 401
       - title: Overseerr
         url: https://overseerr.bgalhardo.com
         icon: hl-overseerr
@@ -76,10 +65,8 @@ sections:
         icon: hl-sabnzbd
         statusCheckUrl: http://sabnzbd.mediacenter:8080
       - title: Nextcloud
-        url: https://nextcloud.home
+        url: https://nextcloud.bgalhardo.com
         icon: hl-nextcloud
-        statusCheckUrl: http://nextcloud.playground
-        statusCheckAcceptCodes: 400
   - name: Monitoring
     icon: fas fa-chart-bar
     items:
@@ -116,10 +103,6 @@ sections:
       - title: Homelab icons
         url: https://github.com/walkxcode/dashboard-icons#icons
         icon: hl-whooglesearch
-        statusCheck: false
-      - title: Ngroup Ninja
-        url: https://www.newsgroup.ninja/en/member
-        icon: hl-files
         statusCheck: false
       - title: Newshosting
         url: https://controlpanel.newshosting.com/customer/

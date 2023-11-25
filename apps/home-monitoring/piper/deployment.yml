@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piper
+spec:
+  selector:
+    matchLabels:
+      app: piper
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: piper
+    spec:
+      containers:
+      - name: piper
+        image: rhasspy/wyoming-piper
+        imagePullPolicy: IfNotPresent
+        args:
+        - --voice
+        - en_GB-jenny_dioco-medium
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: piper
+spec:
+  selector:
+    app: piper
+  ports:
+    - name: http
+      port: 10200

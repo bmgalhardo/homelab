@@ -14,11 +14,12 @@ spec:
     spec:
       containers:
       - name: sonarr
-        image: lscr.io/linuxserver/sonarr:latest
+        image: lscr.io/linuxserver/sonarr:develop
         imagePullPolicy: Always
         volumeMounts:
-        - mountPath: /config
-          name: sonarr
+        - mountPath: /config.xml
+          subPath: config.xml
+          name: config
         - mountPath: /downloads
           name: downloads
         - mountPath: /series
@@ -30,16 +31,28 @@ spec:
           value: "1000"
         - name: TZ
           value: Europe/Lisbon
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                cp /config.xml /config/config.xml
+                sleep 30;
+                api_key=$(xmlstarlet sel -t -v "/Config/ApiKey" /config.xml);
+                data=$(curl -XGET -H "X-Api-Key: $api_key" localhost:8989/api/v3/series | jq '{"name":"RefreshSeries","seriesIds": [ .[].id ]}');
+                curl -s -d "$data" -XPOST -H "X-Api-Key: $api_key" -H "Content-Type: application/json" localhost:8989/api/v3/command
       volumes:
-      - name: sonarr
-        persistentVolumeClaim:
-          claimName: sonarr
-      - name: series
-        persistentVolumeClaim:
-          claimName: series
+      - name: config
+        secret:
+          secretName: sonarr-config        
       - name: downloads
         persistentVolumeClaim:
           claimName: downloads
+      - name: series
+        persistentVolumeClaim:
+          claimName: series
 ---
 apiVersion: v1
 kind: Service
@@ -68,15 +81,3 @@ spec:
             name: sonarr
             port:
               number: 8989
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: sonarr
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 2Gi

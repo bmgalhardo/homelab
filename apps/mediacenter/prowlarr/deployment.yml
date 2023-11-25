@@ -31,6 +31,12 @@ spec:
           postStart:
             exec:
               command: ["/bin/sh", "-c", "cp /config.xml /config/config.xml"]
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 9696
+          initialDelaySeconds: 10
+          periodSeconds: 5
       volumes:
       - name: config
         secret:

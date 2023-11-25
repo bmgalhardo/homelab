@@ -14,9 +14,11 @@ spec:
     spec:
       containers:
       - name: node-red
-#        image: nodered/node-red
-        image: bgalhardo/node-red-ha-integration:dev
+        image: bgalhardo/node-red-ha-integration:3.1.0
         imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: Europe/Lisbon
         volumeMounts:
         - mountPath: /data/settings.js
           name: files

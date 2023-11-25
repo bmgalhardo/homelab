@@ -8,10 +8,18 @@ spec:
   configuration:
     name: phoenix-env-configuration
   exposeServices: {}
+  features:
+    domains:
+      console: https://phoenix.bgalhardo.com/ui/
   image: minio/minio:RELEASE.2023-05-27T05-56-19Z
   imagePullPolicy: IfNotPresent
   imagePullSecret: {}
   mountPath: /export
+  env:
+  - name: MINIO_PROMETHEUS_URL
+    value: http://prometheus-server.prometheus-system
+  - name: MINIO_PROMETHEUS_JOB_ID
+    value: minio-phoenix
   podManagementPolicy: Parallel
   pools:
   - affinity:
@@ -56,49 +64,35 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: phoenix
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: phoenix.home
-    http:
-      paths:
-      - pathType: ImplementationSpecific
-        backend:
-          service:
-            name: phoenix-console
-            port:
-              number: 9090
-  tls:
-  - hosts:
-    - phoenix.home
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: phoenix-api
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 0
+    cert-manager.io/cluster-issuer: letsencrypt
+    external-dns.alpha.kubernetes.io/hostname: phoenix.bgalhardo.com
+    external-dns.alpha.kubernetes.io/target: dynamic.bgalhardo.com
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
-  ingressClassName: nginx
+  ingressClassName: nginx-external
   rules:
-  - host: phoenix-api.home
+  - host: phoenix.bgalhardo.com
     http:
       paths:
       - pathType: ImplementationSpecific
+        path: /(.*)
         backend:
           service:
             name: phoenix-hl
             port:
               number: 9000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: phoenix-api-external
-spec:
-  selector:
-    v1.min.io/tenant: phoenix
-  ports:
-    - name: http-external
-      port: 9000
-  type: LoadBalancer
+      - pathType: ImplementationSpecific
+        path: /ui/(.*)
+        backend:
+          service:
+            name: phoenix-console
+            port:
+              number: 9090
+
+  tls:
+  - hosts:
+    - phoenix.bgalhardo.com
+    secretName: phoenix-ingress

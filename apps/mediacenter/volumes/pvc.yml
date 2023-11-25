@@ -3,8 +3,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: movies
 spec:
-  volumeName: nfs-movies
-  storageClassName: ""
+  volumeName: local-movies
+  storageClassName: "local-path"
   accessModes:
     - ReadWriteMany
   resources:
@@ -16,8 +16,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: series
 spec:
-  volumeName: nfs-series
-  storageClassName: ""
+  volumeName: local-series
+  storageClassName: "local-path"
   accessModes:
     - ReadWriteMany
   resources:
@@ -29,8 +29,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: downloads
 spec:
-  volumeName: nfs-downloads
-  storageClassName: ""
+  volumeName: local-downloads
+  storageClassName: "local-path"
   accessModes:
     - ReadWriteMany
   resources:

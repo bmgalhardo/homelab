@@ -28,4 +28,4 @@ spec:
               name: cloudflare-api-token
               key: cloudflare-api-token
         - name: DOMAINS
-          value: valheim.bgalhardo.com,mongo.bgalhardo.com
+          value: valheim.bgalhardo.com,mongo.bgalhardo.com,dynamic.bgalhardo.com

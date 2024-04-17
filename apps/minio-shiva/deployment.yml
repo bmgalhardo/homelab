@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio-shiva
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shiva-api
+  namespace: minio-shiva
+spec:
+  selector:
+    v1.min.io/tenant: shiva
+  ports:
+    - port: 9000
+---
+apiVersion: minio.min.io/v2
+kind: Tenant
+metadata:
+  name: shiva
+  namespace: minio-shiva
+scheduler:
+  name: ""
+spec:
+  configuration:
+    name: shiva-env-configuration
+  exposeServices: {}
+  image: minio/minio:RELEASE.2024-04-06T05-26-02Z
+  imagePullPolicy: IfNotPresent
+  imagePullSecret: {}
+  mountPath: /export
+  features:
+    enableSFTP: false
+    domains:
+      console: http://shiva.bgalhardo.local/ui/
+  env:
+  - name: MINIO_PROMETHEUS_URL
+    value: http://prometheus-server.prometheus-system
+  - name: MINIO_PROMETHEUS_JOB_ID
+    value: minio-shiva
+  - name: MINIO_IDENTITY_OPENID_CONFIG_URL
+    value: http://authentik.bgalhardo.local/application/o/shiva/.well-known/openid-configuration
+  - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME
+    value: Authentik
+  - name: MINIO_IDENTITY_OPENID_SCOPES
+    value: openid,profile,email,policy
+  - name: MINIO_IDENTITY_OPENID_REDIRECT_URI
+    value: http://shiva.bgalhardo.local/ui/oauth_callback
+  - name: MINIO_IDENTITY_OPENID_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: minio-oidc
+        key: MINIO_IDENTITY_OPENID_CLIENT_ID
+  - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: minio-oidc
+        key: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+  podManagementPolicy: Parallel
+  pools:
+  - affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: v1.min.io/tenant
+              operator: In
+              values:
+              - shiva
+          topologyKey: kubernetes.io/hostname
+    name: ss-0
+    resources: {}
+    servers: 1
+    volumeClaimTemplate:
+      apiVersion: v1
+      kind: persistentvolumeclaims
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: "2968681394995"
+        storageClassName: directpv-min-io
+      status: {}
+    volumesPerServer: 1
+  requestAutoCert: false
+  serviceAccountName: shiva-sa
+status:
+  availableReplicas: 0
+  certificates: {}
+  currentState: ""
+  pools: null
+  revision: 0
+  syncVersion: ""
+  usage: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: minio-shiva
+  namespace: minio-shiva
+spec:
+  hostnames:
+  - shiva.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /ui/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: shiva-console
+      port: 9090
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: shiva-api
+      port: 9000
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-env
+  namespace: minio-shiva
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/shiva-env-configuration
+  destination:
+    name: shiva-env-configuration
+    create: true
+    transformation:
+      templates:
+        config.env:
+          text: |-
+            {{- printf "%s" (index .Secrets "config.env") | b64dec -}}
+  refreshAfter: 30s
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-minio-oidc
+  namespace: minio-shiva
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/minio-oidc
+  destination:
+    name: minio-oidc
+    create: true
+  refreshAfter: 30s

@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longhorn-system
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn
+spec:
+  hostnames:
+  - longhorn.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - backendRefs:
+    - name: longhorn-frontend
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-minio-secret
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/longhorn-minio
+  destination:
+    name: minio-secret
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: longhorn.io/v1beta1
+kind: RecurringJob
+metadata:
+  name: daily-snapshot
+spec:
+  cron: "0 0 * * *"
+  task: "backup"
+  groups:
+  - default
+  retain: 7
+  concurrency: 2

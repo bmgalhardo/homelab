@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: local
+  namespace: system
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - protocol: HTTP
+    name: http
+    port: 80
+    hostname: "*.bgalhardo.local"
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+      namespaces:
+        from: All
+# cilium bug prevents this from working
+#  - protocol: TLS
+#    name: https-pass
+#    port: 443
+#    hostname: "*.bgalhardo.local"
+#    tls:
+#      mode: Passthrough
+#    allowedRoutes:
+#      kinds:
+#      - kind: TLSRoute
+#      namespaces:
+#        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: external
+  namespace: system
+  annotations:
+    external-dns.alpha.kubernetes.io/target: dynamic.bgalhardo.com
+    cert-manager.io/issuer: letsencrypt
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - protocol: HTTPS
+    name: https
+    port: 443
+    hostname: "*.bgalhardo.com"
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: homelab-tls

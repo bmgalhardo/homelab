@@ -1,7 +1,7 @@
-ingress:
-  enabled: true
-  ingressClassName: nginx
-  host: longhorn.home
+#ingress:
+#  enabled: true
+#  ingressClassName: nginx
+#  host: longhorn.home
 csi:
   attacherReplicaCount: 1
   provisionerReplicaCount: 1
@@ -20,3 +20,6 @@ defaultSettings:
   backupTarget: s3://longhorn@dummy/
   backupTargetCredentialSecret: minio-secret
   defaultReplicaCount: 1
+  defaultDataPath: /var/mnt/longhorn
+  storageMinimalAvailablePercentage: 10
+  storageReservedPercentageForDefaultDisk: 1

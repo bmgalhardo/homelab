@@ -2,3 +2,9 @@ installCRDs: true
 global:
   leaderElection:
     namespace: cert-manager
+extraArgs:
+- --feature-gates=ExperimentalGatewayAPISupport=true
+cainjector:
+  enabled: true
+startupapicheck:
+  enabled: false

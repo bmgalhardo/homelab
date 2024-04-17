@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vault
+spec:
+  hostnames:
+  - vault.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: vault
+      port: 8200
+    matches:
+    - path:
+        type: PathPrefix
+        value: /

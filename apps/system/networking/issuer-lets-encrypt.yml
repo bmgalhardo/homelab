@@ -1,0 +1,35 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt
+  namespace: system
+spec:
+  acme:
+    email: bgalhardo@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: issuer-lets-encrypt-prod
+    solvers:
+    - dns01:
+        cloudflare:
+          email: bgalhardo@gmail.com
+          apiTokenSecretRef:
+            name: cloudflare-api-token
+            key: cloudflare-api-token
+      selector:
+        dnsZones:
+        - 'bgalhardo.com'
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: v-secret-cloudflare-api-token
+  namespace: system
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/letsencrypt
+  destination:
+    name: cloudflare-api-token
+    create: true
+  refreshAfter: 30s

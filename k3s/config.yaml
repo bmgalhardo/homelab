@@ -1,7 +1,0 @@
-write-kubeconfig-mode: "0644"
-node-taint: node-role.kubernetes.io/master=true:NoSchedule
-disable:
-- servicelb
-- traefik
-- local-path
-cluster-init: true

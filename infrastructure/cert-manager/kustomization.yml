@@ -4,13 +4,11 @@ namespace: cert-manager
 
 resources:
 - namespace.yml
-- external-secret.yml
-- issuer-lets-encrypt.yml 
 
 helmCharts:
 - name: cert-manager
   repo: https://charts.jetstack.io
   releaseName: cert-manager
-  version: v1.13.1
+  version: v1.14.4
   namespace: cert-manager
   valuesFile: values.yml

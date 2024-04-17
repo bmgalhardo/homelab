@@ -1,0 +1,16 @@
+machine:
+  disks:
+  - device: /dev/sdd
+    partitions:
+    - mountpoint: /var/mnt/longhorn
+  kubelet:
+    extraMounts:
+    - destination: /var/mnt/longhorn
+      type: bind
+      source: /var/mnt/longhorn
+      options:
+      - bind
+      - rshared
+      - rw
+  nodeLabels:
+    custom/storage: longhorn

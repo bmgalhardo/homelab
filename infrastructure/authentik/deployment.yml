@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authentik
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authentik-token
+  annotations:
+    kubernetes.io/service-account.name: authentik
+type: kubernetes.io/service-account-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authentik-ldap
+spec:
+  selector:
+    app.kubernetes.io/name: authentik-outpost-ldap
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: 3389
+    - name: ldaps
+      port: 636
+      targetPort: 6636
+  type: LoadBalancer
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultDynamicSecret
+metadata:
+  name: v-secret-postgres
+spec:
+  mount: postgres
+  path: creds/authentik
+  destination:
+    name: authentik-postgres-credentials
+    create: true
+  rolloutRestartTargets:
+  - kind: Deployment
+    name: authentik-server
+  - kind: Deployment
+    name: authentik-worker
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik
+spec:
+  hostnames:
+  - authentik.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: authentik-server
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /

@@ -1,7 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
+  namespace: cloudflare
 spec:
   selector:
     matchLabels:
@@ -50,6 +56,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cloudflared
+  namespace: cloudflare
 spec:
   selector:
     app: cloudflared
@@ -61,6 +68,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cloudflared
+  namespace: cloudflare
 data:
   config.yaml: |
     tunnel: f33bf363-2ede-4c41-87ce-5099b18ef49d
@@ -73,5 +81,67 @@ data:
     - hostname: overseerr.bgalhardo.com
       service: http://overseerr-hl.mediacenter:5055
     - hostname: home.bgalhardo.com
-      service: http://homeassistant.home-monitoring:80
+      service: http://homeassistant.home:80
     - service: http_status:404
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflare-ddns
+  namespace: cloudflare
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflare-ddns
+  template:
+    metadata:
+      labels:
+        app: cloudflare-ddns
+    spec:
+      containers:
+      - name: cloudflare-ddns
+        image: favonia/cloudflare-ddns:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+          runAsGroup: 1000
+        env:
+        - name: IP6_PROVIDER
+          value: none
+        - name: CF_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-api-token
+              key: cloudflare-api-token
+        - name: DOMAINS
+          value: valheim.bgalhardo.com,dynamic.bgalhardo.com
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: v-secret-cloudflared-auth
+  namespace: cloudflare
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/cloudflared-auth
+  destination:
+    name: cloudflared-auth
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: v-secret-cloudflare-api-token
+  namespace: cloudflare
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/cloudflare-api-token
+  destination:
+    name: cloudflare-api-token
+    create: true
+  refreshAfter: 30s
+

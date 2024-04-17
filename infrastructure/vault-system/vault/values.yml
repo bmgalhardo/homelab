@@ -1,0 +1,17 @@
+injector:
+  enabled: false
+server:
+  enabled: true
+  dataStorage:
+    enabled: false
+  extraArgs: "-config=/vault/userconfig/vault-config/config.hcl"
+  volumeMounts:
+  - name: storage
+    mountPath: /vault/userconfig/vault-config/config.hcl
+    subPath: config.hcl
+  volumes:
+  - name: storage
+    configMap:
+      name: vault-storage
+ui:
+  enabled: false

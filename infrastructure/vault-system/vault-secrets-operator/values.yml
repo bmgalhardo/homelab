@@ -1,0 +1,12 @@
+defaultVaultConnection:
+  enabled: true
+  address: "http://vault.vault:8200"
+defaultAuthMethod:
+  enabled: true
+  method: kubernetes
+  mount: talos
+  kubernetes:
+    role: kubernetes-secrets
+  serviceAccount: default
+tests:
+  enabled: false

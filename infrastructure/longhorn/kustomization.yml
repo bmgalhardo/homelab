@@ -3,14 +3,12 @@ kind: Kustomization
 namespace: longhorn-system
 
 resources:
-- namespace.yml
-- minio-secret.yml
-- recurring-job.yml
+- deployment.yml
 
 helmCharts:
 - name: longhorn
   repo: https://charts.longhorn.io
   releaseName: longhorn
-  version: 1.4.0
+  version: 1.6.0
   namespace: longhorn-system
   valuesFile: values.yml

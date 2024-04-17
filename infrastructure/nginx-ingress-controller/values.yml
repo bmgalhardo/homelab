@@ -1,6 +1,0 @@
-controller:
-  kind: DaemonSet
-  ingressClassResource:
-    name: nginx
-    default: true
-    controllerValue: "k8s.io/ingress-nginx"

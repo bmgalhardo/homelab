@@ -10,8 +10,8 @@ through terraform by editing a single [config file](talos_provisioning/configs.a
 ## tech stack
 
 Provisioning
-proxmox: hypervisor operating system
-terraform: for automated provisioning
+- proxmox: hypervisor operating system
+- terraform: for automated provisioning
   
 Plaform
 - kubernetes: container orchestration

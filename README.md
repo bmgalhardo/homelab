@@ -30,3 +30,9 @@ Network
 Auth and secrets
 - vault: manage secrets and other sensitive data
 - authentik: self hosted SSO solution
+
+Monitoring Stack
+- Grafana: visualization
+- Mimir: metrics db
+- loki: logs db
+- alloy: monitoring tooling

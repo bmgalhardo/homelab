@@ -1,0 +1,33 @@
+crds:
+  create: true
+alloy:
+  configMap:
+    create: false
+    name: alloy
+    key: config.alloy
+  mounts:
+    varlog: false
+    dockercontainers: false
+    extra:
+    - name: homeassistant
+      mountPath: /secrets/homeassistant
+      subPath: homeassistant
+controller:
+  type: deployment
+  volumes:
+    extra:
+    - name: homeassistant
+      secret:
+        secretName: alloy-homeassistant-token
+        items:
+        - key: TOKEN
+          path: homeassistant
+rbac:
+  create: true
+serviceAccount:
+  create: true
+configReloader:
+  enabled: true
+ingress:
+  enabled: false
+

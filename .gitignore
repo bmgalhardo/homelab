@@ -1,5 +1,5 @@
 *charts/
-talos/
-infrastructure/vault/vault-storage.yml
-apps/monitoring/prometheus/values.yml
-apps/logging/loki/temp/
+infrastructure/vault-system/vault/vault-storage.yml
+talos_provisioning/terraform.tfstate*
+talos_provisioning/terraform.tfvars
+talos_provisioning/.terraform*

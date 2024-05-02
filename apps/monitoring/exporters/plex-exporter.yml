@@ -1,19 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-plex-exporter
+  name: plex-exporter
+  namespace: monitoring
 spec:
   selector:
     matchLabels:
-      app: prometheus-plex-exporter
+      app: plex-exporter
   replicas: 1
   template:
     metadata:
       labels:
-        app: prometheus-plex-exporter
+        app: plex-exporter
     spec:
       containers:
-      - name: prometheus-plex-exporter
+      - name: plex-exporter
         image: ghcr.io/jsclayton/prometheus-plex-exporter
         imagePullPolicy: Always
         env:
@@ -23,15 +24,30 @@ spec:
           valueFrom:
             secretKeyRef:
               name: plex-secret
-              key: plex-secret
+              key: PLEX_TOKEN
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-plex-exporter
+  name: plex-exporter
+  namespace: monitoring
 spec:
   selector:
-    app: prometheus-plex-exporter
+    app: plex-exporter
   ports:
   - name: http
     port: 9000
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-plex-exporter
+  namespace: monitoring
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/plex-exporter
+  destination:
+    name: plex-secret
+    create: true
+  refreshAfter: 30s

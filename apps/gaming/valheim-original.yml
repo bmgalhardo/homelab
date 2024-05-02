@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: valheim-server
+  namespace: gaming
 spec:
   selector:
     app: valheim-server
@@ -18,6 +19,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: valheim-server-hl
+  namespace: gaming
 spec:
   selector:
     app: valheim-server
@@ -34,6 +36,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: valheim-server
+  namespace: gaming
 spec:
   serviceName: valheim-server-hl
   selector:
@@ -53,6 +56,8 @@ spec:
         - secretRef:
             name: valheim-original
         env:
+        - name: SERVER_PORT
+          value: "2456"
         - name: TZ
           value: Europe/Lisbon
         - name: BACKUPS
@@ -74,10 +79,27 @@ spec:
           name: config
         - mountPath: /backups
           name: backups
+      - name: valheim-backup
+        # todo: create custom cron image with mc
+        image: minio/mc
+        command: 
+        - /bin/bash 
+        - -c
+        - |
+          mc alias set minio $MINIO_HOST $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+          while true; do
+            mc mirror /backups minio/valheim/original
+            sleep 3600; 
+          done
+        envFrom:
+        - secretRef:
+            name: valheim-minio
+        volumeMounts:
+        - mountPath: /backups
+          name: backups
       volumes:
       - name: backups
-        hostPath:
-          path: /disks/Titan/valheim-backups/original
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: config
@@ -88,3 +110,32 @@ spec:
       resources:
         requests:
           storage: 10Gi
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-valheim-original
+  namespace: gaming
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/valheim-original
+  destination:
+    name: valheim-original
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-valheim-minio
+  namespace: gaming
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/valheim-minio
+  destination:
+    name: valheim-minio
+    create: true
+  refreshAfter: 30s
+

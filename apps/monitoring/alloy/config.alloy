@@ -1,0 +1,144 @@
+logging {
+  level = "info"
+  format = "logfmt"
+}
+
+//============================
+// Metrics Databases
+//============================
+
+loki.source.api "loki_proxy" {
+    http {
+        listen_address = "0.0.0.0"
+        listen_port = 9999
+    }
+    forward_to = [loki.write.local.receiver]
+    labels = {
+        forwarded = "true",
+    }
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki-gateway:80/loki/api/v1/push"
+  }
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://mimir-nginx/api/v1/push"
+  }
+}
+
+//============================
+// Scrape Targets
+//============================
+
+prometheus.scrape "common_scraper" {
+  targets = [
+    {"__address__" = "plex-exporter:9000"},
+    {"__address__" = "192.168.1.198:9100"},
+    {"__address__" = "cloudflared.cloudflare:2000"},
+  ]
+
+  forward_to = [prometheus.remote_write.local.receiver]
+
+  scrape_interval = "10s"
+}
+
+prometheus.scrape "homeassistant_scraper" {
+  targets = [
+    {"__address__" = "homeassistant.home"},
+  ]
+
+  metrics_path      = "/api/prometheus"
+  bearer_token_file = "/secrets/homeassistant"
+
+  forward_to   = [prometheus.remote_write.local.receiver]
+
+  scrape_interval = "10s"
+}
+
+
+prometheus.scrape "pve_scraper" {
+// review rules for more than 1 instance
+
+  targets = [
+    {"__address__" = "pve-exporter:9221", "instance" = "192.168.1.198"},
+  ]
+
+  metrics_path = "/pve"
+  params       = {
+    "target"  = ["192.168.1.198"],
+    "module"  = ["default"],
+  }
+  forward_to   = [prometheus.remote_write.local.receiver]
+
+  scrape_interval = "10s"
+}
+
+//============================
+// OPNSense Logs
+//============================
+
+
+//============================
+// K8s Logs
+//============================
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "pods" {
+  targets = discovery.kubernetes.pods.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_controller_name"]
+    regex = "([0-9a-z-.]+?)(-[0-9a-f]{8,10})?"
+    action = "replace"
+    target_label = "__tmp_controller_name"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_kubernetes_pod_label_app_kubernetes_io_name",
+      "__meta_kubernetes_pod_label_app",
+      "__tmp_controller_name",
+      "__meta_kubernetes_pod_name",
+    ]
+    // This matches the first of the above labels that is not empty
+    // and writes the value to target_label.
+    regex = "^;*([^;]+)(;.*)?$"
+    action = "replace"
+    target_label = "app"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_node_name"]
+    target_label = "node"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label = "namespace"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label = "pod"
+  }
+}
+
+loki.source.kubernetes "pods" {
+  targets    = discovery.relabel.pods.output
+  forward_to = [loki.write.local.receiver]
+}
+
+// This gathers Kubernetes events and writes them to loki.
+// You can query for them using e.g.
+// {job="loki.source.kubernetes_events"} |= `` | logfmt
+loki.source.kubernetes_events "default" {
+  namespaces = []
+  forward_to = [loki.write.local.receiver]
+}

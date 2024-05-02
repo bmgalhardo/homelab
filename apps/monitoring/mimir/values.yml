@@ -1,0 +1,93 @@
+minio:
+  enabled: false
+nginx:
+  enabled: true  # to be deprecated, gateway below with deployment issues
+ingress:
+  enabled: false
+gateway:
+  enabledNonEnterprise: false
+  replicas: 1
+mimir:
+  structuredConfig:
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: shiva-api.minio-shiva:9000
+          region: us-east
+          insecure: true
+    blocks_storage:
+      s3:
+        bucket_name: mimir-blocks
+#    alertmanager_storage:
+#      s3:
+#        bucket_name: mimir-alertmanager
+    ruler_storage:
+      s3:
+        bucket_name: mimir-ruler
+    ingester:
+      ring:
+        replication_factor: 1
+alertmanager:
+  enabled: false
+ruler:
+  enabled: false
+rollout_operator:
+  enabled: false
+metaMonitoring:
+  dashboards:
+    enabled: false
+#===========
+# read path
+#===========
+querier:
+  replicas: 1
+  extraEnvFrom:
+  - secretRef:
+      name: mimir-minio
+query_frontend:
+  replicas: 1
+  persistentVolume:
+    enabled: false
+query_scheduler:
+  enabled: false
+store_gateway:
+  replicas: 1
+  persistentVolume:
+    enabled: false
+  zoneAwareReplication:
+    enabled: false
+  extraEnvFrom:
+  - secretRef:
+      name: mimir-minio
+memcachedExporter:
+  enabled: true
+chunks-cache:
+  enabled: false
+index-cache:
+  enabled: false
+metadata-cache:
+  enabled: false
+results-cache:
+  enabled: false
+#===========
+# write path
+#===========
+compactor:
+  replicas: 1
+  persistentVolume:
+    enabled: false
+  extraEnvFrom:
+  - secretRef:
+      name: mimir-minio
+distributor:
+  replicas: 1
+ingester:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: false
+  extraEnvFrom:
+  - secretRef:
+      name: mimir-minio

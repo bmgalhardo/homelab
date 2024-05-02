@@ -26,7 +26,7 @@
   "fiscalYearStartMonth": 0,
   "gnetId": 15141,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 2,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -42,6 +42,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -55,6 +56,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -113,9 +115,11 @@
             "type": "loki",
             "uid": "P8E80F9AEF21F6940"
           },
-          "expr": "sum(count_over_time({namespace=~\"$namespace\", stream=~\"$stream\", container =~\"$container\"} |= \"$query\" [$__interval]))",
+          "editorMode": "code",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app =~\"$app\", pod =~\"$pod\"} |= \"$query\" [$__interval]))",
           "instant": false,
           "legendFormat": "Log count",
+          "queryType": "range",
           "range": true,
           "refId": "A"
         }
@@ -151,7 +155,9 @@
             "type": "loki",
             "uid": "P8E80F9AEF21F6940"
           },
-          "expr": "{namespace=~\"$namespace\", stream=~\"$stream\", container =~\"$container\"} |= \"$query\"",
+          "editorMode": "code",
+          "expr": "{namespace=~\"$namespace\", app =~\"$app\", pod =~\"$pod\"} |= \"$query\"",
+          "queryType": "range",
           "refId": "A"
         }
       ],
@@ -159,14 +165,13 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 37,
-  "style": "dark",
+  "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "",
           "value": ""
         },
@@ -188,9 +193,13 @@
       {
         "allValue": ".+",
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "loki",
@@ -212,21 +221,30 @@
       {
         "allValue": ".+",
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "loki",
           "uid": "P8E80F9AEF21F6940"
         },
-        "definition": "label_values(stream)",
+        "definition": "",
         "hide": 0,
         "includeAll": true,
         "multi": true,
-        "name": "stream",
+        "name": "app",
         "options": [],
-        "query": "label_values(stream)",
+        "query": {
+          "label": "app",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{namespace=~\"$namespace\"}",
+          "type": 1
+        },
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -236,21 +254,30 @@
       {
         "allValue": ".+",
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "loki",
           "uid": "P8E80F9AEF21F6940"
         },
-        "definition": "label_values(container)",
+        "definition": "",
         "hide": 0,
         "includeAll": true,
         "multi": true,
-        "name": "container",
+        "name": "pod",
         "options": [],
-        "query": "label_values(container)",
+        "query": {
+          "label": "pod",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{namespace=~\"$namespace\", app=~\"$app\"}",
+          "type": 1
+        },
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -260,7 +287,7 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-12h",
     "to": "now"
   },
   "timepicker": {},

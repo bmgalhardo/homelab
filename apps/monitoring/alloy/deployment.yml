@@ -20,28 +20,6 @@ spec:
     - name: alloy
       port: 12345
 ---
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: alloy-loki-proxy
-  namespace: monitoring
-spec:
-  hostnames:
-  - logs.bgalhardo.local
-  parentRefs:
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: local
-    namespace: system
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    backendRefs:
-    - name: alloy-loki-proxy
-      port: 9999
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -49,10 +27,14 @@ metadata:
   namespace: monitoring
 spec:
   selector:
-    app: alloy
+    app.kubernetes.io/instance: alloy
+    app.kubernetes.io/name: alloy
   ports:
-  - name: http
-    port: 9999
+  - name: opnsense-logs
+    port: 512
+  - name: talos-logs
+    port: 513
+  type: LoadBalancer
 ---
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret

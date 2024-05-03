@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiosk-server
+  namespace: home
+spec:
+  selector:
+    matchLabels:
+      app: kiosk-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kiosk-server
+    spec:
+      containers:
+      - name: kiosk-server
+        image: nginxinc/nginx-unprivileged:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html/config.txt
+          name: config
+          subPath: config.txt
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: config
+        configMap:
+          name: kiosk-server
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiosk-server
+  namespace: home
+spec:
+  selector:
+    app: kiosk-server
+  ports:
+    - name: http
+      port: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiosk-server
+  namespace: home
+data:
+  config.txt: |
+    # base configs
+    connection=wired
+    netmask=255.255.255.0
+    ip_address=192.168.1.174
+    default_gateway=192.168.1.1
+    dns_server=192.168.1.1
+    network_interface=eth0
+    browser=firefox
+    additional_components=uefi.zip
+    kiosk_config=https://kiosk-server.home/config.txt
+    # env configs
+    disable_navigation_bar=yes
+    disable_input_devices=yes
+    homepage=http://grafana.home/d/fdhBkWzVk/metrics?orgId=1&autofitpanels&kiosk&refresh=5m
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: kiosk-server
+  namespace: home
+spec:
+  parentRefs:
+  - name: local
+    namespace: system
+  hostnames:
+  - "kiosk.bgalhardo.local"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /config.txt
+    backendRefs:
+    - name: kiosk-server
+      port: 8080

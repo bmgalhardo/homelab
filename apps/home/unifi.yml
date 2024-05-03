@@ -1,0 +1,83 @@
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: unifi
+#spec:
+#  selector:
+#    app: unifi
+#  ports:
+#    - name: unifi-web
+#      port: 8443
+#---
+apiVersion: v1
+kind: Service
+metadata:
+#  name: unifi-lb
+  name: unifi
+spec:
+  selector:
+    app: unifi
+  ports:
+    - name: unifi-web
+      port: 8443
+    - name: unifi-cmd
+      port: 8080
+    - name: unifi-udp
+      port: 3478
+      protocol: UDP
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: unifi
+spec:
+  serviceName: unifi
+  selector:
+    matchLabels:
+      app: unifi
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: unifi
+    spec:
+      containers:
+      - name: unifi
+        image: jacobalberty/unifi:v8.1.113
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: Europe/Lisbon
+        volumeMounts:
+        - mountPath: /unifi/data
+          name: data
+#      dnsPolicy: ClusterFirstWithHostNet
+#      hostNetwork: true
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 1Gi
+#---
+#apiVersion: gateway.networking.k8s.io/v1alpha2
+#kind: TLSRoute
+#metadata:
+#  name: unifi
+#spec:
+#  hostnames:
+#  - unifi.bgalhardo.local
+#  parentRefs:
+#  - group: gateway.networking.k8s.io
+#    kind: Gateway
+#    name: local
+#    namespace: system
+#  rules:
+#  - backendRefs:
+#    - name: unifi
+#      port: 8443

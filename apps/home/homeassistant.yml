@@ -1,50 +1,41 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: homeassistant-hl
-spec:
-  selector:
-    app: homeassistant
-  ports:
-    - name: headless
-      port: 8123
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
   name: homeassistant
+  namespace: home
 spec:
   selector:
     app: homeassistant
   ports:
-    - name: http
-      port: 80
-      protocol: TCP
-      targetPort: 8123
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8123
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: homeassistant
+  namespace: home
 spec:
-  serviceName: homeassistant-hl
+  serviceName: homeassistant
+  replicas: 1
   selector:
     matchLabels:
       app: homeassistant
-  replicas: 1
   template:
     metadata:
       labels:
         app: homeassistant
     spec:
       containers:
-      - name: homeassistant
-        image: ghcr.io/home-assistant/home-assistant:stable
-        imagePullPolicy: Always
-        env:
+      - env:
         - name: TZ
           value: Europe/Lisbon
+        image: ghcr.io/home-assistant/home-assistant:stable
+        imagePullPolicy: Always
+        name: homeassistant
         volumeMounts:
         - mountPath: /config
           name: data

@@ -1,7 +1,10 @@
+# https://ca.account.sony.com/api/v1/ssocookie
+# after psn login
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ps5-mqtt
+  namespace: home
 spec:
   selector:
     matchLabels:
@@ -45,6 +48,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ps5-mqtt
+  namespace: home
 spec:
   selector:
     app: 
@@ -56,6 +60,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ps5-mqtt-files
+  namespace: home
 data:
   run.sh: |
     #!/bin/sh

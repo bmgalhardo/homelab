@@ -35,9 +35,11 @@ spec:
       console: http://shiva.bgalhardo.local/ui/
   env:
   - name: MINIO_PROMETHEUS_URL
-    value: http://prometheus-server.prometheus-system
+    value: http://mimir-nginx.monitoring/prometheus
   - name: MINIO_PROMETHEUS_JOB_ID
     value: minio-shiva
+  - name: MINIO_PROMETHEUS_AUTH_TYPE
+    value: public
   - name: MINIO_IDENTITY_OPENID_CONFIG_URL
     value: http://authentik.bgalhardo.local/application/o/shiva/.well-known/openid-configuration
   - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME

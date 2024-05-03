@@ -52,19 +52,36 @@ spec:
   - name: http
     port: 1880
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: v-secret-node-red
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/node-red-ha-token
+  destination:
+    name: node-red-ha-token
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: node-red
 spec:
-  ingressClassName: nginx
+  hostnames:
+  - node-red.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
   rules:
-  - host: node-red.home
-    http:
-      paths:
-      - pathType: ImplementationSpecific
-        backend:
-          service:
-            name: node-red
-            port:
-              number: 1880
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: node-red
+      port: 1880

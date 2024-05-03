@@ -1,32 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: openwakeword
+  name: piper
+  namespace: home
 spec:
   selector:
     matchLabels:
-      app: openwakeword
+      app: piper
   replicas: 1
   template:
     metadata:
       labels:
-        app: openwakeword
+        app: piper
     spec:
       containers:
-      - name: openwakeword
-        image: rhasspy/wyoming-openwakeword
+      - name: piper
+        image: rhasspy/wyoming-piper
         imagePullPolicy: IfNotPresent
         args:
-        - --preload-model 
-        - ok_nabu
+        - --voice
+        - en_GB-jenny_dioco-medium
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: openwakeword
+  name: piper
+  namespace: home
 spec:
   selector:
-    app: openwakeword
+    app: piper
   ports:
     - name: http
-      port: 10400
+      port: 10200

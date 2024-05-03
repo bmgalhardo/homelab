@@ -1,13 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: home-monitoring
+namespace: home
 
 resources:
 - deployment.yml
-- esphome-secrets.yml
 
 configMapGenerator:
 - name: esphome-files
   files:
-  - esphome-web-f501b0.yaml
-  - esphome-web-02409b.yaml
+  - esp-01.yaml
+  - esp-02.yaml
+  - esp-03.yaml
+  options:
+    disableNameSuffixHash: true

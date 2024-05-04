@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prowlarr
+  namespace: mediacenter
 spec:
   selector:
     matchLabels:
@@ -46,6 +47,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prowlarr
+  namespace: mediacenter
 spec:
   selector:
     app: prowlarr
@@ -53,19 +55,38 @@ spec:
     - name: http
       port: 9696
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: prowlarr
+  namespace: mediacenter
 spec:
-  ingressClassName: nginx
+  hostnames:
+  - prowlarr.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
   rules:
-  - host: prowlarr.home
-    http:
-      paths:
-      - pathType: ImplementationSpecific
-        backend:
-          service:
-            name: prowlarr
-            port:
-              number: 9696
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: prowlarr
+      port: 9696
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-prowlarr
+  namespace: mediacenter
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/prowlarr-config
+  destination:
+    name: prowlarr-config
+    create: true
+  refreshAfter: 30s

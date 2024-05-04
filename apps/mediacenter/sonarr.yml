@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sonarr
+  namespace: mediacenter
 spec:
   selector:
     matchLabels:
@@ -58,6 +59,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: sonarr
+  namespace: mediacenter
 spec:
   selector:
     app: sonarr
@@ -65,19 +67,38 @@ spec:
     - name: http
       port: 8989
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: sonarr
+  namespace: mediacenter
 spec:
-  ingressClassName: nginx
+  hostnames:
+  - sonarr.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
   rules:
-  - host: sonarr.home
-    http:
-      paths:
-      - pathType: ImplementationSpecific
-        backend:
-          service:
-            name: sonarr
-            port:
-              number: 8989
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: sonarr
+      port: 8989
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-sonarr
+  namespace: mediacenter
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/sonarr-config
+  destination:
+    name: sonarr-config
+    create: true
+  refreshAfter: 30s

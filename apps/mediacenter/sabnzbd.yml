@@ -1,18 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: sabnzbd-hl
-spec:
-  selector:
-    app: sabnzbd
-  ports:
-    - port: 8080
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
   name: sabnzbd
+  namespace: mediacenter
 spec:
   selector:
     app: sabnzbd
@@ -23,8 +13,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: sabnzbd
+  namespace: mediacenter
 spec:
-  serviceName: sabnzbd-hl
+  serviceName: sabnzbd
   selector:
     matchLabels:
       app: sabnzbd
@@ -65,19 +56,24 @@ spec:
         requests:
           storage: 100Mi
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: sabnzbd
+  namespace: mediacenter
 spec:
-  ingressClassName: nginx
+  hostnames:
+  - sabnzbd.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
   rules:
-  - host: sabnzbd.home
-    http:
-      paths:
-      - pathType: ImplementationSpecific
-        backend:
-          service:
-            name: sabnzbd
-            port:
-              number: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: sabnzbd
+      port: 8080

@@ -79,7 +79,7 @@ data:
       enabled: true
     ingress:
     - hostname: overseerr.bgalhardo.com
-      service: http://overseerr-hl.mediacenter:5055
+      service: http://overseerr.mediacenter:5055
     - hostname: home.bgalhardo.com
       service: http://homeassistant.home:80
     - service: http_status:404

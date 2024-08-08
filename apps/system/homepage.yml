@@ -1,0 +1,207 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      containers:
+      - name: homepage
+        image: ghcr.io/gethomepage/homepage:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /app/config/custom.js
+          name: homepage-config
+          subPath: custom.js
+        - mountPath: /app/config/custom.css
+          name: homepage-config
+          subPath: custom.css
+        - mountPath: /app/config/bookmarks.yaml
+          name: homepage-config
+          subPath: bookmarks.yaml
+        - mountPath: /app/config/docker.yaml
+          name: homepage-config
+          subPath: docker.yaml
+        - mountPath: /app/config/kubernetes.yaml
+          name: homepage-config
+          subPath: kubernetes.yaml
+        - mountPath: /app/config/services.yaml
+          name: homepage-config
+          subPath: services.yaml
+        - mountPath: /app/config/settings.yaml
+          name: homepage-config
+          subPath: settings.yaml
+        - mountPath: /app/config/widgets.yaml
+          name: homepage-config
+          subPath: widgets.yaml
+      volumes:
+      - name: homepage-config
+        configMap:
+          name: homepage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage
+  namespace: system
+spec:
+  selector:
+    app: homepage
+  ports:
+    - name: http
+      port: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage
+  namespace: system
+data:
+  kubernetes.yaml: |
+    mode: disabled
+  settings.yaml: |
+    statusStyle: "basic"
+  custom.css: ""
+  custom.js: ""
+  services.yaml: |
+    - Network:
+      - OPNSense:
+          icon: opnsense.png
+          href: https://192.168.1.1
+          siteMonitor: https://192.168.1.1
+      - Switch:
+          icon: assetgrid.png
+          href: http://192.168.1.2
+          siteMonitor: http://192.168.1.2
+      - Unifi Network Manager:
+          icon: unifi.png
+          href: https://192.168.1.231:8443
+    - Infraestructure:
+      - Proxmox:
+          icon: proxmox.png
+          href: https://192.168.1.198:8006
+          siteMonitor: https://192.168.1.198:8006
+      - Longhorn:
+          icon: longhorn.png
+          href: http://longhorn.bgalhardo.local
+          siteMonitor: http://longhorn-frontend.longhorn-system
+      - Shiva:
+          icon: minio.png
+          href: http://shiva.bgalhardo.local
+          siteMonitor: http://shiva-console.minio-shiva:9090
+      - pgAdmin:
+          icon: pgadmin.png
+          href: http://pgadmin.bgalhardo.local
+          siteMonitor: http://pgadmin.system
+      - Authentik:
+          icon: authentik.png
+          href: http://authentik.bgalhardo.local
+          siteMonitor: http://authentik-server.authentik
+      - Vault:
+          icon: vault-light.png
+          href: http://vault.bgalhardo.local
+          siteMonitor: http://vault.vault:8200
+    - Mediacenter:
+      - Plex:
+          icon: plex.png
+          href: http://plex.bgalhardo.com
+          siteMonitor: http://plex.mediacenter:32400
+      - Overseerr:
+          icon: overseerr.png
+          href: http://overseerr.bgalhardo.com
+          siteMonitor: http://overseerr.mediacenter:5055
+      - Sonarr:
+          icon: sonarr.png
+          href: http://sonarr.bgalhardo.local
+          siteMonitor: http://sonarr.mediacenter:8989
+      - Radarr:
+          icon: radarr-light.png
+          href: http://radarr.bgalhardo.local
+          siteMonitor: http://radarr.mediacenter:7878
+      - Prowlarr:
+          icon: prowlarr.png
+          href: http://prowlarr.bgalhardo.local
+          siteMonitor: http://prowlarr.mediacenter:9696
+      - SABnzbd:
+          icon: sabnzbd.png
+          href: http://sabnzbd.bgalhardo.local
+          siteMonitor: http://sabnzbd.mediacenter:8080
+    - Monitoring:
+      - Home Assistant:
+          icon: home-assistant.png
+          href: http://home.bgalhardo.com
+          siteMonitor: http://homeassistant.home
+      - Node-Red:
+          icon: node-red.png
+          href: http://node-red.bgalhardo.local
+          siteMonitor: http://node-red.home:1880
+      - ESPHome:
+          icon: esphome.png
+          href: http://esphome.bgalhardo.local
+          siteMonitor: http://esphome.home:8080
+      - Grafana:
+          icon: grafana.png
+          href: http://grafana.bgalhardo.local
+          siteMonitor: http://grafana.monitoring
+      - Alloy:
+          icon: alloy.png
+          href: http://alloy.bgalhardo.local
+          siteMonitor: http://alloy.monitoring:12345
+  bookmarks.yaml: |
+    - Developer:
+      - Github:
+        - icon: github-light.png
+          href: https://github.com/bmgalhardo
+      - Cloudflare:
+        - icon: cloudflare.png
+          href: https://dash.cloudflare.com
+    - Homelab:
+      - Homelab Icons:
+        - icon: whooglesearch.png
+          href: https://github.com/walkxcode/dashboard-icons/blob/main/ICONS.md
+      - Newshosting:
+        - icon: files.png
+          href: https://controlpanel.newshosting.com/customer/
+      - NZB.su:
+        - icon: whooglesearch.png
+          href: https://nzb.su
+    - Other:
+      - Telegram:
+        - icon: telegram.png
+          href: https://web.telegram.org
+      - Wanikani:
+        - icon: wanikani.png
+          href: https://www.wanikani.com/
+  widgets.yaml: ""
+  docker.yaml: ""
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: homepage
+  namespace: system
+spec:
+  hostnames:
+  - homepage.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: homepage
+      port: 3000

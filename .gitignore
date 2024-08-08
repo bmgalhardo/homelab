@@ -1,5 +1,7 @@
 *charts/
+terraform/*/terraform.tfstate*
+terraform/*/.terraform*
+
+# vault secrets
 infrastructure/vault-system/vault/vault-storage.yml
-talos_provisioning/terraform.tfstate*
-talos_provisioning/terraform.tfvars
-talos_provisioning/.terraform*
+provisioning/terraform.tfvars

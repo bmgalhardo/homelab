@@ -53,6 +53,7 @@ prometheus.scrape "common_scraper" {
   targets = [
     {"__address__" = "plex-exporter:9000"},
     {"__address__" = "192.168.1.198:9100"},
+    {"__address__" = "192.168.1.1:9100"},
     {"__address__" = "cloudflared.cloudflare:2000"},
   ]
 

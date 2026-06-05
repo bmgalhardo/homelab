@@ -1,0 +1,29 @@
+services:
+  vault:
+    image: hashicorp/vault:1.20
+    container_name: vault
+    entrypoint: vault server -config /vault/vault.hcl
+    ports:
+    - "8200:8200"
+    - "443:8201"
+    volumes:
+    - ./data:/vault/data
+    - ./vault.hcl:/vault/vault.hcl
+    - ./certs:/certs
+    cap_add:
+    - IPC_LOCK
+    restart: unless-stopped
+  unsealer:
+    image: alpine
+    container_name: unsealer
+    entrypoint: /unsealer.sh
+    depends_on:
+      - vault
+    volumes:
+      - ./unsealer.sh:/unsealer.sh
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_UNSEAL_KEY: "{{ vault_unseal_token }}"
+      CHECK_INTERVAL: 10
+      ERROR_DELAY: 60
+    restart: unless-stopped

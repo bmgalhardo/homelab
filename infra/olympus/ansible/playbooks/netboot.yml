@@ -1,0 +1,7 @@
+- name: Deploy netboot container
+  hosts: netboot
+  gather_facts: yes
+  vars:
+    template: netboot.yml.j2
+  roles:
+    - role: docker-services

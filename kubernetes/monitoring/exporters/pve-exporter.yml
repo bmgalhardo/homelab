@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pve-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: pve-exporter
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pve-exporter
+    spec:
+      containers:
+      - name: pve-exporter
+        image: prompve/prometheus-pve-exporter
+        imagePullPolicy: Always
+        env:
+        - name: PVE_USER
+          value: root@pam
+        - name: PVE_TOKEN_NAME
+          value: prometheus-pve-exporter
+        - name: PVE_TOKEN_VALUE
+          valueFrom:
+            secretKeyRef:
+              name: pve-secret
+              key: PVE_TOKEN_VALUE
+        - name: PVE_VERIFY_SSL
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pve-exporter
+  namespace: monitoring
+spec:
+  selector:
+    app: pve-exporter
+  ports:
+  - name: http
+    port: 9221
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-pve-exporter
+  namespace: monitoring
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/pve-exporter
+  destination:
+    name: pve-secret
+    create: true
+  refreshAfter: 30s
+

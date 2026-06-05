@@ -1,0 +1,13 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-mimir-minio
+  namespace: monitoring
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/mimir-minio
+  destination:
+    name: mimir-minio
+    create: true
+  refreshAfter: 30s

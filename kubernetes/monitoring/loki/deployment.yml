@@ -1,0 +1,13 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: vault-secret-loki-minio
+  namespace: monitoring
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/loki-minio
+  destination:
+    name: loki-minio
+    create: true
+  refreshAfter: 30s

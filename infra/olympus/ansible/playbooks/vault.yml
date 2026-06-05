@@ -1,0 +1,9 @@
+- name: Deploy Vault
+  hosts: vault
+  gather_facts: yes
+  vars_files:
+    - /root/.ansible/secret-vars.yml
+  vars:
+    template: vault-compose.yml.j2
+  roles:
+    - role: docker-service

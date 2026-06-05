@@ -1,7 +1,4 @@
 *charts/
 terraform/*/terraform.tfstate*
 terraform/*/.terraform*
-
-# vault secrets
-infrastructure/vault-system/vault/vault-storage.yml
-provisioning/terraform.tfvars
+terraform/terraform.tfvars

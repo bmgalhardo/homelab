@@ -1,0 +1,61 @@
+esphome:
+  name: esp-03
+  friendly_name: esp-battlestation
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+  password: !secret ota_pwd
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+captive_portal:
+
+substitutions:
+  token_id: !secret proxmox_token_id
+  token_value: !secret proxmox_token_value
+  proxmox_uri: https://192.168.1.198:8006
+  machine: qemu/102
+
+http_request:
+  useragent: esphome/device
+  timeout: 10s
+  # esp8266_disable_ssl_support: true
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: 2
+      inverted: true
+    name: "test"
+    on_multi_click:
+    - timing:
+      - ON for at most 2s
+      - OFF for at least 0.2s
+      then:
+      - logger.log: "short click, send start vm command"
+      - http_request.post:
+          url: $proxmox_uri/api2/json/nodes/prometheus/$machine/status/start
+          headers:
+            Authorization: PVEAPIToken=$token_id=$token_value
+          verify_ssl: false
+    - timing:
+      - ON for at least 3s
+      then:
+      - logger.log: "long click, send stop vm command"
+      - http_request.post:
+          url: $proxmox_uri/api2/json/nodes/prometheus/$machine/status/stop
+          headers:
+            Authorization: PVEAPIToken=$token_id=$token_value
+          verify_ssl: false

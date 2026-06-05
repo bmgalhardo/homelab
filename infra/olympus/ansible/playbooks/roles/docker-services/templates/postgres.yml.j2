@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: tensorchord/vchord-postgres:pg17-v0.5.3
+    # image: postgres:17.6-alpine3.22
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    environment:
+      POSTGRES_PASSWORD: "{{ postgres_secret.password }}"
+    ports:
+    - 5432:5432
+    volumes:
+    - ./data:/var/lib/postgresql/data 
+  pg_backup:
+    image: postgres:17.6-alpine3.22
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      PGPASSWORD: "{{ postgres_secret.password }}"
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/usr/local/bin/backup.sh
+    entrypoint: ["bash", "-c", "while true; do /usr/local/bin/backup.sh; sleep 86400; done"]
+

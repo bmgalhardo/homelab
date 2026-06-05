@@ -1,0 +1,17 @@
+defaultVaultConnection:
+  enabled: true
+  address: "https://vault.bgalhardo.internal"
+  caCertSecret: vault-ca
+defaultAuthMethod:
+  enabled: true
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: vault-secrets-operator
+  serviceAccount: default
+tests:
+  enabled: false
+controller:
+  manager:
+    logging:
+      level: info

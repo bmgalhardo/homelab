@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hass-mqtt-device-healthcheck
+  namespace: home
+spec:
+  selector:
+    matchLabels:
+      app: hass-mqtt-device-healthcheck
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hass-mqtt-device-healthcheck
+    spec:
+      containers:
+      - name: hass-mqtt-device-healthcheck
+        image: bgalhardo/hass-mqtt-device-healthcheck:0.0.1
+        imagePullPolicy: Always
+        command:
+        - bash
+        - -c
+        - |
+          while true; do
+            python3 /code/app/main.py;
+            sleep 300;
+          done;
+        env:
+        - name: broker_uri
+          value: mosquitto
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1883
+        runAsGroup: 1883
+        fsGroup: 1883
+        seccompProfile:
+          type: RuntimeDefault

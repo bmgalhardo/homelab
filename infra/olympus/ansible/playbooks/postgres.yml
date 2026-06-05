@@ -1,0 +1,27 @@
+- name: Deploy Postgres container
+  hosts: postgres
+  gather_facts: yes
+  vars:
+    template: postgres.yml.j2
+    extra_files:
+    - backup.sh
+    - restore.sh
+    vault_addr: "{{ lookup('env', 'VAULT_ADDR') }}"
+    vault_cacert: "/etc/ssl/certs/ca-certificates.crt"
+  pre_tasks:
+  - name: Read the latest version of a kv2 secret
+    community.hashi_vault.vault_kv2_get:
+      url: "{{ vault_addr }}"
+      token_file: .vault-token
+      token_path: /root
+      ca_cert: "{{ vault_cacert }}"
+      engine_mount_point: kv
+      path: olympus/postgres
+      auth_method: token
+    register: vault_response
+    delegate_to: localhost
+  - name: Set secret as fact
+    set_fact:
+      postgres_secret: "{{ vault_response.data.data }}"
+  roles:
+    - role: docker-services

@@ -1,0 +1,18 @@
+- name: Configure TFTP Server
+  hosts: tftp
+  gather_facts: yes
+  tasks:
+  - name: Install TFTP package
+    community.general.apk:
+      name:
+      - tftp-hpa
+      state: present
+  - name: Enable TFTP service on boot
+    service: 
+      name: in.tftpd
+      state: started
+      enabled: yes
+  - name: Copy bin files
+    copy:
+      src: /root/ipxe/src/bin/undionly.kpxe
+      dest: /var/tftpboot/

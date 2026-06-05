@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: babybuddy
+spec:
+  selector:
+    matchLabels:
+      app: babybuddy
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: babybuddy
+    spec:
+      containers:
+      - name: babybuddy
+        image: lscr.io/linuxserver/babybuddy
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: Europe/Lisbon
+        - name: AWS_S3_ENDPOINT_URL
+          value: http://phoenix-hl.tenant-phoenix:9000
+        - name: AWS_STORAGE_BUCKET_NAME
+          value: babybuddy
+        - name: AWS_ACCESS_KEY_ID
+          value: babybuddy
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: babybuddy-auth
+              key: AWS_SECRET_ACCESS_KEY
+        - name: DB_ENGINE
+          value: django.db.backends.postgresql
+        - name: DB_HOST
+          value: postgres-hl.postgres-system
+        - name: DB_NAME
+          value: babybuddy
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: babybuddy-auth
+              key: DB_PASSWORD
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: babybuddy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: babybuddy
+spec:
+  selector:
+    app: babybuddy
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8000

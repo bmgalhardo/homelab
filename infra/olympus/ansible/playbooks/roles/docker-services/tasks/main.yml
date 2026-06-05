@@ -1,0 +1,26 @@
+- name: Install packages
+  community.general.apk:
+    name:
+    - docker
+    - docker-cli-compose
+    state: present
+- name: Enable docker service on boot
+  service:
+    name: docker
+    state: started
+    enabled: yes
+- name: Render docker-compose.yml to host
+  template:
+    src: "{{ template }}"
+    dest: /root/docker-compose.yml
+- name: Copy extra static files
+  copy:
+    src: "{{ item }}"
+    dest: /root
+    mode: "0755"
+  loop: "{{ extra_files | list }}"
+  when: extra_files is defined
+- name: Start Docker containers with compose
+  community.docker.docker_compose_v2:
+    project_src: /root
+    state: present

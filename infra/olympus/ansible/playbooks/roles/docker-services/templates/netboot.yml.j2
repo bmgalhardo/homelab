@@ -1,0 +1,11 @@
+services:
+  netboot:
+    image: bgalhardo/netboot-webserver:latest
+    restart: always
+    environment:
+      netboot_url: http://netboot.bgalhardo.internal
+      static_folder: /static
+    ports:
+    - 80:80
+    volumes:
+    - ./static:/static

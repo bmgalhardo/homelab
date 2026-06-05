@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mediacenter
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: movies
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.1.198
+    path: /mnt/movies/Movies
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: series
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.1.198
+    path: /mnt/series/Series
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: downloads
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.1.198
+    path: /mnt/temp/downloads
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: movies
+  namespace: mediacenter
+spec:
+  volumeName: movies
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: series
+  namespace: mediacenter
+spec:
+  volumeName: series
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: downloads
+  namespace: mediacenter
+spec:
+  volumeName: downloads
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+

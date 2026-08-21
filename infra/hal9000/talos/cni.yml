@@ -1,0 +1,6 @@
+cluster:
+  network:
+    cni:
+      name: custom
+      urls:
+        - http://netboot.bgalhardo.internal/static/talos/calico.yml

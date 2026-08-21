@@ -1,0 +1,35 @@
+kind: Cluster
+name: hal9000
+kubernetes:
+  version: v1.33.2
+talos:
+  version: v1.10.5
+patches:
+- name: homelab-ca
+  file: homelab-ca.yml
+# - name: cni
+#   file: cni.yml
+- name: common
+  file: common.yml
+---
+kind: ControlPlane
+machineClass:
+  name: not_longhorn
+  size: 1
+patches:
+- name: control
+  file: control.yml
+systemExtensions:
+- siderolabs/qemu-guest-agent
+---
+kind: Workers
+machineClass:
+  name: longhorn
+  size: 1
+patches:
+- name: longhorn
+  file: longhorn.yml
+systemExtensions:
+- siderolabs/util-linux-tools
+- siderolabs/iscsi-tools
+- siderolabs/qemu-guest-agent

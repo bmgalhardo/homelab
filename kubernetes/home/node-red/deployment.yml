@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-red
+spec:
+  selector:
+    matchLabels:
+      app: node-red
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: node-red
+    spec:
+      initContainers:
+      - name: init-ha-integration
+        image: nodered/node-red:4.0.3-22
+        command:
+        - bash
+        - -c
+        - |
+          npm install --unsafe-perm --no-update-notifier --no-fund --only=production
+        volumeMounts:
+        - mountPath: /usr/src/node-red/package.json
+          name: packages
+          subPath: packages.json
+        - mountPath: /usr/src/node-red/node_modules/
+          name: shared-modules
+      containers:
+      - name: node-red
+        image: nodered/node-red:4.0.3-22
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: Europe/Lisbon
+        volumeMounts:
+        - mountPath: /usr/src/node-red/node_modules/
+          name: shared-modules
+        - mountPath: /data/settings.js
+          name: files
+          subPath: settings.js
+        - mountPath: /data/flows-original.json
+          name: files
+          subPath: flows.json
+        - mountPath: /data/flows_cred.json
+          name: secret
+          subPath: flows_cred.json
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "cp /data/flows-original.json /data/flows.json"]
+      volumes:
+      - name: shared-modules
+        emptyDir: {}
+      - name: files
+        configMap:
+          name: node-files
+      - name: packages
+        configMap:
+          name: node-red-packages
+      - name: secret
+        secret:
+          secretName: node-red-ha-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-red
+spec:
+  selector:
+    app: node-red
+  ports:
+  - name: http
+    port: 1880
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: node-red
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/node-red-ha-token
+  destination:
+    name: node-red-ha-token
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: node-red
+spec:
+  hostnames:
+  - node-red.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: node-red
+      port: 1880
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-red-packages
+data:
+  packages.json: |
+    {
+      "name": "node-red-project",
+      "description": "A Node-RED Project",
+      "version": "0.0.1",
+      "private": true,
+      "scripts": {
+        "start": "node-red -v $FLOWS"
+      },
+      "dependencies": {
+        "node-red": "v4.0.3",
+        "node-red-contrib-home-assistant-websocket": "0.73.0"
+      }
+    }

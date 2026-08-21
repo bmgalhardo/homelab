@@ -1,0 +1,23 @@
+csi:
+  attacherReplicaCount: 1
+  provisionerReplicaCount: 1
+  resizerReplicaCount: 1
+  snapshotterReplicaCount: 1
+longhornConversionWebhook:
+  replicas: 1
+longhornAdmissionWebhook:
+  replicas: 1
+longhornRecoveryBackend:
+  replicas: 1
+longhornUI:
+  replicas: 1
+defaultSettings:
+  systemManagedComponentsNodeSelector: "custom/storage:longhorn"
+  defaultReplicaCount: 2
+  defaultDataPath: /var/mnt/longhorn
+  storageMinimalAvailablePercentage: 10
+  storageReservedPercentageForDefaultDisk: 1
+defaultBackupStore:
+  backupTarget: s3://longhorn@dummy/
+  backupTargetCredentialSecret: minio-secret
+

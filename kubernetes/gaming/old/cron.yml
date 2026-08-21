@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: valheim-original-backup
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: valheim-original-backup
+            image: minio/mc
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c 
+            - |
+              mc alias set minio $MINIO_HOST $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              mc mirror --remove /backups minio/valheim/original
+            envFrom:
+            - secretRef:
+                name: valheim-original
+            volumeMounts:
+            - mountPath: /backups
+              name: backups
+          restartPolicy: OnFailure
+          volumes:
+          - name: backups
+            hostPath:
+              path: /disks/Titan/valheim-backups/original

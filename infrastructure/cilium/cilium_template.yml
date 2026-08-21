@@ -1,4 +1,0 @@
-cluster:
-  inlineManifests:
-  - name: cilium
-    contents: |

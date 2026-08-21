@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  namespace: mediacenter
+spec:
+  selector:
+    matchLabels:
+      app: sonarr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      containers:
+      - name: sonarr
+        image: lscr.io/linuxserver/sonarr:develop
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /config.xml
+          subPath: config.xml
+          name: config
+        - mountPath: /downloads
+          name: downloads
+        - mountPath: /series
+          name: series
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Lisbon
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                cp /config.xml /config/config.xml
+                sleep 30;
+                api_key=$(xmlstarlet sel -t -v "/Config/ApiKey" /config.xml);
+                data=$(curl -XGET -H "X-Api-Key: $api_key" localhost:8989/api/v3/series | jq '{"name":"RefreshSeries","seriesIds": [ .[].id ]}');
+                curl -s -d "$data" -XPOST -H "X-Api-Key: $api_key" -H "Content-Type: application/json" localhost:8989/api/v3/command
+      volumes:
+      - name: config
+        secret:
+          secretName: sonarr-config        
+      - name: downloads
+        persistentVolumeClaim:
+          claimName: downloads
+      - name: series
+        persistentVolumeClaim:
+          claimName: series
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+  namespace: mediacenter
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sonarr
+  namespace: mediacenter
+spec:
+  hostnames:
+  - sonarr.bgalhardo.local
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+    namespace: system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: sonarr
+      port: 8989
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: sonarr
+  namespace: mediacenter
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/sonarr
+  destination:
+    name: sonarr-config
+    create: true
+  refreshAfter: 30s

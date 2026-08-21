@@ -1,0 +1,45 @@
+# https://ca.account.sony.com/api/v1/ssocookie
+# after psn login
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ps5-mqtt
+  namespace: home
+spec:
+  selector:
+    matchLabels:
+      app: ps5-mqtt
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ps5-mqtt
+    spec:
+      containers:
+      - name: ps5-mqtt
+        image: ghcr.io/funkeyflo/ps5-mqtt/amd64:latest
+        imagePullPolicy: Always
+        command: ["bash", "/app/run-standalone.sh"]
+        env:
+        - name: MQTT_HOST
+          value: mosquitto
+        - name: MQTT_PORT
+          value: "1883"
+        - name: PSN_ACCOUNTS
+          value: '[{"username": "bgalhardo", "npsso": "4TTOiiyXJ54YnppwazY4Y4bbPj7tdEsyVAiBfD0X0Y2PRiuN6KARbKp6MalE8FSH"}]'
+        - name: FRONTEND_PORT
+          value: "8645"
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ps5-mqtt
+  namespace: home
+spec:
+  selector:
+    app: ps5-mqtt
+  ports:
+    - name: http
+      port: 8645

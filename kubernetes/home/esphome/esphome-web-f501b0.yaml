@@ -1,0 +1,197 @@
+substitutions:
+  name: esphome-web-f501b0
+  friendly_name: esp-1
+  # govee_1
+  govee_1_mac: A4:C1:38:EC:C6:28
+  govee_1_location: Living Room
+  # govee_2
+  govee_2_mac: A4:C1:38:00:5D:34
+  govee_2_location: Babyroom
+  # govee_3
+  govee_3_mac: A4:C1:38:4C:B8:0C
+  govee_3_location: Bedroom
+  # govee_4
+  govee_4_mac: A4:C1:38:95:43:B3
+  govee_4_location: Kitchen
+  # dht
+  sensor_location: Office
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+  name_add_mac_suffix: false
+  project:
+    name: esphome.web
+    version: dev
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+#  level: VERY_VERBOSE
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+# Allow Over-The-Air updates
+ota:
+- platform: esphome
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# my applications
+esp32_ble_tracker:
+  scan_parameters:
+    active: false
+  on_ble_advertise:
+  - mac_address:
+    - $govee_1_mac
+    - $govee_2_mac
+    - $govee_3_mac
+    - $govee_4_mac
+    then:
+    - lambda: |-
+        struct SensorGroup {
+          sensor::Sensor* temp;
+          sensor::Sensor* humidity;
+          sensor::Sensor* rssi;
+          sensor::Sensor* battery;
+        };
+
+        std::map<std::string, SensorGroup> mac_to_sensors = {
+          {"$govee_1_mac", {id(govee_1_temp), id(govee_1_humidity), id(govee_1_rssi), id(govee_1_battery)}},
+          {"$govee_2_mac", {id(govee_2_temp), id(govee_2_humidity), id(govee_2_rssi), id(govee_2_battery)}},
+          {"$govee_3_mac", {id(govee_3_temp), id(govee_3_humidity), id(govee_3_rssi), id(govee_3_battery)}},
+          {"$govee_4_mac", {id(govee_4_temp), id(govee_4_humidity), id(govee_4_rssi), id(govee_4_battery)}}
+        };
+
+        auto sensor = mac_to_sensors[x.address_str()];
+
+        for (auto data : x.get_manufacturer_datas()) {
+          if (data.data.size() == 6) {
+            const int basenum = (int16_t(data.data[1]) << 16) + (int16_t(data.data[2]) << 8) + int16_t(data.data[3]);
+            const float temperature = basenum / 10000.0f;
+            const float humidity = (basenum % 1000) / 10.0f;
+            const float battery_level = uint16_t(data.data[4]) / 1.0f;
+            int16_t rssi = x.get_rssi();
+
+            // Publish the data to the appropriate sensors
+            sensor.temp->publish_state(temperature);
+            sensor.humidity->publish_state(humidity);
+            sensor.rssi->publish_state(rssi);
+            sensor.battery->publish_state(battery_level);
+          }
+        }
+
+
+# configurations
+.temperature: &temperature
+  device_class: temperature
+  unit_of_measurement: °C
+  icon: mdi:thermometer
+  accuracy_decimals: 1
+.humidity: &humidity
+  device_class: humidity
+  unit_of_measurement: "%"
+  icon: mdi:water-percent
+  accuracy_decimals: 0
+.battery: &battery
+  device_class: battery
+  unit_of_measurement: "%"
+  icon: mdi:battery-60
+  accuracy_decimals: 0
+.signal_strength: &signal_strength
+  device_class: signal_strength
+  unit_of_measurement: dBm
+  icon: mdi:signal
+  accuracy_decimals: 0
+
+sensor:
+  # Govee 1
+  - platform: template
+    name: $govee_1_location Temperature
+    id: govee_1_temp
+    <<: *temperature
+  - platform: template
+    name: $govee_1_location Humidity
+    id: govee_1_humidity
+    <<: *humidity
+  - platform: template
+    name: $govee_1_location Sensor Battery Level
+    id: govee_1_battery
+    <<: *battery
+  - platform: template
+    name: $govee_1_location Sensor Signal Strength
+    id: govee_1_rssi
+    <<: *signal_strength
+  # Govee 2
+  - platform: template
+    name: $govee_2_location Temperature
+    id: govee_2_temp
+    <<: *temperature
+  - platform: template
+    name: $govee_2_location Humidity
+    id: govee_2_humidity
+    <<: *humidity
+  - platform: template
+    name: $govee_2_location Sensor Battery Level
+    id: govee_2_battery
+    <<: *battery
+  - platform: template
+    name: $govee_2_location Sensor Signal Strength
+    id: govee_2_rssi
+    <<: *signal_strength
+  # Govee 3
+  - platform: template
+    name: $govee_3_location Temperature
+    id: govee_3_temp
+    <<: *temperature
+  - platform: template
+    name: $govee_3_location Humidity
+    id: govee_3_humidity
+    <<: *humidity
+  - platform: template
+    name: $govee_3_location Sensor Battery Level
+    id: govee_3_battery
+    <<: *battery
+  - platform: template
+    name: $govee_3_location Sensor Signal Strength
+    id: govee_3_rssi
+    <<: *signal_strength
+  # Govee 4
+  - platform: template
+    name: $govee_4_location Temperature
+    id: govee_4_temp
+    <<: *temperature
+  - platform: template
+    name: $govee_4_location Humidity
+    id: govee_4_humidity
+    <<: *humidity
+  - platform: template
+    name: $govee_4_location Sensor Battery Level
+    id: govee_4_battery
+    <<: *battery
+  - platform: template
+    name: $govee_4_location Sensor Signal Strength
+    id: govee_4_rssi
+    <<: *signal_strength
+  # DHT11 sensor
+  - platform: dht
+    model: DHT11
+    pin: 23
+    temperature:
+      name: $sensor_location Temperature
+      <<: *temperature
+    humidity:
+      name: $sensor_location Humidity
+      <<: *humidity
+    update_interval: 60s

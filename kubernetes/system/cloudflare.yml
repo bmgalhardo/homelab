@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflare-ddns
+  namespace: system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflare-ddns
+  template:
+    metadata:
+      labels:
+        app: cloudflare-ddns
+    spec:
+      containers:
+      - name: cloudflare-ddns
+        image: favonia/cloudflare-ddns:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+          runAsGroup: 1000
+        env:
+        - name: IP6_PROVIDER
+          value: none
+        - name: CF_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-api-token
+              key: cloudflare-api-token
+        - name: DOMAINS
+          value: valheim.bgalhardo.com,dynamic.bgalhardo.com,mongo.bgalhardo.com
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: cloudflare-ddns
+  namespace: system
+spec:
+  type: kv-v2
+  mount: kv
+  path: hal9000/cloudflare-ddns
+  destination:
+    name: cloudflare-api-token
+    create: true
+  refreshAfter: 30s
+

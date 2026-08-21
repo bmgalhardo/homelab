@@ -1,0 +1,85 @@
+logging {
+  level = "info"
+  format = "logfmt"
+}
+
+//============================
+// Secrets
+//============================
+
+remote.kubernetes.secret "homeassistant" {
+  namespace = "monitoring"
+  name = "alloy-homeassistant"
+}
+
+//============================
+// Databases
+//============================
+
+//loki.write "local" {
+//  endpoint {
+//    url = this
+//  }
+//}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://mimir-nginx/api/v1/push"
+  }
+}
+
+//============================
+// Scrape Targets
+//============================
+
+prometheus.scrape "node_exporter" {
+  targets = [
+    {"__address__" = "192.168.1.197:9100"},
+    {"__address__" = "192.168.1.198:9100"},
+  ]
+
+  forward_to = [prometheus.remote_write.local.receiver]
+
+  scrape_interval = "60s"
+}
+
+prometheus.scrape "homeassistant_scraper" {
+  targets = [
+    {"__address__" = "homeassistant.home:8123"},
+  ]
+
+  metrics_path      = "/api/prometheus"
+  bearer_token = remote.kubernetes.secret.homeassistant.data["token"]
+
+  forward_to   = [prometheus.remote_write.local.receiver]
+
+  scrape_interval = "10s"
+}
+
+//============================
+// Loki Proxies
+//============================
+
+loki.source.syslog "loki_syslog_proxy" {
+  listener {
+    address  = "0.0.0.0:513"
+    protocol = "tcp"
+    labels   = {
+      job = "loki.source.syslog.loki_syslog_proxy",
+      service_name = "talos_linux",
+    }
+  }
+
+  listener {
+    address             = "0.0.0.0:514"
+    protocol            = "udp"
+    syslog_format       = "rfc3164"
+    labels   = {
+      job = "loki.source.syslog.loki_syslog_proxy",
+      service_name = "unifi",
+    }
+  }
+
+  forward_to = []  //loki.write.grafanacloud.receiver]
+
+}

@@ -1,0 +1,36 @@
+name: omni-on-prem
+services:
+  omni:
+    container_name: omni
+    image: ghcr.io/siderolabs/omni:v0.50.0
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./etcd:/_out/etcd
+      - ./omni.asc:/omni.asc
+      - ./certs/cert.crt:/tls.crt
+      - ./certs/cert.key:/tls.key
+      - ./certs/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    command: >
+      --account-id=e067661d-c32d-4172-b8cf-53fe08eaba0f
+      --name=omni
+      --cert=/tls.crt
+      --key=/tls.key
+      --machine-api-cert=/tls.crt
+      --machine-api-key=/tls.key
+      --private-key-source='file:///omni.asc'
+      --event-sink-port=8091
+      --bind-addr=0.0.0.0:443
+      --machine-api-bind-addr=0.0.0.0:8090
+      --k8s-proxy-bind-addr=0.0.0.0:8100
+      --advertised-api-url=https://omni.bgalhardo.internal
+      --advertised-kubernetes-proxy-url=https://omni.bgalhardo.internal:8100
+      --siderolink-api-advertised-url=https://omni.bgalhardo.internal:8090
+      --siderolink-wireguard-advertised-addr=192.168.1.171:5018
+      --initial-users=bgalhardo@gmail.com
+      --auth-saml-enabled=true
+      --auth-saml-url=https://authentik.bgalhardo.internal/application/saml/omni/metadata/
+    restart: always

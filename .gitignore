@@ -1,7 +1,12 @@
 *charts/
-terraform/*/terraform.tfstate*
-terraform/*/.terraform*
 
-# vault secrets
-infrastructure/vault-system/vault/vault-storage.yml
-provisioning/terraform.tfvars
+# infra
+infra/**/terraform.tfstate*
+infra/**/terraform.tfvars
+infra/**/.terraform/
+infra/**/homelab-ca.yml
+
+# per-VM compose secrets (see infra/olympus/services/*/.env.example)
+infra/**/.env
+!infra/**/.env.example
+infra/**/*.asc

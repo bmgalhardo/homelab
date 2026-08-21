@@ -1,8 +1,7 @@
 # homelab
 
 A 2-node Proxmox cluster (Olympus) running a small VM tier plus a Talos
-Kubernetes cluster (hal9000), fully in code. See the image below for the
-high-level layout, and [`CLAUDE.md`](CLAUDE.md) for the current
+Kubernetes cluster (hal9000), fully in code. See [`CLAUDE.md`](CLAUDE.md) for the current
 architecture, conventions, and open priorities in detail.
 
 ![Overview](./homelab-overview.png)

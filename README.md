@@ -28,6 +28,18 @@ Auth and secrets
 - Vault: PKI + secrets, synced into K8s via vault-secrets-operator
 - Authentik: SSO
 
+## Working with Claude Code
+
+This repo is operated day-to-day with Claude Code — both for infra-as-code
+changes (Terraform, K8s manifests, compose files) and for live debugging
+against the running cluster.
+
+`CLAUDE.md` and `.claude/context/` are maintained as persistent operating
+context: hardware, network, services, storage and deployment docs kept
+current so an unfamiliar corner of the infra can be picked up without
+re-deriving it from scratch. `todos.md` tracks the open roadmap and known
+blockers.
+
 ## Repo layout
 
 - `infra/olympus/terraform/`, `infra/hal9000/terraform/` — VM/cluster provisioning

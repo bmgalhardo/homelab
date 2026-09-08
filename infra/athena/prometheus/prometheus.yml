@@ -1,0 +1,45 @@
+# athena — Prometheus. Metrics companion to Loki. Small by design:
+# 30d / 2GB retention, local TSDB. Scrapes the local stack now; host- and
+# cluster-level exporters are stubs until Phase 2+ (see argus.md).
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    monitor: athena
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: alloy
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["alloy:12345"]
+
+  - job_name: grafana
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    static_configs:
+      - targets: ["grafana:3000"]
+
+  # ── stubs — enable as the sources come online (argus.md Phase 2+) ──────────
+  # - job_name: pve
+  #   # prometheus-pve-exporter, pointed at the claude@pve!claude-readonly token
+  #   static_configs:
+  #     - targets: ["<pve-exporter-host>:9221"]
+  #
+  # - job_name: node
+  #   static_configs:
+  #     - targets: ["apollo:9100", "hades:9100", "hermes:9100"]
+  #
+  # - job_name: hal9000
+  #   # kube-state-metrics / node-exporter via the read-only ServiceAccount
+  #   static_configs:
+  #     - targets: []

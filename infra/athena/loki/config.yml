@@ -1,0 +1,79 @@
+# Loki 3.3.x — monolithic (-target=all), single-node, filesystem storage.
+# Tuned for athena (Pi4, 4GB): small embedded caches, RF 1, in-memory ring.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+  # keep a single query from blowing the heap on a small box
+  grpc_server_max_recv_msg_size: 8388608
+  grpc_server_max_send_msg_size: 8388608
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  filesystem:
+    directory: /loki/chunks
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+limits_config:
+  retention_period: 2160h          # 90d — see argus.md "Open Questions" (storage is cheap, could go longer)
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  max_query_series: 5000
+  volume_enabled: true             # enables /loki/api/v1/index/volume for the agent's reduce stage
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 64
+
+chunk_store_config:
+  chunk_cache_config:
+    embedded_cache:
+      enabled: true
+      max_size_mb: 64
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-temp
+
+analytics:
+  reporting_enabled: false

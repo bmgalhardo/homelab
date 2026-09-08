@@ -5,29 +5,42 @@
 | FQDN | IP | Device | Role |
 |------|----|----|------|
 | udm.bgalhardo.internal | 192.168.1.1 | UDM Pro | Gateway |
+| athena.bgalhardo.internal | **192.168.1.196** (Pi4 online 2026-09-08 — MAC `2C:CF:67:64:2C:1D`, DHCP; pin in UniFi) | Pi4 4GB, arm64, 120GB SSD | Runs the Argus stack — logging + metrics + report agent |
 | apollo.bgalhardo.internal | 192.168.1.197 (confirmed 2026-08-21 — Proxmox mgmt port 8006 open, ping OK) | Beelink | Proxmox host |
 | hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
-| vault.bgalhardo.internal | 192.168.1.197 (unverified — accessed via DNS, not by IP, this session) | Apollo VM | Secrets |
-| authentik.bgalhardo.internal | 192.168.1.197 (unverified — same) | Apollo VM | Identity |
+| qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
+| manager | **192.168.1.170** (confirmed 2026-08-21) | Apollo VM | SSH/Terraform jump host for Olympus VMs |
+| omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
+| vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
+| authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |
 | postgres.bgalhardo.internal | **192.168.1.177** (confirmed 2026-08-21) | Apollo VM | Database |
-| tftp | **192.168.1.172** (confirmed 2026-08-21) | Apollo VM | PXE/TFTP |
-| manager | **192.168.1.170** (confirmed 2026-08-21) | Apollo VM | SSH/Terraform jump host for Olympus VMs — undocumented until now |
-| proxmox.bgalhardo.internal | HAProxy | Apollo/Hades | Proxmox HA |
+| control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
+| proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
 | ha.bgalhardo.internal | K8s IP | Apollo | Home Assistant |
 | prometheus.bgalhardo.internal | K8s IP | Apollo | Metrics |
 | grafana.bgalhardo.internal | K8s IP | Apollo | Dashboards |
 
-## DNS (dnsmasq on Hermes)
+## DNS (dnsmasq on Hermes) — resolution only; **DHCP is the UDM Pro**
 
 - **Domain:** bgalhardo.internal
-- **Resolver:** Hermes (192.168.1.199:53)
-- **Backup DNS:** HAProxy fallback (not redundant yet)
-- **Future:** Pi4 as backup dnsmasq
-- ⚠️ **Known bad record (2026-08-21):** `apollo.bgalhardo.internal` resolves
-  to `192.168.1.200` via Hermes DNS — wrong. The real, reachable Apollo
-  Proxmox host is `192.168.1.197` (confirmed: port 8006 open, responds to
-  ping; `.200` doesn't respond to either). Not yet fixed on Hermes.
+- **Resolver:** Hermes (192.168.1.199:53), single upstream `1.1.1.1`,
+  `no-resolv`. dnsmasq DHCP is disabled — fixed-IP reservations are set on
+  the **UDM Pro** by MAC.
+- **Backup DNS:** HAProxy fallback (not redundant yet). **Future:** Pi4 as
+  backup dnsmasq.
+- **Wildcards + overrides:** dnsmasq has catch-alls
+  `address=/.bgalhardo.internal/192.168.1.200` and
+  `address=/.bgalhardo.com/192.168.1.201` (→ k8s ingress). Per-host
+  `address=/host.bgalhardo.internal/IP` lines override them (dnsmasq
+  longest-match). Explicit records exist for authentik, proxmox (→ .199
+  HAProxy), unifi, omni, vault, athena, postgres, truenas.
+- ⚠️ **`apollo` / `hades` / `hermes` have no explicit record** → they hit
+  the `.200` wildcard (k8s ingress), not the real host. This is the
+  `todos.md` P0 "Fix Apollo DNS Record" — the fix is three
+  `address=/…/` lines (`.197` / `.198` / `.199`), not a "bad" record.
+  Low severity in practice: nothing resolves these by name today (Proxmox
+  API is hit by IP; the HA name is `proxmox.bgalhardo.internal`).
 - **Certificates:** Vault-managed *.bgalhardo.internal (see Certificate Management below)
 - **Auto-renewal:** Not implemented — certs are issued manually via `vault write pki_infra/issue/internal`
 
@@ -117,16 +130,37 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 - **Old token (`root@pam!terraform`, in `infra/terraform.tfvars`):**
   rejected with 401 — stale/revoked, not a network issue (confirmed same
   result from this workstation and from `manager`)
-- **New read-only token created 2026-08-21:** `claude@pve!claude-readonly`,
-  `PVEAuditor` role granted at path `/` with Propagate — confirmed present
-  in Datacenter → Permissions via screenshot, yet still returns
-  `403 Permission check failed (Sys.Audit)` on every endpoint beyond the
-  unauthenticated `/version` and the always-visible `/nodes` list.
-  **Status: unresolved as of 2026-08-21.** A 20-minute background poll for
-  the permission to become effective (in case of `pveproxy` cache) timed
-  out. Next step, not yet tried: restart `pveproxy` on Apollo for an
-  immediate reload, or investigate further — don't assume it's just cache
-  lag anymore given the timeout.
+- **`claude@pve!claude-readonly` token — working as of 2026-08-25.**
+  Secret lives in `.claude/secrets/proxmox.env` (gitignored, not this
+  file — see repo root `.gitignore`).
+  **History:** originally created with privilege separation enabled
+  (`--privsep 1`) and `PVEAuditor` granted directly to the token entity
+  — this returned `403 Permission check failed (Sys.Audit)` on
+  everything beyond `/version`/`/nodes`, confirmed not a `pveproxy`
+  cache issue (restarted `pveproxy`+`pvedaemon`, no change) and not
+  fixed by a PVE upgrade (9.2.3 → 9.2.11, retested, still broken).
+  Root cause: `pvesh get /access/permissions --userid <id>` resolved
+  correctly for `automation@pve!automation` (privsep=0, ACL on the
+  **user**) but resolved to `{}` for `claude@pve!claude-readonly`
+  (privsep=1, ACL on the **token**), even though `/etc/pve/user.cfg`
+  and `pveum acl list` both showed the token's ACL line as syntactically
+  correct. This PVE build (through at least 9.2.11) does not appear to
+  honor token-scoped (`type: token`) ACL entries at all.
+  **Fix:** switched to `--privsep 0` and moved the `PVEAuditor` grant
+  from the token to the plain user `claude@pve` — same pattern
+  `automation@pve` already used successfully. Token now resolves full
+  audit permissions; confirmed working against `/nodes/<node>/status`,
+  `/nodes/<node>/disks/list`, `/nodes/<node>/storage`. Practical
+  implication: **privilege separation on API tokens should be considered
+  non-functional on this cluster** until/unless retested on a future PVE
+  version — grant ACLs to the user, not the token, for any new
+  read/write token going forward.
+- **SSH access to the Proxmox hosts themselves** (not just the Olympus
+  VMs) also goes through `manager` (192.168.1.170) as a jump host —
+  direct `ssh root@192.168.1.197` from an arbitrary workstation is
+  refused (no trusted key). `ssh root@192.168.1.170` then `ssh
+  root@192.168.1.197` from there works. Used 2026-08-25 to run `pveum`/
+  `pvesh` commands for the token work above.
 
 ## Known Access Gotchas
 

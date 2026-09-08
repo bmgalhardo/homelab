@@ -10,3 +10,22 @@ infra/**/homelab-ca.yml
 infra/**/.env
 !infra/**/.env.example
 infra/**/*.asc
+
+# per-VM runtime state / certs — created on the VM, never committed
+infra/**/data/
+infra/**/certs/
+infra/**/secrets/
+
+# vault-agent per-VM material (bootstrap creds + fetched CA + token sink)
+infra/**/vault-agent/role_id
+infra/**/vault-agent/secret_id
+infra/**/vault-agent/ca.crt
+infra/**/vault-agent/.vault-token
+infra/**/vault-agent/pidfile
+
+# local credentials for Claude Code's own use (not a VM secret)
+.claude/secrets/*
+!.claude/secrets/*.example
+
+# secrets
+.env

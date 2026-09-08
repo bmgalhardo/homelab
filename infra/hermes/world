@@ -1,0 +1,6 @@
+alpine-base
+busybox-mdev-openrc
+dnsmasq
+haproxy
+openssh
+openssl

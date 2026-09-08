@@ -53,15 +53,11 @@
 - **Compose:** Yes — `infra/olympus/services/omni/`, was always a hand-deployed
   static file, never templated by Ansible
 
-### tftp-server
-- **Location:** Apollo VM (`tftp`, 192.168.1.172)
-- **Role:** PXE boot support (serves `undionly.kpxe` via TFTP)
-- **Depends on:** None
-- **Dependents:** Netboot workflow (whatever still uses it)
-- **Compose:** No — native `apk install tftp-hpa`, not containerized.
-  Setup steps: `infra/olympus/services/tftp-server/README.md`
-- **Note:** Distinct from `netboot` (a separate VM, retired 2026-08-21 —
-  see network.md for its cert revocation)
+### ~~tftp-server~~ — retired 2026-09-08
+Apollo VM `tftp` (`192.168.1.172`, vmid 202). Served `undionly.kpxe` for
+PXE boot; nothing used it once `netboot` was retired (2026-08-21).
+`infra/olympus/services/tftp-server/` + the tfvars block removed; VM
+deletion pending (still in the drifted tfstate).
 
 ## Inside K8s (hal9000, Talos — 2 nodes: talos-y43-va4 control-plane,
 talos-y6i-w43 worker)
@@ -120,11 +116,20 @@ metrics/logs stack running in this cluster at all.
 ## Proxmox Cluster Infrastructure
 
 ### Corosync QDevice
-- **Location:** Apollo LXC (Alpine)
-- **Role:** Cluster quorum voting (2-node: Apollo + Hades)
+- **Location:** Apollo LXC `qdevice` (192.168.1.89, Debian — Alpine was
+  planned but qnetd setup was simpler on Debian)
+- **Role:** 3rd quorum vote for the 2-node cluster (Apollo + Hades).
+  `corosync-qnetd` on the LXC, `corosync-qdevice` on both nodes, TCP 5403.
 - **Depends on:** Apollo (always-on)
 - **Dependents:** Proxmox cluster voting
-- **Status:** To be migrated from Hermes Pi
+- **Status:** Set up 2026-09-07 via `pvecm qdevice setup 192.168.1.89`.
+  Migrated off the Hermes Pi (Pi re-flashed to Alpine for dnsmasq/HAProxy).
+- **Gotchas hit during setup:** `corosync-qdevice` package was missing on
+  Apollo/Hades (`corosync-qdevice-net-certutil: command not found`);
+  qnetd nssdb must be owned by `coroqnetd:coroqnetd`.
+- **Verify:** `pvecm status` → `Total votes: 3`, both nodes `A,V`.
+- **Caveat:** LXC runs on Apollo — an Apollo outage takes the qdevice with
+  it, so Hades alone can't hold quorum. Still covers the Hades-outage case.
 
 ## Dependency Graph
 

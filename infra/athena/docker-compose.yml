@@ -1,0 +1,109 @@
+services:
+  # ── Vault Agent ───────────────────────────────────────────────────────────
+  # Reusable sidecar pattern (see README "Vault Agent as a template").
+  # Authenticates to Vault via AppRole, then:
+  #   - renders secrets  -> ./secrets/*.env   (consumed via env_file)
+  #   - issues/renews the leaf cert -> ./certs/athena.{crt,key}  (node hostname)
+  #   - touches ./certs/.reload on any change; a host timer restarts consumers
+  vault-agent:
+    image: hashicorp/vault:1.13.3
+    container_name: vault-agent
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    entrypoint: ["vault", "agent", "-config=/vault-agent/config.hcl"]
+    volumes:
+      - ./vault-agent/config.hcl:/vault-agent/config.hcl:ro
+      - ./vault-agent/templates:/vault-agent/templates:ro
+      - ./vault-agent/ca.crt:/vault-agent/ca.crt:ro       # internal root CA (README)
+      - ./vault-agent/role_id:/vault-agent/role_id:ro     # not secret
+      - ./vault-agent/secret_id:/vault-agent/secret_id:ro # secret — gitignored
+      - ./secrets:/secrets
+      - ./certs:/certs
+    mem_limit: 64m
+
+  # ── Loki ──────────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"            # LogQL push + query — k8s Alloy DaemonSet targets this
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - ./data/loki:/loki
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3100/ready | grep -q ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=2GB
+      - --web.enable-lifecycle          # POST /-/reload after a config change
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus:/prometheus
+    mem_limit: 384m
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - prometheus
+      - vault-agent
+    env_file:
+      - .env                    # non-secret defaults
+      - ./secrets/grafana.env   # rendered by vault-agent (README: touch it before first up)
+    environment:
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_ROOT_URL: "https://athena.bgalhardo.internal:3000"
+      GF_SERVER_PROTOCOL: "https"
+      GF_SERVER_CERT_FILE: "/certs/athena.crt"
+      GF_SERVER_CERT_KEY: "/certs/athena.key"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./certs:/certs:ro
+      - ./data/grafana:/var/lib/grafana
+    mem_limit: 256m
+
+  # ── Alloy (syslog receiver) ───────────────────────────────────────────────
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: alloy
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    ports:
+      - "1514:1514/tcp"         # syslog RFC5424 — Hermes busybox syslogd -R, UDM remote logging
+      - "1514:1514/udp"
+      - "127.0.0.1:12345:12345" # Alloy debug UI, localhost only
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./data/alloy:/var/lib/alloy/data
+    mem_limit: 128m

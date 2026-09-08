@@ -1,0 +1,52 @@
+// athena — Alloy as the syslog receiver for hosts that can't run Alloy natively.
+// Phase 2 sources: Hermes (Pi 1, ARMv6 — busybox `syslogd -R athena:1514`) and
+// the UDM Pro (Settings -> System -> Remote Logging). Everything else ships
+// straight to Loki :3100 with its own Alloy / promtail.
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// RFC5424 syslog over TCP + UDP on 1514.
+loki.source.syslog "network" {
+  listener {
+    address       = "0.0.0.0:1514"
+    protocol      = "tcp"
+    syslog_format = "rfc5424"
+    labels        = { job = "syslog", transport = "tcp" }
+  }
+
+  listener {
+    address       = "0.0.0.0:1514"
+    protocol      = "udp"
+    syslog_format = "rfc5424"
+    labels        = { job = "syslog", transport = "udp" }
+  }
+
+  forward_to = [loki.relabel.syslog.receiver]
+}
+
+// Promote the useful syslog metadata to real Loki labels. Keep cardinality low:
+// host + facility + severity only — no message-derived labels.
+loki.relabel "syslog" {
+  forward_to = [loki.write.default.receiver]
+
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "severity"
+  }
+  rule {
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+  }
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+}

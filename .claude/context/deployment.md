@@ -32,17 +32,23 @@ infra/
 │       │   ├── backup.sh
 │       │   ├── restore.sh
 │       │   └── .env.example
-│       ├── omni/
-│       │   └── docker-compose.yml   ← no secrets baked in, none needed
-│       └── tftp-server/
-│           └── README.md            ← not compose — native apk install, see below
-├── hal9000/terraform/     ← Talos k8s cluster provisioning, kept
-└── proxmox/               ← small proxmoxer/pydantic helper script, WIP
+│       └── omni/
+│           └── docker-compose.yml   ← no secrets baked in, none needed
+├── athena/                ← Argus logging+metrics stack (Pi4 node, not Olympus)
+│   ├── docker-compose.yml ← vault-agent + loki + prometheus + grafana + alloy
+│   ├── vault-agent/       ← AppRole auth, secret + cert templates, bootstrap
+│   └── README.md
+├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
+└── hal9000/terraform/     ← Talos k8s cluster provisioning, kept
 ```
 
-`infra/olympus/terraform/configs.auto.tfvars.json` is the source of
-truth for which VMs exist: `tftp`, `netboot` (retired), `postgres`,
-`vault`, `authentik`, `omni`.
+(There was also an `infra/proxmox/` proxmoxer helper script — removed, gone
+as of 2026-09-07. Don't reintroduce it; the Proxmox API is reached directly
+with the `claude@pve!claude-readonly` token, see network.md.)
+
+`infra/olympus/terraform/configs.auto.tfvars.json` lists the Olympus VMs:
+`postgres`, `vault`, `authentik`, `omni`. (`tftp` removed 2026-09-08;
+`netboot` retired 2026-08-21 — both may linger in the drifted tfstate.)
 
 ### Access
 
@@ -56,7 +62,6 @@ ssh root@vault                # from manager, hostnames resolve directly
 ssh root@authentik
 ssh root@postgres
 ssh root@omni
-ssh root@tftp
 ```
 
 ### Deploy / Update a Service
@@ -83,21 +88,44 @@ in git lists the variable names so it's clear what's needed:
 - `authentik`: `AUTHENTIK_SECRET_KEY`, `PG_PASS`
 - `postgres`: `POSTGRES_PASSWORD`
 - `omni`: none (all config is non-secret CLI flags)
+- `athena` (the logging stack): none in `.env` — uses
+  the Vault Agent sidecar (below)
 
-### tftp-server
+### Vault Agent sidecar (new 2026-09-08, reference: `infra/athena/vault-agent/`)
 
-Not a compose service — a native Alpine host running `tftp-hpa` plus a
-static `undionly.kpxe` binary in `/var/tftpboot/`. Setup steps are in
-`infra/olympus/services/tftp-server/README.md`. Nothing to template, nothing to
-containerize.
+The plaintext-`.env` model above is the thing the P3 "rotate all secrets"
+item is blocked on. The `athena` stack is the first to replace it
+with a **Vault Agent sidecar**:
+
+- **Auth:** AppRole (these are VMs, not k8s pods). `role_id` (not secret)
+  + `secret_id` (non-expiring bootstrap cred, scoped to a one-path
+  policy) as files on the VM. `bootstrap-vault-agent.sh` creates the
+  role + policy Vault-side, mirroring `vault/bootstrap-k8s-auth.sh`.
+- **Secrets:** agent renders `kv/<service>` → `./secrets/<x>.env`, which
+  the real container reads via `env_file`.
+- **Certs:** agent issues + auto-renews the `pki_infra` leaf cert →
+  `./certs/`. Two template stanzas with identical args share one issued
+  pair (consul-template caches the write).
+- **Reload:** agent touches `./certs/.reload`; a host cron (`reload.sh`)
+  restarts the consumers. Keeps the Docker socket out of the agent.
+
+To adopt for another service, copy `vault-agent/`, change the AppRole,
+KV path, and cert `common_name` — full steps in `infra/athena/README.md`.
+
+### hermes (native Alpine, not compose)
+
+DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
+(`dnsmasq.d/custom.conf`, `haproxy.cfg`, `world`, `interfaces`); deploy is
+`scp` + `rc-service … restart` + **`lbu commit`**. See its README.
 
 ## VM Provisioning (kept as Terraform)
 
 - `infra/olympus/terraform/` — Proxmox VMs for the Olympus (VM) tier:
-  vault, authentik, postgres, omni, tftp, netboot. `configs.auto.tfvars.json`
-  is the editable VM spec file (vmid, node, memory, cores, mac — not
-  secret, safe in git). `terraform.tfvars` (real Proxmox credentials) and
-  `terraform.tfstate*` are gitignored.
+  vault, authentik, postgres, omni. `configs.auto.tfvars.json` is the
+  editable VM spec file (vmid, node, memory, cores, mac — not secret, safe
+  in git). `terraform.tfvars` (real Proxmox credentials) and
+  `terraform.tfstate*` are gitignored. **State is drifted — see
+  `todos.md` "Full VM Provisioning" before running it.**
 - `infra/hal9000/terraform/` — Talos k8s cluster VMs. Same pattern.
 
 ⚠️ **Known issue:** `infra/olympus/terraform/main.tf` sets

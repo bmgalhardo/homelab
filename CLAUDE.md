@@ -32,6 +32,7 @@ Network: `192.168.1.0/24`
 - `deployment.md` — How to deploy (static compose per VM, no Ansible)
 - `backup-strategy.md` — 3-2-1 plan, RTO/RPO
 - `todos.md` — Actions, blockers, priorities
+- `argus.md` — Centralized logging + daily report agent (design & progress)
 
 See `.claude/context/todos.md` for full roadmap.
 
@@ -46,11 +47,17 @@ See `.claude/context/todos.md` for full roadmap.
 
 **File Organization:**
 - `infra/olympus/terraform/` — Proxmox VM provisioning (vault, authentik,
-  postgres, omni, tftp, netboot)
+  postgres, omni)
 - `infra/hal9000/terraform/` — Talos k8s cluster VM provisioning
+  (`hal9000` → `elysium` at the rebuild — see todos.md)
 - `infra/olympus/services/` — static `docker-compose.yml` per VM service
-- `infra/proxmox/` — small proxmoxer helper script (WIP, incomplete)
+- `infra/athena/` — Argus logging/metrics stack (Pi4 node)
+- `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose)
 - `kubernetes/` — k8s manifests for the hal9000 cluster
+
+**Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).
+`elysium` (was `hal9000`) = k8s, the plane above. `hermes`/`athena` =
+standalone Pis. Possible later: `manager` → `charon`, `qdevice` → `themis`.
 
 ## When to Update This File
 

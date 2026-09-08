@@ -20,29 +20,28 @@
 - **Benefit:** Prevents the next 3-month silent outage, whatever it turns
   out to be
 
-### Fix Apollo DNS Record ⛔
-- **Task:** `apollo.bgalhardo.internal` resolves to `192.168.1.200` via
-  Hermes dnsmasq — wrong. Real, reachable IP is `192.168.1.197`
-- **Why:** Found 2026-08-21 while trying to reach the Proxmox API by
-  hostname; `.200` doesn't respond to ping or port 8006 at all
-- **Effort:** Trivial (one dnsmasq record on Hermes)
-- **Status:** Not started
+### Fix Apollo DNS Record  (downgraded 2026-09-08 — not a P0)
+- **Task:** Add explicit dnsmasq records for `apollo` / `hades` / `hermes`
+  (`.197` / `.198` / `.199`). They currently have none, so they fall
+  through the `address=/.bgalhardo.internal/192.168.1.200` wildcard to the
+  k8s ingress.
+- **Why:** Found 2026-08-21 reaching the Proxmox API by hostname. Refined
+  2026-09-08: it's a *missing* record + a catch-all wildcard, not a bad
+  record. **Low severity** — nothing resolves these names today (Proxmox
+  API is hit by IP; the HA name is `proxmox.bgalhardo.internal` → .199).
+  Worth doing so a mistyped hostname fails clean instead of hitting the
+  wrong box.
+- **Effort:** Trivial (three `address=/…/` lines on Hermes).
+- **Status:** Not started.
 
-### Corosync on Pi Burden ⛔
+### Corosync on Pi Burden ✅ (done 2026-09-07)
 - **Task:** Migrate corosync-qdevice to Apollo LXC
-- **Why:** Hermes should run lightweight Alpine, not heavy Debian
-- **Effort:** 6-8 hours
-- **Blocker:** Apollo specs verification (do we have enough RAM?)
-- **Status:** Ready (pending specs check)
-- **Steps:**
-  1. Verify Apollo has sufficient resources
-  2. Create corosync-qdevice LXC on Apollo (Alpine, 512MB)
-  3. Reconfigure Proxmox cluster to use Apollo as qdevice
-  4. Flash Hermes to Alpine Linux
-  5. Restore dnsmasq + HAProxy config to Alpine Hermes
-  6. Test cluster quorum
-  7. Test HAProxy failover
-- **Benefit:** Hermes boots in 30s; lighter resource usage; freedom to use Alpine
+- **Status:** Done. Pi (Hermes) re-flashed to Alpine, running dnsmasq +
+  HAProxy. New `qdevice` LXC on Apollo (192.168.1.89, Debian) runs
+  corosync-qnetd; `pvecm qdevice setup 192.168.1.89` completed. See
+  services.md for setup gotchas and the Apollo co-location caveat.
+- **Remaining:** confirm `pct set <ctid> --onboot 1` on the LXC; verify
+  `pvecm status` shows `Total votes: 3`; test HAProxy failover on Alpine.
 
 ## P1: High (This Month)
 
@@ -71,6 +70,58 @@
   - Phase 4 (3h): Setup monthly external drive sync
 - **Benefit:** Resilience against data loss; meets 3-2-1 standard
 
+### Argus: Centralized Logging + Daily Report Agent
+- **Task:** Loki + Prometheus + Grafana on the `athena` node (Pi4, off the
+  cluster), then an agent that reads 24h of logs + deterministic fact
+  probes at 04:00, reports to Telegram, writes eventful things to
+  `logbook/YYYY-MM.md`
+- **Why:** Every silent outage in this file (expired certs, expired Omni JWT,
+  missing `token_reviewer_jwt`) went unnoticed for months. Nothing watches.
+- **Status (2026-09-08):** `athena` node online (`.196`), stack written
+  (`infra/athena/`), not yet deployed. Vault Agent sidecar built here as
+  the reusable pattern. Phase 1 = deploy + verify.
+- **Full design, decisions and phase checklist:** `.claude/context/argus.md`
+- **Benefit:** Directly addresses the "nothing in this stack auto-renews"
+  P0 above — it can't fix renewals, but it stops them failing silently
+
+### Full VM Provisioning: Terraform + Bundled Compose ⚠️
+- **Task:** Two parts.
+  1. **Fix or formally retire the Olympus Terraform.** State has drifted
+     ~9 months out of sync with the live cluster and cannot be safely
+     `apply`d as-is.
+  2. **Standardize the VM contract:** Terraform provisions the VM, then a
+     single `docker-compose.yml` per VM bundles *everything that VM needs*
+     — the service itself + Vault Agent (secret injection) + backup script
+     + log shipping (Alloy, or syslog forward for Argus). Create the VM,
+     drop in the compose file, done. The 200-series `postgres` VM (with
+     its `pg_backup` sidecar) is the closest existing pattern — extend it
+     to cover secrets and logging too.
+- **Why (drift evidence, gathered 2026-09-08):**
+  - No `terraform` binary on the workstation; no remote backend — state is
+    one gitignored file, last written **2025-12-12** (hal9000 state:
+    2025-07-06)
+  - `infra/terraform.tfvars` still uses `root@pam!terraform` → 401/revoked
+    (network.md). Needs a **user-scoped** write token — token-scoped ACLs
+    are non-functional on this PVE build (network.md)
+  - `vault` / `authentik` / `omni` were rebuilt by hand at vmid
+    **107 / 103 / 100**; state still says 204 / 205 / 206
+  - `netboot-webserver` (vmid 203) retired but still in state
+  - `tftp-server` (vmid 202) removed 2026-09-08 from tfvars + repo; still
+    in state (and the VM itself, until deleted)
+  - hal9000 `worker-1` is **8192 MB** live, 4096 in code + state
+- **Options:**
+  - A: **Reconcile** — install TF, mint a user-scoped write token, update
+    `terraform.tfvars`, `state rm` + re-import the 4 drifted resources,
+    wrestle `plan` to zero-diff on the 3 hand-built VMs, then it's usable
+  - B: **Retire** — accept deployment.md's "static per VM" reality, delete
+    `infra/olympus/terraform/`, document the Olympus VMs as hand-created,
+    keep only `infra/hal9000/terraform/`
+- **Connects to:** every future Olympus VM; and the hal9000 rebuild (P2) —
+  do the `worker-1` resize there. (Argus ended up on a bare Pi4, not a VM,
+  so it no longer depends on this.)
+- **Status:** Not started. Documented 2026-09-08. User chose option A
+  (reconcile) initially; revisit given the full scope above.
+
 ### Backup PC Power Strategy Decision ⚠️
 - **Task:** Choose backup PC operation mode
 - **Options:**
@@ -98,31 +149,57 @@
 - **Status:** Not started — user to set up access when ready
 - **Note:** User is installing `kubectl` locally in the meantime to check
   current cluster status by hand
+- **Rename at rebuild (decided 2026-09-08):** `hal9000` → **`elysium`**
+  (the blessed realm — fits the app layer above the Olympus VM substrate;
+  drops the odd 2001 reference). Don't rename the live cluster — do it as
+  part of the from-scratch rebuild: `infra/hal9000/` → `infra/elysium/`,
+  Omni/Talos cluster name, kubeconfigs, `kubernetes/` refs, docs. Also
+  consider deity names for the Talos nodes instead of `control-1`/`worker-1`.
 
-### Proxmox Read-Only API Access Still Broken ⚠️
-- **Task:** `claude@pve!claude-readonly` token (PVEAuditor role, path `/`,
-  confirmed present in Datacenter → Permissions) still returns
-  `403 Sys.Audit` on everything except `/version` and `/nodes` listing
-- **Why:** Wanted for filling in the hardware-spec TODOs below without
-  manual copy-paste — nothing critical depends on it
-- **Status:** Unresolved. Waited 20 min for possible `pveproxy` cache —
-  no change. Next untried step: restart `pveproxy` on Apollo
-- **Blocker:** None, just needs someone to restart the service or debug
-  further
+### ~~Proxmox Read-Only API Access Still Broken~~ ✅ Fixed 2026-08-25
+- Upgrading PVE (9.2.3 → 9.2.11) did **not** fix token-scoped ACL
+  resolution — confirmed still broken on the newer version.
+- Fix: switched `claude@pve!claude-readonly` to `--privsep 0` and moved
+  the `PVEAuditor` grant from the token entity to the plain user
+  `claude@pve` (matching the already-working `automation@pve` pattern).
+  Token now resolves full audit permissions and the API returns real
+  data. See network.md's Proxmox API Access section for the root-cause
+  writeup — token-scoped (`type: token`, privsep=1) ACL entries appear
+  to just never be honored by this PVE build, independent of version.
 
 ### Fill in Specifications
 
-**Apollo (Beelink S12 Pro):**
-- [ ] CPU model & core count
-- [ ] RAM capacity
-- [ ] Storage capacity
-- [ ] Power/thermal specs
-- **Why:** Verify sufficient for corosync LXC + K8s + VMs overhead
+**Apollo (Beelink S12 Pro)** — confirmed 2026-08-25 via Proxmox API
+(`claude@pve!claude-readonly`, now working — see network.md):
+- [x] CPU — **Intel N100**, 1 socket, 4 cores/4 threads
+- [x] RAM — **16GB** (15.4 GiB as reported: 16535810048 bytes)
+- [x] Storage — 1x NVMe, **Crucial CT1000P3PSSD8, 1TB** (931 GiB usable),
+  SMART health PASSED, **69% life remaining (31% worn)** — not urgent,
+  but worth a periodic glance since Apollo is the always-on node
+- [ ] Power/thermal specs — not exposed via the Proxmox API (no sensor
+  data in `/nodes/apollo/status`); would need `sensors` run on-host
+- **Why:** Verify sufficient for corosync LXC + K8s + VMs overhead —
+  4 cores/16GB confirms this is tight, worth keeping in mind for the
+  corosync-LXC migration sizing decision (P0 above)
 
-**Hades (Ryzen 5 PC):**
-- [ ] CPU model & core count
-- [ ] RAM capacity
-- [ ] Storage: XFS partition size, ZFS pool name
+**Hades (Ryzen 5 PC)** — confirmed 2026-08-25 via Proxmox API:
+- [x] CPU — **AMD Ryzen 5 3600**, 1 socket, 6 cores/12 threads
+- [x] RAM — **32GB** (31.25 GiB as reported: 33556340736 bytes)
+- [x] Storage — full disk picture, confirmed 2026-08-25 via
+  `/nodes/hades/disks/list` (not just `/nodes/hades/storage`, which
+  only shows Proxmox-registered storage and misses unregistered
+  filesystems):
+  - `nvme0n1` — WD Blue SN570 1TB, boot/OS drive, 96% SSD life left
+  - `sda` + `sdb` — 2x Seagate ST8000DM004 8TB (5400rpm), used by ZFS,
+    mirrored into pool **`odin`** (~7.27TB usable, health ONLINE —
+    this is the NAS/NFS pool)
+  - `sdc` + `sdd` — 2x Seagate ST4000DM004 4TB (5400rpm), **XFS**,
+    unpartitioned (no GPT), **not registered as a Proxmox storage** —
+    invisible to `/nodes/hades/storage`, only shows up via the raw
+    disk list. Purpose/mount point not yet confirmed — worth checking
+    `/etc/fstab` on Hades directly.
+  - Also present: `local` (dir, ~94GB, PVE OS/ISO/backups) and
+    `local-lvm` (LVM-thin, ~795GB) as Proxmox-registered storages.
 - **Why:** Resource planning, identify bottlenecks
 
 **Backup PC (TrueNAS):**
@@ -235,9 +312,11 @@
 
 ## Status Summary
 
-- **P0 Blockers:** 3 (renewal-automation pattern, Apollo DNS record,
-  corosync migration)
-- **P1 High Priority:** 2 (backup 3-2-1, backup PC decision)
+- **P0 Blockers:** 1 (renewal-automation pattern). Corosync migration done
+  2026-09-07; Apollo DNS record downgraded 2026-09-08 (missing record +
+  wildcard, low severity).
+- **P1 High Priority:** 4 (backup 3-2-1, backup PC decision, Argus
+  logging+agent, full VM provisioning / Terraform reconcile)
 - **P2 Medium:** Multiple specs to fill, deployments to plan
 - **P3 Nice-to-Have:** 4 future enhancements
 - **Decision Rate:** 7 made, 5 pending

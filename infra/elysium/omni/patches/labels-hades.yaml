@@ -1,0 +1,5 @@
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  homelab/node: hades
+  homelab/power: managed

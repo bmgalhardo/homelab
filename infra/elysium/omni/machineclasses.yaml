@@ -1,0 +1,29 @@
+# MachineClasses for the 3 elysium VMs, matched by the `elysium/role` label
+# set manually on each machine in the Omni UI. Referenced by
+# `machineClass:` in cluster.yaml's ControlPlane/Workers blocks.
+#
+# Apply with:
+#   omnictl apply -f infra/elysium/omni/machineclasses.yaml
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: elysium-cp
+spec:
+  matchlabels:
+    - elysium/role=cp
+---
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: elysium-apollo
+spec:
+  matchlabels:
+    - elysium/role=apollo
+---
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: elysium-hades
+spec:
+  matchlabels:
+    - elysium/role=hades

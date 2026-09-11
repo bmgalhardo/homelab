@@ -1,0 +1,59 @@
+# Omni ClusterTemplate for elysium. Apply with:
+#   omnictl cluster template sync -f cluster.yaml
+#   omnictl cluster template status -f cluster.yaml
+#
+# Prereqs in Omni (once): three MachineClasses whose selectors match the
+# three VMs after they register — `elysium-cp`, `elysium-apollo`,
+# `elysium-hades`. Simplest: after the VMs appear, label each machine in
+# the Omni UI (e.g. role=cp / node=apollo / node=hades) and point each
+# MachineClass at that label.
+
+kind: Cluster
+name: elysium
+kubernetes:
+  version: v1.37.0
+talos:
+  version: v1.14.0
+patches:
+  - name: trusted-ca
+    file: patches/trusted-ca.yaml
+  - name: dns
+    file: patches/dns.yaml
+---
+kind: ControlPlane
+machineClass:
+  name: elysium-cp
+  size: 1
+patches:
+  - name: control-vip
+    file: patches/control-vip.yaml
+systemExtensions:
+  - siderolabs/qemu-guest-agent
+---
+kind: Workers
+name: apollo
+machineClass:
+  name: elysium-apollo
+  size: 1
+patches:
+  - name: local-path
+    file: patches/local-path.yaml
+  - name: labels-apollo
+    file: patches/labels-apollo.yaml
+systemExtensions:
+  - siderolabs/qemu-guest-agent
+---
+kind: Workers
+name: hades
+machineClass:
+  name: elysium-hades
+  size: 1
+patches:
+  - name: local-path
+    file: patches/local-path.yaml
+  - name: virtiofs
+    file: patches/virtiofs-hades.yaml
+  - name: labels-hades
+    file: patches/labels-hades.yaml
+systemExtensions:
+  - siderolabs/qemu-guest-agent

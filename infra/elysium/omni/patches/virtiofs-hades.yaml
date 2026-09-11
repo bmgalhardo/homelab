@@ -1,0 +1,41 @@
+# Media + photos from Hades via virtiofs. PVE Directory Mappings (node=hades):
+#   series    -> /mnt/series/Series   (sdc XFS)
+#   movies    -> /mnt/movies/Movies   (sdd XFS)
+#   downloads -> /mnt/movies/Downloads (sdd XFS — movie imports hardlink)
+#   photos    -> /odin/photos          (ZFS)
+# Needs the virtiofsN devices on the VM (terraform null_resource / qm set).
+#
+# Still, test the mounts on this node EARLY:
+#   talosctl -n <ip> get externalvolumestatus
+#   talosctl -n <ip> list /var/mnt/series
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: series
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: series
+---
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: movies
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: movies
+---
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: downloads
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: downloads
+---
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: photos
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: photos

@@ -1,26 +1,25 @@
-name: omni-on-prem
 services:
   omni:
     container_name: omni
-    image: ghcr.io/siderolabs/omni:v0.50.0
+    image: ghcr.io/siderolabs/omni:v1.11.0
     devices:
       - /dev/net/tun
     volumes:
       - ./etcd:/_out/etcd
+      - ./sqlite:/_out/sqlite
       - ./omni.asc:/omni.asc
-      - ./certs/cert.crt:/tls.crt
-      - ./certs/cert.key:/tls.key
-      - ./certs/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt
+      - ./certs/server-chain.pem:/server-chain.pem
+      - ./certs/server-key.pem:/server-key.pem
+      - ./certs/combined-ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
     network_mode: "host"
     cap_add:
       - NET_ADMIN
     command: >
-      --account-id=e067661d-c32d-4172-b8cf-53fe08eaba0f
       --name=omni
-      --cert=/tls.crt
-      --key=/tls.key
-      --machine-api-cert=/tls.crt
-      --machine-api-key=/tls.key
+      --cert=/server-chain.pem
+      --key=/server-key.pem
+      --machine-api-cert=/server-chain.pem
+      --machine-api-key=/server-key.pem
       --private-key-source='file:///omni.asc'
       --event-sink-port=8091
       --bind-addr=0.0.0.0:443
@@ -30,7 +29,14 @@ services:
       --advertised-kubernetes-proxy-url=https://omni.bgalhardo.internal:8100
       --siderolink-api-advertised-url=https://omni.bgalhardo.internal:8090
       --siderolink-wireguard-advertised-addr=192.168.1.171:5018
+      --sqlite-storage-path=/_out/sqlite/omni.db
       --initial-users=bgalhardo@gmail.com
-      --auth-saml-enabled=true
-      --auth-saml-url=https://authentik.bgalhardo.internal/application/saml/omni/metadata/
+      --eula-accept-name="Bruno Galhardo"
+      --eula-accept-email=bgalhardo@gmail.com
+      --auth-auth0-enabled=false
+      --auth-oidc-enabled=true
+      --auth-oidc-provider-url=https://authentik.bgalhardo.internal/application/o/omni/
+      --auth-oidc-client-id=
+      --auth-oidc-client-secret=
+      --auth-oidc-scopes=openid --auth-oidc-scopes=profile --auth-oidc-scopes=email
     restart: always

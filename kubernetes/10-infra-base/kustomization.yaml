@@ -22,6 +22,17 @@ patches:
   # so it is patched here rather than redeclared in configs/ -- two Flux
   # Kustomizations declaring the same cluster-scoped object would fight
   # over ownership on every reconcile (both have prune: true).
+  # local-path's helper pods mount hostPath to create/delete PV directories,
+  # which Talos' cluster-wide `baseline` Pod Security enforcement forbids. The
+  # provisioner Deployment itself only mounts a ConfigMap, so it runs fine and
+  # this stays invisible until the first PVC fails to bind.
+  - target:
+      kind: Namespace
+      name: local-path-storage
+    patch: |
+      - op: add
+        path: /metadata/labels
+        value: { pod-security.kubernetes.io/enforce: privileged }
   - target:
       kind: StorageClass
       name: local-path

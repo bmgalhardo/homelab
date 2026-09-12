@@ -1,9 +1,17 @@
 # LoadBalancer IP allocation for LAN services. Flannel is the (Talos
 # default) CNI — it does no LB IPAM itself, so this replaces that piece
+#
+# PSA: Talos enforces Pod Security `baseline` cluster-wide. The speaker and
+# frr-k8s DaemonSets need NET_ADMIN/NET_RAW, hostNetwork and hostPorts, all
+# of which baseline forbids — without this label the controller Deployment
+# runs but the DaemonSets never get a single pod, and the Helm install hangs
+# until timeout waiting for a rollout the API server is refusing.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: metallb-system
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease

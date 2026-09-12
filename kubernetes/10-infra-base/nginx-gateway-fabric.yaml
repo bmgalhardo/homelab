@@ -13,6 +13,10 @@ spec:
   chartRef:
     kind: OCIRepository
     name: nginx-gateway-fabric
+    # Required: the OCIRepository lives in flux-system, this HelmRelease does
+    # not. Without it helm-controller looks in its own namespace and fails
+    # with "OCIRepository ... not found".
+    namespace: flux-system
   install:
     remediation:
       retries: 3

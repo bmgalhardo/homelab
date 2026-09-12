@@ -1,0 +1,63 @@
+# virtiofs shares from Hades, as `local` PVs pinned to the hades node.
+# Talos ExternalVolumeConfig (infra/elysium/omni/patches/virtiofs-hades.yaml)
+# mounts each virtio-fs tag at /var/mnt/<tag>:
+#   series    <- PVE dir-mapping `series`    -> /mnt/series/Series   (sdc, XFS)
+#   movies    <- PVE dir-mapping `movies`    -> /mnt/movies/Movies   (sdd, XFS)
+#   downloads <- PVE dir-mapping `downloads` -> /mnt/movies/Downloads (sdd XFS)
+#   photos    <- PVE dir-mapping `photos`    -> /odin/photos         (ZFS)
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata: { name: series }
+spec:
+  capacity: { storage: 4Ti }
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  local: { path: /var/mnt/series }
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata: { name: movies }
+spec:
+  capacity: { storage: 4Ti }
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  local: { path: /var/mnt/movies }
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata: { name: downloads }
+spec:
+  capacity: { storage: 4Ti }
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  local: { path: /var/mnt/downloads }
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata: { name: photos }
+spec:
+  capacity: { storage: 7Ti }
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  local: { path: /var/mnt/photos }
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]

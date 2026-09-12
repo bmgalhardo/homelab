@@ -1,0 +1,59 @@
+# How VSO reaches Vault (VaultConnection) and how it authenticates there
+# (VaultAuth). Every VaultStaticSecret in the cluster uses these two by name
+# `default`, unless it points at its own.
+#
+# Both are declared here rather than by the VSO chart, because the chart makes
+# them part of its Helm release and helm-controller waits for release resources
+# to go healthy — a VaultConnection cannot go healthy until Vault is reachable
+# and trusts this cluster, so the release would time out and Stall tier 1. See
+# the long note in 10-infra-base/vault-secrets-operator.yaml.
+#
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: default
+  namespace: vault-secrets-operator
+spec:
+  address: https://vault.bgalhardo.internal
+  # Root CA for Vault's own TLS listener. Created by
+  # infra/olympus/services/vault/bootstrap-k8s-auth.sh, NOT by a
+  # VaultStaticSecret — VSO needs this CA before it can talk to Vault at all,
+  # so it cannot bootstrap itself. Until that script runs, this connection
+  # stays unhealthy and every VaultStaticSecret fails; that is expected.
+  caCertSecretRef: vault-ca
+  # Required field on this CRD, set explicitly: Vault's cert is issued by the
+  # homelab CA above, so it must be verified, never skipped.
+  skipTLSVerify: false
+---
+# Declared by hand rather than via the VSO chart's `defaultAuthMethod`, which
+# renders spec.namespace as YAML null and fails CRD validation (see the note in
+# 10-infra-base/vault-secrets-operator.yaml). Omitting spec.namespace entirely
+# is valid — the CRD has no required fields — and correct for OSS Vault, which
+# has no namespaces.
+#
+# Lives in tier 2 because VaultAuth's CRD is installed by tier 1.
+#
+# `role` and `serviceAccount` must match what
+# infra/olympus/services/vault/bootstrap-k8s-auth.sh creates:
+#   vault write auth/kubernetes/role/vault-secrets-operator \
+#     bound_service_account_names=default bound_service_account_namespaces="*"
+#
+# vaultConnectionRef is omitted on purpose: it defaults to the `default`
+# VaultConnection in this namespace, which the chart still creates.
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: default
+  namespace: vault-secrets-operator
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: vault-secrets-operator
+    serviceAccount: default
+  # Without this, only the operator's own namespace may use this VaultAuth —
+  # the VaultStaticSecrets in system/, external-dns/ and immich/ would all be
+  # refused. "*" is the documented wildcard.
+  allowedNamespaces:
+    - "*"

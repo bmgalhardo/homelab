@@ -48,9 +48,24 @@ vault write auth/kubernetes/role/issuer \
   policies=cert_manager \
   ttl=20m
 
-# --- vault-secrets-operator (VaultConnection "default", kubernetes/10-infra-base/vault-secrets-operator.yaml) ---
+# --- vault-secrets-operator (VaultConnection "default", kubernetes/20-infra-wiring/vso-config.yaml) ---
+#
+# Note the KV v2 path spelling: policies and the HTTP API use kv/data/<path>,
+# while the CLI uses kv/<path>. A policy written as "kv/infra/*" grants nothing.
+#
+# infra/  = homelab-wide, not tied to any cluster (root CA, Cloudflare tokens).
+#           A rebuilt cluster reuses these as-is instead of copying them.
+# apps/  = per-application credentials (pgadmin-oidc, ...). Also not cluster-
+#          scoped: an Authentik client survives a cluster rebuild.
+#
+# Nothing is keyed by cluster name any more, so rebuilding a cluster means
+# pointing a new auth role at these same paths — no secret copying.
 vault policy write vault-secrets-operator - <<'EOF'
-path "kv/data/elysium/*" {
+path "kv/data/infra/*" {
+   capabilities = ["read", "list"]
+}
+
+path "kv/data/apps/*" {
    capabilities = ["read", "list"]
 }
 EOF

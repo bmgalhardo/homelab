@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - metallb-config.yaml     # IPAddressPool + L2Advertisement
+  - virtiofs-pvs.yaml       # media-series, media-movies, photos (pinned to hades)
+  - vso-config.yaml         # VaultConnection + VaultAuth (chart cannot own these, see file)
+  - issuer-vault.yaml       # + vault-ca VaultStaticSecret + cert-manager RBAC
+  - issuer-letsencrypt.yaml # + cloudflare-letsencrypt VaultStaticSecret
+  - gateways.yaml           # internal + external Gateways (gatewayClassName: nginx)
+  - external-dns.yaml       # Vault-backed: lives here, not controllers (see below)
+

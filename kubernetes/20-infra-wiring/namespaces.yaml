@@ -1,0 +1,6 @@
+# Only `system` lives here — this tier puts the Gateways and both cert Issuers
+# in it, so this tier has to create it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: system

@@ -1,0 +1,57 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: internal
+  namespace: system
+  annotations:
+    cert-manager.io/issuer: vault
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    hostname: "*.bgalhardo.internal"
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    protocol: HTTPS
+    port: 443
+    hostname: "*.bgalhardo.internal"
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - name: bgalhardo-internal-tls
+---
+# Wildcard *.bgalhardo.com from Let's Encrypt PRODUCTION
+# (issuer-letsencrypt.yaml → acme-v02) over a DNS-01 challenge. Note the real
+# rate limits if this ever fails in a loop: 5 failed validations/hour and
+# 50 certs/week per registered domain, both slow to recover from.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external
+  namespace: system
+  annotations:
+    external-dns.alpha.kubernetes.io/target: dynamic.bgalhardo.com
+    cert-manager.io/issuer: letsencrypt
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    hostname: "*.bgalhardo.com"
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: bgalhardo-external-tls

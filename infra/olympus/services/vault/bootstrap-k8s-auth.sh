@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configures Vault's kubernetes auth method for the hal9000 cluster.
+# Configures Vault's kubernetes auth method for the elysium cluster.
 #
 # Vault runs as a plain Docker container on Apollo (see docker-compose.yml),
 # not inside Kubernetes, so it has no in-pod service account to fall back
@@ -12,7 +12,7 @@
 # VaultSecretsOperator secret in the cluster for ~8 months.
 #
 # Idempotent — safe to re-run. Requires: vault CLI authenticated
-# (VAULT_ADDR/VAULT_TOKEN/VAULT_CACERT), kubectl pointed at hal9000.
+# (VAULT_ADDR/VAULT_TOKEN/VAULT_CACERT), kubectl pointed at elysium.
 
 set -euo pipefail
 
@@ -31,7 +31,7 @@ vault write auth/kubernetes/config \
   token_reviewer_jwt="$REVIEWER_JWT" \
   disable_iss_validation=true
 
-# --- cert-manager (Issuer "vault" in ns system, kubernetes/system/issuer-vault.yml) ---
+# --- cert-manager (Issuer "vault" in ns system, kubernetes/20-infra-wiring/issuer-vault.yaml) ---
 vault policy write cert_manager - <<'EOF'
 path "pki_cert_manager/sign/internal" {
   capabilities = ["create", "update"]
@@ -48,9 +48,9 @@ vault write auth/kubernetes/role/issuer \
   policies=cert_manager \
   ttl=20m
 
-# --- vault-secrets-operator (VaultConnection "default", kubernetes/vault-secrets-operator/) ---
+# --- vault-secrets-operator (VaultConnection "default", kubernetes/10-infra-base/vault-secrets-operator.yaml) ---
 vault policy write vault-secrets-operator - <<'EOF'
-path "kv/data/hal9000/*" {
+path "kv/data/elysium/*" {
    capabilities = ["read", "list"]
 }
 EOF
@@ -66,8 +66,8 @@ echo "Vault kubernetes auth configured."
 # --- vault-ca Secret (vault-secrets-operator ns): root CA cert VSO's
 # "default" VaultConnection uses to trust Vault's own TLS listener.
 # Chicken-and-egg — VSO can't sync this one via a VaultStaticSecret like
-# it does everywhere else (kv/hal9000/ca, see kubernetes/system/
-# issuer-vault.yml for the system-ns copy cert-manager uses), since it
+# it does everywhere else (kv/elysium/ca, see kubernetes/infrastructure/
+# configs/issuer-vault.yaml for the system-ns copy cert-manager uses), since it
 # needs this CA before it can talk to Vault at all. Not auth-related, but
 # needs a manual refresh here if the root CA ever rotates.
 ROOT_CA=$(vault read -field=certificate pki_root/cert/ca)

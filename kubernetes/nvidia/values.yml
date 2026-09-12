@@ -1,3 +1,0 @@
-runtimeClassName: nvidia
-nodeSelector:
-  kubernetes.io/hostname: worker-gpu

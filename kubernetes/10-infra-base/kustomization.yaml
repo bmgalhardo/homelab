@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # helm sources + releases
+  - sources.yaml
+  - metallb.yaml
+  - nginx-gateway-fabric.yaml
+  - cert-manager.yaml
+  - vault-secrets-operator.yaml
+  # Gateway API CRDs: pinned to v1.6.1 — the version NGF 2.7.0 itself bundles/tests against
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
+  # local-path-provisioner: upstream manifest, ConfigMap overridden below
+  - https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.37/deploy/local-path-storage.yaml
+
+patches:
+  - path: local-path-provisioner.yaml
+    target:
+      kind: ConfigMap
+      name: local-path-config
+  # The upstream manifest above already ships the `local-path` StorageClass,
+  # so it is patched here rather than redeclared in configs/ -- two Flux
+  # Kustomizations declaring the same cluster-scoped object would fight
+  # over ownership on every reconcile (both have prune: true).
+  - target:
+      kind: StorageClass
+      name: local-path
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value: { storageclass.kubernetes.io/is-default-class: "true" }
+      - op: add
+        path: /allowVolumeExpansion
+        value: true

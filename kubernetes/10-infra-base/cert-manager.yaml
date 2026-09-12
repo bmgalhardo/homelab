@@ -25,5 +25,18 @@ spec:
   values:
     crds:
       enabled: true
+    # Gateway API support is OFF by default. Without it cert-manager silently
+    # ignores the `cert-manager.io/issuer` annotation on a Gateway — no
+    # Certificate is ever created, no TLS Secret appears, and the Gateway's
+    # HTTPS listener sits at InvalidCertificateRef with nothing explaining why.
+    # Nothing errors; the annotation is simply not watched.
+    #
+    # RBAC for gateway.networking.k8s.io is already in the chart's ClusterRole
+    # unconditionally, so this flag is the only thing needed.
+    config:
+      apiVersion: controller.config.cert-manager.io/v1alpha1
+      kind: ControllerConfiguration
+      gatewayAPI:
+        enabled: true
     # cert-manager talks to Vault over HTTPS with the homelab CA; the
     # trust comes from the node root store (Talos TrustedRootsConfig).

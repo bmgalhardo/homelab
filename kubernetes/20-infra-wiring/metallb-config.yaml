@@ -1,6 +1,47 @@
-# LoadBalancer IP pool (.200-.210), unchanged from the old MetalLB config.
-# .200 = internal gateway (dnsmasq `*.bgalhardo.internal` wildcard target)
-# .201 = external gateway (dnsmasq `*.bgalhardo.com` wildcard target)
+# LoadBalancer IP allocation for LAN services.
+#
+# The two Gateway IPs are PINNED, because Hermes' dnsmasq hardcodes them:
+#   *.bgalhardo.internal -> 192.168.1.200   (internal Gateway)
+#   *.bgalhardo.com      -> 192.168.1.201   (external Gateway)
+#
+# A single pool hands addresses out in whatever order the requests arrive, which
+# is nondeterministic — on the first deploy `external` took .200 and `internal`
+# took .201, silently pointing every internal hostname at the external Gateway.
+#
+# Pinning works off the label NGF stamps on the Service it creates for each
+# Gateway (`gateway.networking.k8s.io/gateway-name`), so it survives the Service
+# being recreated. `priority` breaks the tie when several pools match: lowest
+# value wins, so the specific pools beat the catch-all below.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: gateway-internal
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.200/32
+  serviceAllocation:
+    priority: 1
+    serviceSelectors:
+      - matchLabels:
+          gateway.networking.k8s.io/gateway-name: internal
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: gateway-external
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.201/32
+  serviceAllocation:
+    priority: 1
+    serviceSelectors:
+      - matchLabels:
+          gateway.networking.k8s.io/gateway-name: external
+---
+# Anything else that asks for a LoadBalancer. Explicit low priority rather than
+# an unset one, so "lowest value wins" stays unambiguous.
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
@@ -8,7 +49,9 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-    - 192.168.1.200-192.168.1.210
+    - 192.168.1.202-192.168.1.210
+  serviceAllocation:
+    priority: 10
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -17,6 +60,8 @@ metadata:
   namespace: metallb-system
 spec:
   ipAddressPools:
+    - gateway-internal
+    - gateway-external
     - default
   nodeSelectors:
     - matchExpressions:

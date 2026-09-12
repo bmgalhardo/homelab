@@ -34,3 +34,11 @@ spec:
   upgrade:
     remediation:
       retries: 3
+  values:
+    # BGP backend, on by default in this chart. We announce with
+    # L2Advertisement only (no BGPPeer/BGPAdvertisement anywhere), so frr-k8s
+    # is a DaemonSet on every node plus a statuscleaner Deployment providing a
+    # protocol nothing here speaks — and it wants NET_ADMIN/SYS_ADMIN on top of
+    # what the speaker already needs. Re-enable if the LAN ever peers via BGP.
+    frrk8s:
+      enabled: false

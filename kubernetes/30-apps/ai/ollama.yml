@@ -41,7 +41,33 @@ spec:
           name: ollama-models
       volumes:
       - name: ollama-models
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: ollama-models
+---
+# Was an emptyDir — which is what filled the disk. emptyDir lives on the node's
+# EPHEMERAL volume, capped at 12GB by infra/elysium/omni/patches/local-path.yaml,
+# and the postStart hook above re-pulls both models on EVERY pod start. Once
+# that volume fills, the kubelet reports DiskPressure and evicts pods node-wide,
+# not just these.
+#
+# On the local-path user volume instead: models survive restarts (so the pulls
+# become no-ops), and because it is a separate filesystem from EPHEMERAL,
+# filling it fails ollama's writes rather than taking the node down with it.
+#
+# Note local-path does NOT enforce this size — it provisions a plain directory,
+# so the request documents intent. The real ceiling is the Talos `local-path`
+# user volume on the node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
 ---
 apiVersion: v1
 kind: Service

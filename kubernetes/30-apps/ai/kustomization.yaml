@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai
+
+resources:
+  - namespace.yml
+  - ollama.yml
+  - litellm.yml
+  - openwebui.yml
+
+# hades: 6c/12t + 32GB for CPU inference, vs apollo's 4-core N100 which also
+# carries the always-on tier. Flip to apollo if you would rather the stack stay
+# up while hades sleeps — for a playground, losing it with hades is the better
+# trade. It is also where the GPU lives if nvidia/ ever comes out of _parked/.
+patches:
+  - target: { kind: Deployment }
+    patch: &hades |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value: { homelab/node: hades }
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute }
+          - { key: node.kubernetes.io/not-ready,  operator: Exists, effect: NoExecute }
+  - target: { kind: StatefulSet }
+    patch: *hades

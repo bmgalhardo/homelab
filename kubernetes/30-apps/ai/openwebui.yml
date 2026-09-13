@@ -95,7 +95,7 @@ metadata:
 spec:
   type: kv-v2
   mount: kv
-  path: elysium/openwebui
+  path: apps/openwebui
   destination:
     name: openwebui-secrets
     create: true

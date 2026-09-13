@@ -101,7 +101,7 @@ metadata:
 spec:
   type: kv-v2
   mount: kv
-  path: elysium/litellm
+  path: apps/litellm
   destination:
     name: litellm-secrets
     create: true

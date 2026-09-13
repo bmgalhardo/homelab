@@ -118,7 +118,7 @@ metadata:
 spec:
   type: kv-v2
   mount: kv
-  path: apps/pgadmin-oidc
+  path: apps/pgadmin
   destination:
     name: pgadmin-oidc
     create: true

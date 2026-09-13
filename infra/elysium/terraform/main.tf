@@ -10,11 +10,12 @@ resource "proxmox_vm_qemu" "talos" {
   qemu_os            = "l26"
   agent              = 1
   start_at_node_boot = true
-  memory             = each.value.memory
-  scsihw             = "virtio-scsi-single"
-  skip_ipv6          = true
-  protection         = false
-  tags               = "k8s"
+  power_state = "running"
+  memory      = each.value.memory
+  scsihw      = "virtio-scsi-single"
+  skip_ipv6   = true
+  protection  = false
+  tags        = "k8s"
 
   boot = "order=scsi0;ide2"
 
@@ -34,11 +35,37 @@ resource "proxmox_vm_qemu" "talos" {
 
   disks {
     scsi {
+      # System disk: Talos + EPHEMERAL (images, logs, emptyDirs). Nothing
+      # persistent lives here — EPHEMERAL is wiped by a node reset.
       scsi0 {
         disk {
           size     = each.value.disk_size
           storage  = "local-lvm"
           iothread = true
+          discard    = true
+          emulatessd = true
+          replicate  = true
+        }
+      }
+      # Data disk: the Talos `local-path` user volume, i.e. every PVC.
+      # A SEPARATE disk on purpose:
+      #  - EPHEMERAL can then own the whole system disk; when both shared one
+      #    disk the user volume sat immediately after EPHEMERAL and physically
+      #    blocked it from ever growing (the DiskPressure incident).
+      #  - Proxmox can snapshot/back it up as its own volume.
+      #  - A node reset wipes EPHEMERAL and leaves this disk alone, so PVCs
+      #    survive a Talos rebuild.
+      dynamic "scsi1" {
+        for_each = each.value.data_disk_size == null ? [] : [each.value.data_disk_size]
+        content {
+          disk {
+            size       = scsi1.value
+            storage    = "local-lvm"
+            iothread   = true
+            discard    = true
+            emulatessd = true
+            replicate  = true
+          }
         }
       }
     }
@@ -53,7 +80,12 @@ resource "proxmox_vm_qemu" "talos" {
 
   lifecycle {
     ignore_changes = [
-      network,     # MAC churn on telmate refresh
+      network, # MAC churn on telmate refresh
+      # PVE stores startup defaults (order/up/down = -1) alongside onboot. The
+      # provider surfaces them as a block this config doesn't manage, so every
+      # plan proposed deleting it. Ignored rather than declared: the goal is a
+      # plan that is empty when nothing changed, so a real diff is worth reading.
+      startup_shutdown,
     ]
   }
 }

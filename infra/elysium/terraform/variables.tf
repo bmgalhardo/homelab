@@ -15,7 +15,10 @@ variable "node_data" {
     mac       = string
     cores     = number
     memory    = number # MB
-    disk_size = string # e.g. "40G"
+    disk_size = string # system disk (Talos + EPHEMERAL only), e.g. "40G"
+    # Second disk backing the Talos `local-path` user volume — i.e. all PVCs.
+    # Omit for nodes that run no workloads (the control plane).
+    data_disk_size = optional(string)
     # virtiofs directory mappings (PVE Datacenter -> Directory Mappings) to
     # attach as virtiofsN devices. telmate can't express these — set by
     # hand after create (README step 3), informational here only.

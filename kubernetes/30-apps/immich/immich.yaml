@@ -62,8 +62,6 @@ spec:
   body:
     maxSize: 50g
 ---
-# binds the cluster-scoped `photos` PV (Hades virtiofs — see
-# kubernetes/20-infra-wiring/virtiofs-pvs.yaml)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -79,13 +77,14 @@ spec:
       storage: 7Ti
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: immich-server
   namespace: immich
 spec:
   replicas: 1
-  serviceName: immich-server
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: immich-server
@@ -122,9 +121,11 @@ spec:
           name: data
           subPath: immich
         - mountPath: /data/thumbs
-          name: immich-thumbs
+          name: immich-cache
+          subPath: thumbs
         - mountPath: /data/encoded-video
-          name: immich-encoded-video
+          name: immich-cache
+          subPath: encoded-video
         - mountPath: /external
           name: data
           subPath: archive_public
@@ -141,31 +142,29 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: photos
+      - name: immich-cache
+        persistentVolumeClaim:
+          claimName: immich-cache
       - name: ca
         secret:
           secretName: immich-ca
           items:
           - key: ca
             path: ca.crt
-  volumeClaimTemplates:
-  - metadata:
-      name: immich-thumbs
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: local-path
-      resources:
-        requests:
-          storage: 5Gi
-  - metadata:
-      name: immich-encoded-video
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: local-path
-      resources:
-        requests:
-          storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-cache
+  namespace: immich
+spec:
+  volumeName: immich-cache
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
 ---
 apiVersion: apps/v1
 kind: Deployment

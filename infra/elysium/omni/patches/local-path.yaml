@@ -4,14 +4,13 @@ name: EPHEMERAL
 provisioning:
   diskSelector:
     match: system_disk
-  maxSize: 12GB
 ---
 apiVersion: v1alpha1
 kind: UserVolumeConfig
 name: local-path
 provisioning:
   diskSelector:
-    match: system_disk
-  minSize: 10GB
+    match: '!system_disk && disk.transport == "scsi"'
+  minSize: 50GB
 filesystem:
   type: xfs

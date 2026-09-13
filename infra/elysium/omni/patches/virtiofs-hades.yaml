@@ -39,3 +39,11 @@ filesystemType: virtiofs
 mount:
   virtiofs:
     tag: photos
+---
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: immich-cache
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: immich-cache

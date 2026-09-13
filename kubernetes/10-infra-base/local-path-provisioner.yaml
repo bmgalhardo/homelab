@@ -1,7 +1,3 @@
-# Patch over the upstream local-path-storage manifest:
-#  - point volumes at the Talos `local-path` user volume (/var/mnt/local-path)
-#  - pin the deployment to a real node (it must run where PVs are provisioned;
-#    both workers have the volume, but keep it simple on apollo)
 apiVersion: v1
 kind: ConfigMap
 metadata:

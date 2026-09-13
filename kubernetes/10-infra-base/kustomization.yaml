@@ -33,6 +33,21 @@ patches:
       - op: add
         path: /metadata/labels
         value: { pod-security.kubernetes.io/enforce: privileged }
+  # Keep the provisioner on the always-on node. It is a control component (no
+  # local disk of its own), but if it lands on hades it is evicted when hades
+  # sleeps — and Kubernetes' default NoExecute tolerations wait 300s before
+  # rescheduling it. During that window NO PVC can be provisioned anywhere in
+  # the cluster, including for pods on apollo: they sit Pending with nothing
+  # obviously wrong, then bind once it comes back. It also migrates to apollo
+  # on the first hades sleep and never migrates back, so this is just making
+  # the steady state the starting state.
+  - target:
+      kind: Deployment
+      name: local-path-provisioner
+    patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value: { homelab/node: apollo }
   - target:
       kind: StorageClass
       name: local-path

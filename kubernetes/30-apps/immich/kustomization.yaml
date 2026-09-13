@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: immich
+
+resources:
+  - immich.yaml
+
+patches:
+  - target: { kind: Deployment }
+    patch: &hades |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value: { homelab/node: hades }
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute }
+          - { key: node.kubernetes.io/not-ready,  operator: Exists, effect: NoExecute }
+  - target: { kind: StatefulSet }
+    patch: *hades

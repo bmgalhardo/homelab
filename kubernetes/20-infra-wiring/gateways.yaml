@@ -7,6 +7,17 @@ metadata:
     cert-manager.io/issuer: vault
 spec:
   gatewayClassName: nginx
+  # Pin the LoadBalancer address. Hermes' dnsmasq hardcodes
+  # *.bgalhardo.internal -> 192.168.1.200, so this Gateway must hold .200; a
+  # plain pool hands out addresses in request order, and on the first deploy
+  # `external` took .200 and every internal hostname pointed at the
+  # internet-facing listener.
+  #
+  # NGF copies spec.infrastructure.annotations onto the Service it creates for
+  # this Gateway (buildLabelsAndAnnotations, v2.7.0), where MetalLB reads them.
+  infrastructure:
+    annotations:
+      metallb.io/loadBalancerIPs: 192.168.1.200
   listeners:
   - name: http
     protocol: HTTP
@@ -41,6 +52,10 @@ metadata:
     cert-manager.io/issuer: letsencrypt
 spec:
   gatewayClassName: nginx
+  # *.bgalhardo.com -> 192.168.1.201 (see the internal Gateway above).
+  infrastructure:
+    annotations:
+      metallb.io/loadBalancerIPs: 192.168.1.201
   listeners:
   - name: https
     protocol: HTTPS

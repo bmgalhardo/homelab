@@ -102,8 +102,7 @@ data:
                 "Port": 5432,
                 "MaintenanceDB": "postgres",
                 "Username": "postgres",
-                "SSLMode": "verify-ca",
-                "SSLRootCert": "/etc/ssl/certs/ca.crt",
+                "SSLMode": "disable",
                 "Shared": true,
                 "SharedUsername": "postgres"
             }

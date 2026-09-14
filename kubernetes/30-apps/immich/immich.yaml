@@ -216,7 +216,7 @@ spec:
   mount: kv
   path: apps/immich
   destination:
-    name: immich-db
+    name: db-password
     create: true
   refreshAfter: 30s
 ---

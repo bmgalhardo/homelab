@@ -119,6 +119,9 @@ spec:
           value: /certs/ca.crt
         image: ghcr.io/immich-app/immich-server:v2.3.1
         imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 2283
         livenessProbe:
           failureThreshold: 3
           httpGet:

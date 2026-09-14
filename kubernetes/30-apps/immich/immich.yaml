@@ -111,8 +111,8 @@ spec:
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: immich-db
-              key: password
+              name: immich-db-password
+              key: db_password
         - name: IMMICH_IGNORE_MOUNT_CHECK_ERRORS
           value: "true"
         - name: NODE_EXTRA_CA_CERTS
@@ -216,7 +216,7 @@ spec:
   mount: kv
   path: apps/immich
   destination:
-    name: db-password
+    name: immich-db-password
     create: true
   refreshAfter: 30s
 ---

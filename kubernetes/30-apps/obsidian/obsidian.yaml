@@ -3,16 +3,6 @@ kind: Namespace
 metadata:
   name: obsidian
 ---
-# The vault (your notes) plus Obsidian's own app config.
-#
-# local-path, deliberately — NOT virtiofs. virtiofs volumes only exist on
-# elysium-hades, and hades is power-managed: notes on hades are unreachable
-# whenever it sleeps. Notes have to be always-on, so they live on the Apollo
-# node's local-path volume.
-#
-# That makes this volume VOLATILE: local-path is a plain node-local directory
-# with no replication. If the Apollo node is lost, this is lost. The backup
-# CronJob below is what makes that acceptable — see README.md.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -24,8 +14,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      # local-path does not enforce this — it provisions a plain directory,
-      # so the request documents intent. Notes are text; 5Gi is generous.
       storage: 5Gi
 ---
 apiVersion: apps/v1
@@ -35,10 +23,6 @@ metadata:
   namespace: obsidian
 spec:
   replicas: 1
-  # Recreate, not RollingUpdate: the PVC is RWO and local-path pins it to one
-  # node, so a second pod would block forever waiting for the volume.
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: obsidian
@@ -47,21 +31,6 @@ spec:
       labels:
         app: obsidian
     spec:
-      # NOTE on seccomp: Obsidian is Electron, and the usual advice is to run it
-      # with seccomp unconfined so the Chromium sandbox works. That is NOT
-      # possible here as written: this cluster enforces PodSecurity `baseline`
-      # cluster-wide, which rejects seccompProfile.type=Unconfined outright —
-      # the pod is refused at admission and never schedules.
-      #
-      # So we run under the default profile and let the image handle its own
-      # sandboxing. If the Chromium renderer turns out to fail, the fix is to
-      # opt this namespace out of baseline, the way local-path-storage and
-      # metallb-system already do:
-      #
-      #   metadata.labels:
-      #     pod-security.kubernetes.io/enforce: privileged
-      #
-      # on the Namespace above, and then restore the seccompProfile block.
       containers:
       - name: obsidian
         image: lscr.io/linuxserver/obsidian:latest
@@ -106,8 +75,8 @@ spec:
   selector:
     app: obsidian
   ports:
-    - port: 80
-      targetPort: http
+    - name: http
+      port: 80
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

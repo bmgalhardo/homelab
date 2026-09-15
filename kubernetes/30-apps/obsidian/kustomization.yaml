@@ -6,8 +6,7 @@ resources:
   - obsidian.yaml
 
 # Always-on tier -> pin to the Apollo worker. Notes must stay reachable when
-# hades is asleep, which is also why the vault is on local-path rather than
-# virtiofs (see obsidian.yaml).
+# hades is asleep
 patches:
   - target: { kind: Deployment }
     patch: |

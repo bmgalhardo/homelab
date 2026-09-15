@@ -38,8 +38,13 @@ Obsidian reopens the vault in place; there is no import step.
 
 ## Container notes — each of these costs an evening if missed
 
-- **`seccompProfile: Unconfined`** — Obsidian is Electron and will not start
-  under the default seccomp profile.
+- **seccomp: do NOT set `Unconfined`.** The usual Electron advice is to run
+  seccomp unconfined, but this cluster enforces PodSecurity `baseline`
+  cluster-wide and rejects it at admission — the pod is refused and never
+  schedules (`violates PodSecurity "baseline:latest"`). If the Chromium
+  renderer turns out to need it, label the Namespace
+  `pod-security.kubernetes.io/enforce: privileged` first, the way
+  `local-path-storage` and `metallb-system` do.
 - **`/dev/shm` is a 1Gi memory emptyDir** — the 64Mi default makes the
   Chromium renderer crash on larger vaults.
 - **`strategy: Recreate`** — the PVC is RWO and local-path pins it to one

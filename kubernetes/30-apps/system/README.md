@@ -13,6 +13,19 @@ Exposed on the **external** Gateway (`couchdb.bgalhardo.com`) so the phone
 syncs away from home. Enable LiveSync's End-to-End Encryption: the server
 then stores only ciphertext.
 
+### Why it runs as 5984 and not root
+
+The image runs as root by default and its entrypoint does
+`find /opt/couchdb \! \( -user couchdb -group couchdb \) -exec chown -f ...`.
+Kubernetes mounts ConfigMap volumes **read-only**, so that chown fails on the
+mounted `local.ini`. `-f` suppresses the error *message* but not the exit
+status, and the script runs under `set -e` — so the container exits 1 having
+printed **nothing at all**, on stdout or stderr.
+
+Running as 5984 skips the entire root-only block. Verified by reproducing it
+with docker on athena: identical config exits 1 silently with `:ro`, exits 0
+with `:rw`, and exits 0 with `:ro` plus `--user 5984:5984`.
+
 ### Before first use
 
 ```sh

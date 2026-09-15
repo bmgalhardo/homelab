@@ -23,6 +23,8 @@ metadata:
   namespace: obsidian
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: obsidian
@@ -41,9 +43,6 @@ spec:
           value: "1000"
         - name: TZ
           value: Europe/Lisbon
-        ports:
-        - name: http
-          containerPort: 3000
         volumeMounts:
         - name: config
           mountPath: /config
@@ -76,7 +75,7 @@ spec:
     app: obsidian
   ports:
     - name: http
-      port: 80
+      port: 3000
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -95,7 +94,7 @@ spec:
   rules:
   - backendRefs:
     - name: obsidian
-      port: 80
+      port: 3000
     matches:
     - path:
         type: PathPrefix

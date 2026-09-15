@@ -146,6 +146,11 @@ data:
           icon: alloy.png
           href: http://alloy.bgalhardo.internal
           siteMonitor: http://alloy.monitoring:12345
+    - Personal:
+      - Obsidian:
+          icon: obsidian.png
+          href: https://obsidian.bgalhardo.internal
+          siteMonitor: http://obsidian.obsidian
   bookmarks.yaml: |
     - Developer:
       - Github:

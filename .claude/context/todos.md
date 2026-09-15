@@ -2,6 +2,93 @@
 
 ## P0: Critical (Blocking)
 
+### ⛔ There Is Effectively One Copy Of Everything (found 2026-09-15)
+- **Task:** ZFS snapshots on `odin`, then replication to TrueNAS. Nothing
+  else in the backup plan matters until this exists.
+- **Evidence gathered 2026-09-15 on hades — this is measured, not assumed:**
+  ```
+  zfs list -t snapshot   ->  odin/photos@backup-2025-12-03T16:48:20   (ONE, from December)
+  zfs list -t bookmark   ->  none
+  sanoid/syncoid         ->  not installed
+  zfs cron               ->  trim + scrub only. no replication.
+  ```
+- **What that means:** `zfs send` sends a *snapshot*, and incrementals leave
+  bookmarks or holds. There are none. So:
+  - The only dataset that could ever have been ZFS-replicated is
+    `odin/photos`, as of **2025-12-03** (~9 months stale).
+  - **`odin/backups` (40.2G) has never been snapshotted, so it has never been
+    ZFS-replicated at all.** That dataset holds `phd_thesis`, `CV`,
+    `design_jobs`, `fatima`, `LIP`, `arquivo`, `print-n-play`, `work_curso`
+    *plus* the home-assistant / plex / sabnzbd / mongo app backups.
+  - If TrueNAS holds copies they came from rsync or a one-off, not ongoing
+    replication.
+- **The mirror is not a backup.** RAID-1 on `odin` protects against a disk
+  dying. It does nothing against deletion, corruption, ransomware or a
+  pool-level mistake. Right now that is the only protection in place.
+- **Order of work:**
+  1. `sanoid` on `odin/{photos,backups}` — snapshots + retention. ~30 min,
+     covers everything already on hades including the personal archives.
+  2. Replication to TrueNAS (`syncoid`, or TrueNAS-side replication tasks).
+     TrueNAS is power-managed and was offline 2026-09-15 — the schedule has
+     to tolerate the target being asleep.
+  3. Only then the k8s backup plumbing below. Copies with no snapshot
+     history to land in are not worth building first.
+- **Decided 2026-09-15: keep TrueNAS, do NOT rebuild it as Proxmox.** A
+  backup target should have *uncorrelated* failure modes — a ZFS bug, bad
+  kernel update or operator error that kills Proxmox-on-hades would hit an
+  identical stack on the backup box simultaneously. That is the "2 different
+  media/formats" leg of 3-2-1. TrueNAS also ships snapshot scheduling,
+  replication, retention, SMART monitoring and alerting in the UI, which is
+  exactly what is missing. Both are OpenZFS so `zfs send`/`recv` interop is a
+  non-issue. **Only reason to revisit:** wanting the backup box to double as
+  a warm standby that can boot restored VMs (changes RTO materially).
+
+### k8s local-path Is Volatile And Unbacked (found 2026-09-15)
+- **Task:** backup plumbing for k8s state. Blocked on the P0 above.
+- **Model:** treat `local-path` as **volatile**. Manifests come back from git
+  via Flux; only *data* needs restoring. Node dies -> rebuild + restore.
+- **Current exposure is small:** immich photos/cache are on virtiofs (hades),
+  immich DB is on the postgres VM (has `pg_backup`), and redis/pgadmin/
+  homepage/cloudflare-ddns are stateless. The only live local-path volume is
+  ollama models, which are regenerable. **`obsidian` (deployed 2026-09-15)
+  is the first genuinely irreplaceable local-path volume.**
+- **Grows when `_parked/` is unparked:** plex (20Gi), sonarr, radarr,
+  sabnzbd, overseerr and home-assistant all put `/config` on local-path.
+- **Two different designs, because of node locality:**
+  - **Apollo-pinned apps (obsidian, home-assistant)** — virtiofs volumes
+    mount on `elysium-hades` ONLY, and a local-path PVC can only be mounted
+    from the node holding it. **No single pod can mount both**, so an
+    in-cluster Apollo->hades file copy is impossible. Backup must leave the
+    node over the network: git push (ideal for markdown — adds per-change
+    history) or restic/rsync. A bare repo on hades works as the remote and
+    lands on ZFS; GitHub adds the off-site leg. GitHub free has unlimited
+    private repos but ~1GB/repo soft limit and a hard 100MB per-file cap, so
+    it suits text vaults, not attachment-heavy ones.
+  - **hades-pinned apps (plex, *arr)** — their local-path lives on the hades
+    node, where virtiofs also is, so one pod can mount both (RWO means one
+    *node*, not one pod). Plain CronJob copy, no network hop.
+- **SQLite is the trap.** Plex, sonarr, radarr, overseerr are all SQLite in
+  WAL mode (3 files: `.db`, `.db-wal`, `.db-shm`). Copying the live file can
+  restore corrupt. **Back up the app's own backup output, not its live data
+  dir** — Plex has Settings -> Scheduled Tasks -> Backup Database; the *arr
+  apps have Settings -> General -> Backups. A ZFS snapshot is atomic and
+  therefore crash-consistent (equivalent to power loss, which SQLite normally
+  survives) — acceptable as a floor, not as the plan.
+- **Do NOT virtiofs-mount `/odin/backups` into the cluster.** It mixes app
+  backups with personal archives (thesis, CV, design work), and Plex/sabnzbd
+  ingest untrusted content. Create a dedicated dataset instead:
+  `zfs create odin/k8s-backups && zfs set quota=200G odin/k8s-backups`, then
+  a virtiofs mount + PV for that alone.
+- **Never mount the backup target into the app pod** — only into the backup
+  job. An unavailable volume would otherwise hang the app in
+  `ContainerCreating`.
+- **Alert on freshness, not job success.** hades and TrueNAS are both
+  power-managed, so a job failing because the target is asleep is expected,
+  not an incident. The backup job should exit 0 with a log line when the
+  target is unreachable; Argus then alerts on *staleness* of the newest
+  backup. This is already a planned Argus fact probe (`argus.md`).
+
+
 ### Nothing in This Stack Auto-Renews ⛔
 - **Task:** Recognize this as a systemic pattern, not one-off bugs, and
   prioritize renewal automation accordingly
@@ -142,19 +229,184 @@
   Vault-managed.
 - **Status:** Not started. Private LAN only, so not urgent.
 
-### K8s (hal9000) Rebuild Prep
-- **Task:** Grant Claude access to `talosctl` and `omnictl`
-- **Why:** hal9000 (Talos k8s cluster) is being rebuilt from scratch later;
-  `infra/hal9000/` is intentionally untouched for now (2026-08-21 decision)
-- **Status:** Not started — user to set up access when ready
-- **Note:** User is installing `kubectl` locally in the meantime to check
-  current cluster status by hand
-- **Rename at rebuild (decided 2026-09-08):** `hal9000` → **`elysium`**
-  (the blessed realm — fits the app layer above the Olympus VM substrate;
-  drops the odd 2001 reference). Don't rename the live cluster — do it as
-  part of the from-scratch rebuild: `infra/hal9000/` → `infra/elysium/`,
-  Omni/Talos cluster name, kubeconfigs, `kubernetes/` refs, docs. Also
-  consider deity names for the Talos nodes instead of `control-1`/`worker-1`.
+### K8s Rebuild: hal9000 → elysium (Flux + infra DONE 2026-09-14)
+- **Status 2026-09-14:** cluster up, Flux bootstrapped, all three tiers green.
+  MetalLB/NGF/cert-manager/VSO installed; both Gateways programmed with
+  **pinned** IPs (internal `.200`, external `.201`); certs issuing from both
+  the Vault CA and Let's Encrypt; VSO reading `kv/infra/*` + `kv/apps/*`.
+  `system` + `immich` + `ai` deployed. Old hal9000 VMs still **stopped**, not
+  destroyed.
+- **Access:** `kubectl` via `~/.kube/config` (Omni OIDC, context
+  `omni-elysium`). `.claude/secrets/omni.env` was removed; `omnictl` uses the
+  interactive session, and `talosctl`'s Omni-issued key **expires often** —
+  re-issue with `omnictl talosconfig -c elysium` before any talosctl work.
+  `kubectl` needs the `kubectl-oidc_login` plugin: it must be **int128/kubelogin**
+  installed under that exact filename, NOT Azure's identically-named `kubelogin`
+  (wrong flags → `unknown flag: --oidc-issuer-url`).
+- **Assistant/automation access:** scoped read-only ServiceAccount in
+  `kubernetes/20-infra-wiring/rbac-claude.yaml`, kubeconfig via
+  `infra/elysium/make-claude-kubeconfig.sh`. See CLAUDE.md.
+- **Superseded 2026-09-11 status:** cluster synced and up (`omnictl cluster
+  template sync`), all 3 machines labeled + matched via
+  `infra/elysium/omni/machineclasses.yaml`. Old hal9000 VMs are
+  **stopped** (not yet destroyed — keep until elysium is proven). Next:
+  Flux bootstrap (README step 6).
+- **Scaffolding** (`infra/elysium/` + restructured `kubernetes/`, runbook
+  `infra/elysium/README.md`, GitOps `kubernetes/flux/README.md`):
+  - `infra/elysium/terraform/` — 3 VMs: `elysium-cp` (apollo 2c/4G/20G),
+    `elysium-apollo` (apollo 2c/4G/40G), `elysium-hades` (hades 4c/8G/40G)
+  - `infra/elysium/omni/cluster.yaml` — ClusterTemplate, **Talos v1.14.0 /
+    k8s v1.37.0** (pinned — fixes virtiofs+SELinux #13245), Flannel
+    (Talos default) + kube-proxy, local-path storage, virtiofs on Hades
+  - **GitOps: Flux.** `kubernetes/` restructured →
+    `flux/clusters/elysium/` (root Kustomizations) →
+    `10-infra-base/` (HelmReleases + CRDs) → `20-infra-wiring/`
+    (the CRs those CRDs enable + cluster-wide plumbing) →
+    `30-apps/{system,home,mediacenter,immich}/` (per-app kustomizations
+    with node-placement patches). Undecided apps → `30-apps/_parked/`
+    (not built). Tier dirs renamed from `infrastructure/{controllers,
+    configs}` + `apps` on 2026-09-12, one root Kustomization file per
+    tier so tiers can be enabled one commit at a time.
+  - Deleted: `longhorn/`, `monitoring/{loki,grafana}/`, the raw
+    cert-manager/VSO manifests. `metallb/`/`nginx-fabric/` were also
+    deleted, then **re-added 2026-09-11 as Flux HelmReleases**
+    (`kubernetes/10-infra-base/{metallb,nginx-gateway-fabric}.yaml`)
+    after reversing the Cilium decision — see CNI bullet below.
+  - Global: `kv/hal9000/*` → `kv/elysium/*` in all VaultStaticSecrets;
+    `storageClassName: longhorn` → `local-path`. `gatewayClassName` is
+    `nginx` (reverted from a brief `cilium` detour, see below).
+  - **CNI reversed 2026-09-11: Flannel + MetalLB + nginx-gateway-fabric,
+    NOT Cilium.** Cilium was the original plan (also does kube-proxy
+    replacement/Gateway API/LB IPAM in one chart) but got dropped because
+    replacing the CNI means it can't be an ordinary Flux app — it needs a
+    manual by-hand install *before* Flux exists (chicken/egg), which is
+    exactly the bootstrap pain this rebuild was trying to remove, plus
+    strict version pinning. Flannel/kube-proxy are Talos defaults (zero
+    config); MetalLB + nginx-gateway-fabric (2.7.0, Gateway API v1.6.1)
+    don't have the chicken/egg problem and are plain HelmReleases. Full
+    reasoning in the `k8s-rebuild-elysium` memory.
+- **Storage model:** `local-path` (Talos user volume) for pod state. Hades
+  media kept as **separate disks** (no mergerfs): sdc=Series → `/mnt/series`,
+  sdd=Movies → `/mnt/movies` (`downloads` also lives here, for hardlinked
+  movie imports), `odin/photos` — all 4 via **virtiofs** → `elysium-hades`
+  only. NFS on Hades turned off. Immich DB stays on the `postgres` VM.
+- **Gotcha found this session:** self-hosted Omni's machine-api uses a
+  private-CA cert; `omnictl download` (deprecated) can't embed a custom CA
+  into installer media, so freshly-booted nodes silently never register
+  (no error either side). Fixed via `omnictl media preset create
+  --embedded-machine-config-file` (bakes `TrustedRootsConfig` into the ISO).
+  Full writeup in the `k8s-rebuild-elysium` memory + README step 2.
+- **Open, non-blocking:** `EventsSinkController` on the Talos nodes times
+  out dialing Omni's event-sink (port 8091) over the SideroLink WireGuard
+  tunnel (`i/o timeout`), even though registration (port 8090, pre-tunnel)
+  and the cluster bring-up itself work fine. Likely cause: the VM/host
+  firewall for wherever the `omni` container runs allows TCP 443/8090/
+  8091/8100 but never got a rule for **UDP/5018** (the actual WireGuard
+  port, `--siderolink-wireguard-advertised-addr`) — same "add-one-more-
+  privilege" pattern as the Proxmox token saga. Check
+  `/etc/pve/firewall/<omni-vmid>.fw` for a `udp dport 5018` ACCEPT.
+  Fallback if it's not firewall: rebuild the media preset with
+  `--use-siderolink-grpc-tunnel` (tunnels everything over the already-
+  working TCP/8090 connection instead of raw UDP — adds overhead, so
+  firewall fix is preferred). Not blocking cluster bring-up, just live
+  event/log streaming from nodes to Omni.
+- **Backups taken** (`hades:/odin/backups/`): home-assistant, plex, sabnzbd.
+  mongo (7GB, unknown app) backed up but **not** being restored.
+- **Remaining before cutover:** restore data + per-app manifest edits
+  (`kubernetes/30-apps/README.md`), un-park `home/` and `mediacenter/`, then
+  destroy the stopped hal9000 VMs + `git rm -r infra/hal9000`.
+  Vault re-auth and Flux bootstrap are **done**.
+
+#### Disk layout — rebuilt 2026-09-13/14 after a DiskPressure incident
+Two disks per worker now, and this is the shape to keep:
+- `scsi0` 40G — Talos + **EPHEMERAL, uncapped** (~37G usable). EPHEMERAL backs
+  *both* the container image store and `/var/lib/kubelet`, so images, container
+  writable layers, pod logs and emptyDirs all compete for it.
+- `scsi1` 100G (hades) / 60G (apollo) — the `local-path` user volume, i.e. all
+  PVCs. Separate disk so EPHEMERAL can own scsi0 outright, Proxmox can snapshot
+  PVC data on its own volume, and a node reset keeps it.
+- **What went wrong:** EPHEMERAL was capped at `maxSize: 12GB` with the
+  `local-path` user volume provisioned immediately *after* it on the same disk.
+  Images alone reached 5.8G. Raising the cap was impossible — a partition can
+  only grow into adjacent free space, and the user volume was in the way. A
+  `diskSelector` change does **not** migrate or destroy an existing volume, so
+  syncing the template achieved nothing; the system disk had to be re-laid-out.
+  Fixed by `terraform apply -replace=...` on both workers.
+- **Two unbounded writers made it acute** (both fixed): ollama's models on an
+  `emptyDir`, and immich-ml downloading CLIP models into its container writable
+  layer with no volume at all. Eviction then became self-sustaining — evicted
+  pod → ReplicaSet recreates → image pulled again → evicted, leaving 67 dead
+  pods whose logs and layers were ~3.4G of the 12G. **Terminated pods are only
+  GC'd at 12,500 cluster-wide**, so they accumulate forever here; delete them by
+  hand (`kubectl delete pods -n <ns> --field-selector status.phase=Failed`).
+- **local-path PVs do not survive a node rebuild** — they carry `nodeAffinity`
+  to a node name that no longer exists and the pod stays Pending forever. Delete
+  the PVC and let it reprovision. Matters before Home Assistant's SQLite lands
+  there: that becomes a restore, not a re-download.
+- **`terraform apply -replace` silently drops the virtiofs devices** (telmate
+  can't express them). Re-add all five afterwards or immich fails with
+  `path "/var/mnt/photos" does not exist`:
+  `qm set 1102 --virtiofs0 dirid=series,cache=auto ... --virtiofs4 dirid=immich-cache,cache=auto`
+
+#### Gotchas found bringing Flux up (all fixed, worth not re-learning)
+- **Talos enforces PodSecurity `baseline` cluster-wide.** MetalLB's speaker/frr
+  and local-path's helper pods need `pod-security.kubernetes.io/enforce:
+  privileged` on their namespaces. Without it MetalLB's controller runs while
+  the DaemonSets get zero pods and the Helm install hangs until timeout.
+- **cert-manager ignores Gateways unless `config.gatewayAPI.enabled: true`.**
+  It fails *silently* — no Certificate object is ever created, and the only
+  signal is the absence of one. The flag arrives as a ConfigMap
+  (`--config=...`), not a CLI arg, so grepping container args is a false negative.
+- **MetalLB hands out pool addresses in request order.** On the first deploy
+  `external` took `.200` — the address dnsmasq points `*.bgalhardo.internal` at.
+  Pinned via Gateway `spec.infrastructure.annotations`
+  (`metallb.io/loadBalancerIPs`), which NGF copies onto the Service. Splitting
+  the pool into per-gateway `/32`s also works but **cannot be rolled out in one
+  commit**: MetalLB's webhook rejects overlapping CIDRs and Flux dry-runs the
+  whole set against current state.
+- **VSO chart 1.5.1 can't own its own CRs.** `defaultAuthMethod` renders
+  `spec.namespace` as YAML null (CRD demands a string) and `defaultVaultConnection`
+  makes the Helm release wait on a VaultConnection that can't be healthy until
+  Vault trusts the cluster — which would stall tier 1 forever. Both disabled;
+  `VaultConnection` + `VaultAuth` declared by hand in
+  `20-infra-wiring/vso-config.yaml`. `allowedNamespaces: ["*"]` is required or
+  only the operator's own namespace may use them.
+- **`Issuer` is namespaced** and tier 2 sets no default namespace. A missing
+  `namespace:` surfaces as `the server could not find the requested resource`,
+  which reads like a missing CRD. Rule: that error on a CRD that clearly exists
+  = missing namespace (a genuinely absent CRD says `no matches for kind`).
+- **Vault KV paths reorganised**: `kv/hal9000/*` → `kv/infra/*` (homelab-wide:
+  root-ca, the three Cloudflare tokens) + `kv/apps/*` (per-app credentials).
+  Nothing is keyed by cluster name any more, so the next rebuild copies no
+  secrets. Policy grants both prefixes. Note KV v2's two spellings: policies use
+  `kv/data/<path>`, the CLI uses `kv/<path>`.
+
+#### Browser-only TLS failure — split-horizon DNS vs Cloudflare ECH (fixed 2026-09-14)
+`immich.bgalhardo.com` failed in Firefox with `SSL_ERROR_UNRECOGNIZED_NAME_ALERT`
+while curl worked perfectly. dnsmasq overrides the **A** record to the local
+origin but let the **HTTPS/SVCB (type 65)** record fall through to Cloudflare —
+and that record advertises **ECH**. Firefox enabled ECH and sent outer SNI
+`cloudflare-ech.com` to our nginx, which answered `unrecognized_name`
+(`handshake rejected while SSL handshaking` in the NGF log). curl is unaffected
+because it doesn't do ECH. Fixed with `filter-rr=65` in
+`infra/hermes/dnsmasq.d/custom.conf` (needs dnsmasq ≥ 2.90; hermes runs 2.92).
+**Lesson: a partial split-horizon override is a bug** — overriding A while
+letting the record that says *how to connect* come from upstream.
+
+Related, still open: the `address=/.bgalhardo.internal/192.168.1.200` wildcard
+answers for **any** name under it, so a search-domain-suffixed
+`immich.bgalhardo.com.bgalhardo.internal` resolves to the *internal* gateway.
+Same class of trap as the "missing record + catch-all wildcard" P0 below.
+- **Also at rebuild:** deity names for the Talos nodes if wanted; decide
+  keep-or-archive for `home/` voice stack, `gaming/`, `ai/`, `nvidia/`.
+- **K8s node labels confirmed working 2026-09-11** (`kubectl get nodes
+  --show-labels` — `-o wide` doesn't show them): `elysium-apollo` and
+  `elysium-hades` both carry `homelab/node`/`homelab/power` via
+  `KubeNodeConfig` patches (`omni/patches/labels-{apollo,hades}.yaml`) on
+  their Workers blocks in `cluster.yaml`. The control-plane node has no
+  `homelab/node` label (no labels patch on the ControlPlane block) — minor
+  gap, trivial to add if wanted. Same pattern for a future GPU node: a new
+  `KubeNodeConfig` patch on whichever machine set it lands in.
 
 ### ~~Proxmox Read-Only API Access Still Broken~~ ✅ Fixed 2026-08-25
 - Upgrading PVE (9.2.3 → 9.2.11) did **not** fix token-scoped ACL
@@ -265,10 +517,99 @@
   months" issues this session kept surfacing
 
 ### K8s High Availability
-- **Task:** 3-node control plane (Pi4 as 3rd node)
-- **Effort:** 2-3 weeks
-- **Status:** Not planned yet
-- **Benefit:** True HA for K8s control plane
+- **Task:** 3-node control plane. Design refined 2026-09-11 — drop the
+  "Pi4 as 3rd node" idea (SD card = bad etcd fsync latency, documented
+  risk of corruption/quorum flakiness); a lone CP node should be small,
+  cheap, **bare metal** (no Proxmox — Talos is the OS, a hypervisor here
+  just adds a second thing to patch/secure for no benefit), with real
+  storage (NVMe/eMMC, not SD).
+- **Right-sized hardware target:** ~2 cores / 4-8GB RAM (elysium-cp's own
+  VM allocation is 2c/4G — a dedicated box doesn't need more).
+  Don't buy Apollo-class (4c/16GB) for this — wasted idle capacity.
+  Options, cheapest/simplest first:
+  - a **smaller N100/N150 mini PC** at a lower RAM config (4-8GB, not 16)
+    — x86, no arch mixing, onboard NVMe/eMMC
+  - **Pi5 4GB + official NVMe HAT + small NVMe** — Pi5's PCIe lane makes
+    this legit (unlike Pi4's USB3-only path); genuinely solves the SD
+    problem if a Pi is preferred
+  - **Odroid H3/H4** low-RAM variant — x86 SBC built for exactly this
+    "Pi-shaped but real storage" niche
+- **Depends on:** the netboot/PXE project below — makes a bare-metal CP
+  node reprovision-friendly without needing Proxmox's convenience
+- **Effort:** 2-3 weeks (unchanged) + hardware purchase
+- **Status:** Not planned yet — design refined, hardware not bought
+- **Benefit:** True HA for K8s control plane, independent of Apollo
+
+### Re-introduce netboot/PXE for provisioning (2026-09-11)
+- **Task:** Bring back TFTP/PXE boot — MAC-keyed, so Terraform (which
+  already declares each VM's MAC) stays the single source of truth for
+  "what should exist," and network boot handles "what image does it get."
+  Removes the manual ISO-download-then-upload-to-Proxmox step for every
+  future VM rebuild, and gives Pi provisioning (Hermes-style Alpine
+  diskless) the same treatment.
+- **Why now:** came out of the elysium rebuild — `omnictl media` presets
+  (see `infra/elysium/omni/media-preset.yaml`) can be served over PXE
+  directly from Omni (`omnictl media download <preset> --format pxe`),
+  no per-node ISO management at all.
+- **Shape:**
+  - Hermes dnsmasq → **ProxyDHCP mode** (`dhcp-range=192.168.1.0,proxy`) +
+    `enable-tftp`/`dhcp-boot`/`pxe-service` — DHCP itself stays on the
+    UDM, ProxyDHCP only answers the boot-filename question. The
+    directives already exist commented-out in `infra/hermes/dnsmasq.d/custom.conf`.
+  - TFTP serves a first-stage loader (`undionly.kpxe`/`ipxe.efi`) →
+    chainloads to Omni's PXE URL for Talos machines.
+  - Alpine netboot (diskless install) as a second boot-menu entry, for
+    Hermes-style Pi provisioning.
+- **Note:** `infra/olympus/services/tftp-server/` was deleted 2026-09-08
+  as unused — this supersedes that decision with an actual active use.
+- **Flagged 2026-09-11 (elysium rebuild): auto-label machines at boot via
+  MAC-keyed per-role presets, replacing the manual Omni-UI labeling step.**
+  `omnictl media preset create --initial-labels key=value` bakes an Omni
+  machine label into a preset — a machine registers pre-labeled, no UI
+  click needed, and it's IaC-friendly (every Terraform-recreated VM
+  re-registers as a new machine and picks the label up again
+  automatically, unlike hand-pasting a UUID into `cluster.yaml`).
+  Doing this with static ISOs today would mean managing 3 separate ISO
+  files (one per role) — rejected for the current elysium build, labeling
+  done manually in the Omni UI instead. netboot removes that cost: PXE
+  can pick the boot-filename (and thus which preset/role-labeled image)
+  **per MAC**, so each of the 3 elysium VMs' already-static MACs
+  (`infra/elysium/terraform/configs.auto.tfvars.json`) maps to its own
+  labeled preset with zero extra file management. Supersedes the "all
+  Talos nodes share one preset/image" idea above — do 3 presets
+  (`elysium-cp`/`elysium-apollo`/`elysium-hades`), each with
+  `--initial-labels elysium/role=<role>`, MAC-keyed at the PXE
+  boot-filename step.
+- **Effort:** small — a few hours, mostly dnsmasq config + testing
+- **Status:** Not started — scoped out during the elysium rebuild,
+  deliberately kept separate from it
+- **Benefit:** no more manual ISO upload/attach per VM, ever; makes
+  bare-metal (non-Proxmox) nodes as easy to reprovision as a VM
+
+### GitOps Pipeline for Omni ClusterTemplate (`cluster.yaml`)
+- **Task:** Automate `omnictl cluster template sync -f
+  infra/elysium/omni/cluster.yaml` on push, instead of running it by hand.
+- **Why it's not just "add it to Flux":** Flux reconciles resources
+  *inside* the k8s API server (pull-based, because the cluster can reach
+  GitHub outbound but nothing needs to reach in). `cluster.yaml` targets
+  Omni's own API on a separate VM, authenticated with an **Omni service
+  account** (`omnictl serviceaccount create`) — a completely different
+  credential Flux never touches, and Omni is only reachable on the
+  internal LAN (`omni.bgalhardo.internal`, no public ingress).
+- **Implication:** a GitHub-hosted Actions runner can't reach Omni at
+  all — this needs a **self-hosted runner** living inside the LAN (same
+  reachability constraint that makes Flux pull-based in the first place).
+- **Blast-radius concern:** `cluster.yaml` changes carry far more risk
+  than an app deploy — this session's whole CNI-patch debugging saga
+  (multiple `omnictl cluster template sync` failures from Talos 1.14
+  multi-doc config conflicts) is a live example of what a bad patch does.
+  Leaning toward: pipeline runs `omnictl cluster template sync --dry-run`
+  automatically on every push (drift/errors visible immediately, same
+  value `--dry-run` gave during the rebuild), but keep the actual apply
+  manual or behind explicit approval, at least until the template's been
+  stable for a while.
+- **Status:** Design discussion only (2026-09-11) — not started, no
+  runner set up yet.
 
 ### Agentic DNS Controller
 - **Task:** Autonomous DNS based on infrastructure state
@@ -320,6 +661,14 @@
 - **P2 Medium:** Multiple specs to fill, deployments to plan
 - **P3 Nice-to-Have:** 4 future enhancements
 - **Decision Rate:** 7 made, 5 pending
+
+**elysium (2026-09-14):** Flux + infrastructure done. `system`/`immich`/`ai`
+deployed; `home`/`mediacenter` still parked pending data restore. Postgres TLS
+was started then deliberately reverted — the pgadmin client is back to
+`SSLMode: disable` and `infra/olympus/services/postgres/vault-agent/` is
+written but **not wired in**. Note the compose file still carries `ssl=on`
+uncommitted: deploying it before the Vault AppRole exists stops postgres from
+starting at all.
 
 **Next Step:** Build Vault raft snapshot automation + offsite shipping
 for both Vault and Postgres backups (a manual Vault snapshot was taken

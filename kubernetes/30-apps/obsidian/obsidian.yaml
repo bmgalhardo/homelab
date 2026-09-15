@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: obsidian
+---
+# The vault (your notes) plus Obsidian's own app config.
+#
+# local-path, deliberately — NOT virtiofs. virtiofs volumes only exist on
+# elysium-hades, and hades is power-managed: notes on hades are unreachable
+# whenever it sleeps. Notes have to be always-on, so they live on the Apollo
+# node's local-path volume.
+#
+# That makes this volume VOLATILE: local-path is a plain node-local directory
+# with no replication. If the Apollo node is lost, this is lost. The backup
+# CronJob below is what makes that acceptable — see README.md.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: obsidian-config
+  namespace: obsidian
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # local-path does not enforce this — it provisions a plain directory,
+      # so the request documents intent. Notes are text; 5Gi is generous.
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obsidian
+  namespace: obsidian
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: the PVC is RWO and local-path pins it to one
+  # node, so a second pod would block forever waiting for the volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: obsidian
+  template:
+    metadata:
+      labels:
+        app: obsidian
+    spec:
+      securityContext:
+        # Obsidian is Electron. Its sandbox needs syscalls the default seccomp
+        # profile blocks, and the app fails to start without this.
+        seccompProfile:
+          type: Unconfined
+      containers:
+      - name: obsidian
+        image: lscr.io/linuxserver/obsidian:latest
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: Europe/Lisbon
+        ports:
+        - name: http
+          containerPort: 3000
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: dshm
+          mountPath: /dev/shm
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 2Gi
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: obsidian-config
+      - name: dshm
+        # Electron/Chromium needs real shared memory; the default 64Mi /dev/shm
+        # makes the renderer crash on larger vaults.
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obsidian
+  namespace: obsidian
+spec:
+  selector:
+    app: obsidian
+  ports:
+    - port: 80
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: obsidian
+  namespace: obsidian
+spec:
+  hostnames:
+  - obsidian.bgalhardo.internal
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: internal
+    sectionName: https
+    namespace: system
+  rules:
+  - backendRefs:
+    - name: obsidian
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /

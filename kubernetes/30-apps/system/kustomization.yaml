@@ -4,6 +4,7 @@ namespace: system
 
 resources:
   - cloudflare-ddns.yaml
+  - couchdb.yaml
   - homepage.yaml
   - pgadmin.yaml
   - redis.yaml

@@ -147,10 +147,10 @@ data:
           href: http://alloy.bgalhardo.internal
           siteMonitor: http://alloy.monitoring:12345
     - Personal:
-      - Obsidian:
-          icon: obsidian.png
-          href: https://obsidian.bgalhardo.internal
-          siteMonitor: http://obsidian.obsidian
+      - Obsidian LiveSync:
+          icon: couchdb.png
+          href: https://couchdb.bgalhardo.com/_utils
+          siteMonitor: http://couchdb.system:5984
   bookmarks.yaml: |
     - Developer:
       - Github:

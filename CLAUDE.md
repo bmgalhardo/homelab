@@ -53,6 +53,10 @@ cannot read Secrets, exec into pods, or mutate anything. Identity declared in
 Ask before doing anything the scoped identity cannot do — don't reach for the
 admin context to work around a Forbidden.
 
+**Do not commit or push.** Leave changes in the working tree — the user
+reviews and commits. This holds even when the change is needed for a GitOps
+reconcile; say so and let the user push.
+
 **What RBAC does not protect**, so don't rely on it alone:
 - pod **logs** and pod **env vars** leak credentials the app puts there
 - shell access reads any file the user can read (`.claude/secrets/*`, Vault
@@ -64,9 +68,21 @@ use `secretKeyRef`, never an inline password in `env:`.
 ## Conventions
 
 **Code & Config:**
+- **Manifests and configs are not a logbook.** Keep YAML/HCL to the config
+  itself. No rationale, no incident history, no dated notes, no "do not
+  re-add X because Y". A comment earns its place only when the line is
+  actively misleading without it — and then it is one line.
+  Rationale belongs in the directory's `README.md`; incidents, decisions and
+  root causes belong in `.claude/context/`. Same rule this file states about
+  itself: keep it small, reference detailed docs, don't duplicate.
 - Terraform for VM provisioning (`infra/{olympus,elysium}/terraform`)
 - Static Docker Compose per VM for services (`infra/olympus/services/<name>/`)
 - K8s manifests in `kubernetes/`
+- **Any app or service with an `HTTPRoute` also gets an entry in the homepage
+  dashboard** (`kubernetes/30-apps/system/homepage.yaml`, `services.yaml`):
+  `icon`, `href` (the public hostname), and `siteMonitor` (the in-cluster
+  `http://<service>.<namespace>[:port]`). Adding the route without the tile
+  means the app exists but nothing links to it.
 - No sensitive data in git — `.env` per VM (gitignored), Vault for
   everything else. See `.gitignore` before adding anything under `infra/`
 

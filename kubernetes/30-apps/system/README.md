@@ -32,12 +32,13 @@ with `:rw`, and exits 0 with `:ro` plus `--user 5984:5984`.
 vault kv put kv/apps/couchdb username=admin password="$(openssl rand -base64 24)"
 ```
 
-Then create the system databases once (CouchDB 3 does not do this itself):
+The system databases (`_users`, `_replicator`) are created automatically —
+`[couchdb] single_node = true` in the ConfigMap handles it on first start. The
+startup log says "Missing system database _users" before it gets to them; that
+notice is expected and resolves within a few seconds.
 
-```sh
-kubectl -n system exec deploy/couchdb -- \
-  curl -s -XPUT http://$USER:$PASS@127.0.0.1:5984/{_users,_replicator}
-```
+The LiveSync database itself is created by the plugin's setup wizard, so there
+is nothing to create by hand.
 
 ### Desktop client
 

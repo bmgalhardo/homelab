@@ -140,12 +140,25 @@ data:
           siteMonitor: http://homeassistant.home:8123
       - Grafana:
           icon: grafana.png
-          href: http://grafana.bgalhardo.internal
-          siteMonitor: http://grafana.monitoring
-      - Alloy:
-          icon: alloy.png
-          href: http://alloy.bgalhardo.internal
-          siteMonitor: http://alloy.monitoring:12345
+          href: https://athena.bgalhardo.internal:3000
+          siteMonitor: https://athena.bgalhardo.internal:3000
+      - Prometheus:
+          icon: prometheus.png
+          href: http://athena.bgalhardo.internal:9090
+          siteMonitor: http://athena.bgalhardo.internal:9090/-/healthy
+      - Loki:
+          icon: loki.png
+          href: http://athena.bgalhardo.internal:3100
+          siteMonitor: http://athena.bgalhardo.internal:3100/ready
+    - AI:
+      - Open WebUI:
+          icon: open-webui.png
+          href: https://openwebui.bgalhardo.internal
+          siteMonitor: http://openwebui.ai:8080
+      - LiteLLM:
+          icon: litellm.png
+          href: https://litellm.bgalhardo.internal
+          siteMonitor: http://litellm.ai:4000
     - Personal:
       - Obsidian LiveSync:
           icon: couchdb.png

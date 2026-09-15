@@ -2,6 +2,52 @@
 
 ## P0: Critical (Blocking)
 
+### local-path Never Worked — Talos Disk Selector (found 2026-09-15)
+- **Status:** root cause found, fix committed to
+  `infra/elysium/omni/patches/local-path.yaml`. **Needs
+  `omnictl cluster template sync` + a node reboot to take effect.**
+- **Symptom:** every `local-path` PVC Pending forever. Zero local-path PVs
+  have ever existed on elysium.
+  - `ai/ollama-models` — Pending since 2026-09-13T22:58 (~38h before it was
+    noticed)
+  - `obsidian/obsidian-config` — Pending since 2026-09-15T12:55
+  - `openwebui` in CrashLoopBackOff, **423 restarts** — a downstream effect
+    of ollama never starting, not an openwebui bug
+- **Root cause:** the Talos user volume failed at boot on both workers:
+  ```
+  talosctl -n talos-562-ij1 get volumestatus u-local-path -o yaml
+    spec.phase: failed
+    spec.errorMessage: no disks matched selector for volume
+  ```
+  The selector was `'!system_disk && disk.transport == "scsi"'`, but these
+  VMs use the `virtio-scsi-single` controller — the disks present as
+  `/dev/sdX` yet Talos reports transport **virtio**:
+  ```
+  talosctl -n talos-562-ij1 get disks
+    sda  43 GB  virtio  QEMU HARDDISK   <- system disk
+    sdb  64 GB  virtio  QEMU HARDDISK   <- intended local-path disk (60G)
+  ```
+  So the selector matched nothing. The hardware was never the problem —
+  `elysium-apollo scsi1: 60G` and `elysium-hades scsi1: 100G` are both
+  attached exactly as `configs.auto.tfvars.json` declares.
+- **Fix applied in repo:** drop the transport predicate, keep
+  `match: '!system_disk'` + `minSize: 50GB` (already unambiguous — the system
+  disk is 43 GB, under minSize; loop/DVD devices are far smaller). Comment
+  left in the patch so it is not re-added.
+- **Remaining:** `omnictl cluster template sync`, then reboot the workers —
+  the VolumeStatus was `version: 1`, evaluated once at boot and never
+  re-evaluated, so a sync alone may not retry it. Then `ollama`, `openwebui`
+  and `obsidian` should all come up with no manifest changes.
+- **Why nobody noticed for 38h — this is the lesson:** a Pending PVC emits
+  no logs, no events of its own, and no failed reconcile. **Flux reported the
+  Kustomization healthy, correctly** — the resources were applied as
+  declared. Only the Talos layer knew, in one field. Captured as a worked
+  example in `argus.md` and added there as a fact probe.
+- **Blocks:** `.claude/secrets/omni.env` (Omni service account) is **missing**,
+  so headless `talosctl`/`omnictl` do not work — it falls back to interactive
+  browser auth. Restore it; the Argus Talos probe depends on it too.
+
+
 ### ⛔ There Is Effectively One Copy Of Everything (found 2026-09-15)
 - **Task:** ZFS snapshots on `odin`, then replication to TrueNAS. Nothing
   else in the backup plan matters until this exists.

@@ -10,7 +10,22 @@ kind: UserVolumeConfig
 name: local-path
 provisioning:
   diskSelector:
-    match: '!system_disk && disk.transport == "scsi"'
+    # Do NOT re-add `disk.transport == "scsi"`. These VMs use the
+    # virtio-scsi-single controller, so the data disk appears as /dev/sdb but
+    # Talos reports its transport as **virtio**, not scsi:
+    #
+    #   talosctl get disks
+    #   sda  43 GB  virtio  QEMU HARDDISK   <- system disk
+    #   sdb  64 GB  virtio  QEMU HARDDISK   <- this volume
+    #
+    # With the transport predicate the selector matched nothing and the volume
+    # silently failed at boot ("no disks matched selector for volume"), leaving
+    # every local-path PVC Pending forever with no error anywhere in k8s.
+    # Broke 2026-09-13, found 2026-09-15.
+    #
+    # `!system_disk` + minSize is already unambiguous here: the system disk is
+    # 43 GB (under minSize), and the loop/DVD devices are far smaller.
+    match: '!system_disk'
   minSize: 50GB
 filesystem:
   type: xfs

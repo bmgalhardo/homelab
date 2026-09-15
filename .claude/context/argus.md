@@ -13,7 +13,7 @@ Phase 3), the logbook, this doc.
 - **Node `athena` online** — Pi4 4GB, arm64, Alpine 3.24 on a 120GB SATA
   SSD (persistent install), `192.168.1.196` (UniFi fixed), MAC
   `2C:CF:67:64:2C:1D`. Docker installed. `ssh root@192.168.1.196` via the
-  `manager` bastion.
+  **`hermes` bastion (192.168.1.199)** — `manager` was deleted 2026-09-14.
 - **Interim VM 208 destroyed**, ~1 GiB reclaimed on Apollo.
 - **Hermes dnsmasq updated** — `athena.bgalhardo.internal → .196` live,
   plus the `apollo`/`hades`/`hermes` records and the 8.8.8.8 fallback
@@ -21,7 +21,7 @@ Phase 3), the logbook, this doc.
 - **Stack written, not deployed** — `infra/athena/`: vault-agent + loki +
   prometheus + grafana + alloy. Next: run `bootstrap-vault-agent.sh`,
   deploy, verify. See `infra/athena/README.md`.
-- **Continuing from the bastion.**
+- **Continuing via the hermes bastion** (192.168.1.199).
 
 ## Why
 
@@ -42,7 +42,7 @@ file mtimes, disk %, pod readiness. That's where the real incidents live.
 | Logging before agent | Yes — Loki/Alloy first | Agent is much weaker without a queryable substrate |
 | Loki placement | **Outside k8s** | k8s outage keeps logs queryable; survives the planned hal9000 rebuild |
 | Grafana placement | Same node as Loki | A debugging UI that dies with the cluster is useless |
-| Host | **`athena` — Pi4, `192.168.1.196`** | Bare node off the cluster: survives an Apollo failure, arm64 (all images OK), 4GB (stack ceiling ~1.4 GiB). Not `manager` — it holds root SSH keys. Greek-pantheon set with apollo/hades/hermes; Athena = judgment + watchful guardian |
+| Host | **`athena` — Pi4, `192.168.1.196`** | Bare node off the cluster: survives an Apollo failure, arm64 (all images OK), 4GB (stack ceiling ~1.4 GiB). Not the bastion — it holds root SSH keys (that role went to hermes 2026-09-14). Greek-pantheon set with apollo/hades/hermes; Athena = judgment + watchful guardian |
 | Report tone | Simple and concise | Terse alert style, not narrative |
 | Scope | All infra + all k8s apps; **metrics in scope** | Proxmox, VMs, Hermes, UDM, app-level (Immich, HA, Plex, …). Prometheus is in the athena stack (host/stack metrics; k8s metrics still deferred) |
 | Secrets + certs on `athena` | **Vault Agent sidecar** (AppRole) — first implementation, template for every other VM/node | Olympus VMs have no Vault auth today (plaintext `.env`). `infra/athena/vault-agent/` is the reference; unblocks the P3 "rotate all secrets" item. See `deployment.md` |
@@ -76,6 +76,40 @@ Four stages. Only stage 3 uses an LLM.
     └─ state/: fingerprints, fact snapshot, open incidents
 ```
 
+### Worked example: the failure this design exists for (2026-09-15)
+
+The `local-path` Talos user volume never provisioned on either worker. The
+disk selector said `disk.transport == "scsi"`, but these VMs use
+`virtio-scsi-single`, so Talos reports the disks as transport **virtio** —
+the selector matched nothing and the volume failed at boot.
+
+Why it is the archetypal case:
+
+- **Zero log lines.** Nothing logged anything, anywhere. A log summarizer
+  catches none of it.
+- **Flux reported healthy, correctly** — the manifests *were* applied and the
+  resources exist exactly as declared. The PVC just never binds.
+- **The only visible symptom pointed at the wrong component**: `openwebui` in
+  CrashLoopBackOff with 423 restarts, which reads like an openwebui bug but
+  was only a downstream effect of ollama never starting.
+- **It survived 38 hours** on a cluster under active work, and was found by
+  accident while deploying an unrelated app.
+
+Where each stage would have caught it:
+
+1. **Facts, not logs.** `PVC phase != Bound` is a one-line deterministic probe.
+   It would have fired the morning of 2026-09-14.
+2. **State makes it a signal.** A PVC is legitimately Pending for seconds
+   during provisioning; *still* Pending against yesterday's snapshot is the
+   real event. Without `state/facts.json` this lands in the boring pile.
+3. **Judgment correlates it.** Pending PVC + Pending pod + 423 restarts are
+   individually weak and together one story — the same shape as the cert →
+   Issuer → stale-secret chain this homelab has historically failed at.
+4. **Only the Talos probe reports a *cause*.** Every k8s signal is a symptom.
+   `spec.errorMessage: no disks matched selector for volume` names the
+   component, the failure and the reason in one machine-readable field. This
+   is why the Talos probe was added to the table above.
+
 ### State is what makes this work
 
 Without memory, the job reports "cert expires in 340 days" for 340 mornings
@@ -102,7 +136,7 @@ that.
 |--------|--------|-------|
 | k8s (hal9000) | Alloy DaemonSet | Manifests already exist in `kubernetes/monitoring/alloy/` — repoint `loki.write` at athena (`http://192.168.1.196:3100`) |
 | Proxmox hosts (Apollo, Hades) | Alloy native (Debian, apt) | journald + `/var/log/pve*` |
-| Olympus VMs (vault, authentik, postgres, omni, manager) | Alloy native or journald→syslog | Docker json-file logs + journald |
+| Olympus VMs (vault, authentik, postgres, omni) | Alloy native or journald→syslog | Docker json-file logs + journald |
 | qdevice LXC | Alloy native (Debian) | corosync-qnetd |
 | Hermes (Pi 1 B+, Alpine) | **busybox syslogd forwarding** (`-R athena:1514`) | Pi 1 — ARMv6, 512MB, no ARMv6 Alloy build. No loss: dnsmasq + haproxy log to syslog natively. `syslogd` not yet running there — see `infra/hermes/README.md` |
 | UDM Pro | UniFi remote syslog export | Settings → System → Remote Logging |
@@ -111,22 +145,23 @@ athena runs `loki.source.syslog` on 1514 (Alloy) to receive the last two.
 
 ## Fact Probes (no logs involved)
 
-Deliberately low-privilege — this is the argument against colocating on
-`manager`:
+Deliberately low-privilege — this is the argument against colocating on the
+bastion (now hermes):
 
 | Fact | Source | Credential |
 |------|--------|-----------|
 | Node status, ZFS pool health, SMART/wear, storage % | Proxmox API `/nodes/{node}/{status,disks/list,disks/zfs,storage}` | `claude@pve!claude-readonly` (working since 2026-08-25, see network.md) |
 | Per-guest RAM: allocated vs used, with history | Proxmox API `/nodes/{node}/{qemu,lxc}/{vmid}/rrddata?timeframe={day,week,month}` — PVE keeps RRD, **no exporter needed**. Flag guests near their allocation ceiling and any host >95%. Confirmed 2026-09-08. | `claude@pve!claude-readonly` |
 | Cert expiry (vault, authentik, proxmox, unifi, omni, litellm, ...) | TLS connect, read `notAfter` | **none** |
-| Pod/deployment readiness, restart counts, PVC status | k8s API | read-only ServiceAccount (new) |
+| Pod/deployment readiness, restart counts, PVC status | k8s API | read-only ServiceAccount (`automation/claude`, live 2026-09-15) |
+| **Talos volume health** — `volumestatus` where `phase != running`, reporting `spec.errorMessage` | `talosctl get volumestatus` | Omni service account (`.claude/secrets/omni.env` — **missing, must be restored**) |
 | Pod memory vs requests/limits | k8s metrics API (`metrics.k8s.io`) — the one RAM signal invisible from the Proxmox side; flags over/under-provisioned pods | read-only ServiceAccount (new) |
 | PKI leaf inventory, seal status | Vault API | read-only policy (new) |
 | Cluster quorum | `pvecm status` | SSH — no API equivalent |
 | Backup freshness (`/backups/{daily,weekly,monthly}` mtimes) | SSH to `postgres` VM | SSH |
 
 SSH is needed for two things, not everything. Use a dedicated key with
-forced commands, not the `manager` keyring.
+forced commands, not the bastion's keyring.
 
 ## LLM Split — local vs Claude API
 
@@ -241,7 +276,7 @@ and `argus/state/` only, with `git pull --rebase` before push.
 
 ## Phases
 
-### Phase 1 — logging + metrics stack ☐
+### Phase 1 — logging + metrics stack ✅ (2026-09-14)
 
 **Done (2026-09-08):**
 
@@ -255,14 +290,35 @@ and `argus/state/` only, with `git pull --rebase` before push.
       `athena` AppRole + policy (read `kv/athena`, issue the one leaf
       cert), seeds `kv/athena`.
 
-**Next (from the bastion):**
+**Done (2026-09-14) — Phase 1 complete:**
 
-- [ ] Run `bootstrap-vault-agent.sh` (Vault CLI authenticated).
-- [ ] Deploy per `infra/athena/README.md` — scp to `/root/athena/`, drop
-      in `role_id`/`secret_id`/`ca.crt`, `docker compose up -d`, install
-      the `reload.sh` cron.
-- [ ] Verify: Loki test stream round-trip + Grafana TLS cert check
-      (recipes in the README).
+- [x] AppRole bootstrapped. Script centralised to
+      `infra/vault/approle-bootstrap.sh roles/athena.env` — it only ever
+      talks to Vault, and the node is denied on `auth/approle/role/athena`
+      by design, so it never belonged in the node's deploy dir.
+- [x] Root CA committed at `infra/ca/root-ca.crt` (public; the private key
+      stays in Vault). Replaces the old `vault read pki_root/cert/ca` step.
+- [x] Deployed to `/root/athena/`, `docker compose up -d`, `reload.sh`
+      cron installed (`*/5`).
+- [x] **Exit checks all pass:** Loki `ready`; Prometheus healthy; Loki
+      write→read round-trip OK (push 204, query matched); Grafana serving
+      HTTPS on a Vault-issued leaf (`CN=athena.bgalhardo.internal`, issued
+      by `Intermediate CA [infra]`, 360h TTL, auto-renewed by vault-agent);
+      cert verifies against the root CA (rc=200); all 4 Prometheus targets
+      `up` (prometheus, loki, alloy, grafana).
+- [x] AppRole verified end-to-end: login OK, reads its own KV, issues its
+      own cert, denied on every other path tested.
+
+**Open from Phase 1:**
+
+- [ ] **`mem_limit` is silently not enforced.** athena's kernel cmdline has
+      `cgroup_disable=memory`, so `/proc/cgroups` has no memory controller
+      and Docker discards every limit ("Your kernel does not support memory
+      limit capabilities"). `docker stats` reports 0B for all containers.
+      The designed ~1.4 GiB ceiling does not exist. Currently harmless —
+      the whole stack idles at ~365 MB of 3.8 GB — but nothing stops Loki
+      or Prometheus eating the Pi. Fix: drop `cgroup_disable=memory` (add
+      `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline, reboot.
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
       `prometheus.yml` — wire pve-exporter / node-exporter in Phase 2.
 
@@ -293,7 +349,7 @@ and `argus/state/` only, with `git pull --rebase` before push.
 - [ ] Dead-man's switch: ping healthchecks.io on success. **Telegram cannot
       report its own absence** — silence must be distinguishable from a quiet night
 - [ ] Move `ANTHROPIC_API_KEY` / Telegram token into Vault
-- [ ] Restricted SSH key with forced commands (drop the `manager` keyring)
+- [ ] Restricted SSH key with forced commands (drop the bastion keyring)
 
 ## Open Questions
 

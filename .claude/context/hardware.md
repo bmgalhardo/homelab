@@ -28,8 +28,9 @@
     Debian, not Alpine as earlier planned. Set up 2026-09-07 (see
     services.md). Needs `--onboot 1`.
   - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
-  - VM: `manager` (192.168.1.170) — jump host with real SSH/Terraform
-    access to the Olympus VMs; not in any prior doc, found 2026-08-21
+  - ~~VM: `manager` (192.168.1.170)~~ — **deleted 2026-09-14**. Was the
+    jump host with real SSH/Terraform access to the Olympus VMs; the root
+    keyring now lives on `hermes` (192.168.1.199)
   - Retired VMs: `tftp` (2026-09-08, PXE unused — repo removed, VM
     deletion pending), `netboot` (2026-08-21, cert revoked) — see network.md
   - K8s: Home Assistant, Immich, homepage/pgadmin/redis (`system` ns) —

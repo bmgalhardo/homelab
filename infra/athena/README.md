@@ -6,7 +6,7 @@ agent itself is repo-root `argus/`, Phase 3).
 
 - **Node:** `athena` — Pi4, `192.168.1.196`, 4GB, arm64, Alpine on a
   120GB SATA SSD (persistent install). `ssh root@192.168.1.196` via the
-  `manager` bastion. All images are arm64-available.
+  **`hermes` bastion (192.168.1.199)** — `manager` was deleted 2026-09-14. All images are arm64-available.
 - **Deploy dir:** `/root/athena/`
 
 | Service | Port | Notes |
@@ -29,17 +29,24 @@ apk add docker docker-cli-compose
 rc-update add docker default && service docker start
 ```
 
-### Vault side (once)
+### Vault side (once — not per rebuild)
 
-With the `vault` CLI authenticated (`VAULT_ADDR`/`VAULT_TOKEN`/`VAULT_CACERT`):
+Lives in `infra/vault/`, **not here**: it talks only to Vault, and this node
+cannot run it (its own token is denied on `auth/approle/role/athena`).
 
 ```sh
-./vault-agent/bootstrap-vault-agent.sh
+export VAULT_ADDR=https://vault.bgalhardo.internal   # NOT :8200 — plain HTTP
+vault login
+cd ../vault && ./approle-bootstrap.sh roles/athena.env
 ```
 
 Creates the `athena` AppRole + policy (read `kv/athena`, issue the
 `athena.bgalhardo.internal` leaf cert — nothing else), seeds `kv/athena`
 with a random Grafana password, and prints the `role_id` / `secret_id`.
+
+These objects live in Vault and survive a node rebuild. After reprovisioning
+you only need a fresh credential, not another bootstrap:
+`./approle-bootstrap.sh roles/athena.env --secret-id-only`.
 
 ### Host side
 
@@ -61,8 +68,8 @@ ssh root@athena '
   echo "<secret_id>" > /root/athena/vault-agent/secret_id &&
   chmod 600 /root/athena/vault-agent/secret_id
 '
-# root CA so vault-agent can verify Vault TLS:
-vault read -field=certificate pki_root/cert/ca | ssh root@athena 'cat > /root/athena/vault-agent/ca.crt'
+# root CA so vault-agent can verify Vault TLS (committed, public — see infra/ca/):
+scp infra/ca/root-ca.crt root@athena:/root/athena/vault-agent/ca.crt
 
 ssh root@athena 'cd /root/athena && docker compose up -d'
 
@@ -101,9 +108,10 @@ The Olympus VMs have no Vault auth today (services read plaintext `.env`).
 This `vault-agent/` is the reference for fixing that — it unblocks the P3
 "periodic rotation for all secrets" item. To adopt in another service:
 
-1. Copy `vault-agent/` into that service dir.
-2. In `bootstrap-vault-agent.sh`: change `ROLE`, `KV_PATH`, and the
-   `common_name` in the policy. Run it.
+1. Copy `vault-agent/` into that service dir (config + templates only —
+   the bootstrap is centralised in `infra/vault/`).
+2. Add a role file at `infra/vault/roles/<service>.env` and run
+   `./approle-bootstrap.sh roles/<service>.env`.
 3. In `vault-agent/config.hcl` + `templates/`: change the KV path, the
    cert `common_name`, and the destination files.
 4. Add the `vault-agent` service block to that `docker-compose.yml`, and

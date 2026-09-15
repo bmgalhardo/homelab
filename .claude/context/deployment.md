@@ -36,9 +36,14 @@ infra/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
 ├── athena/                ← Argus logging+metrics stack (Pi4 node, not Olympus)
 │   ├── docker-compose.yml ← vault-agent + loki + prometheus + grafana + alloy
-│   ├── vault-agent/       ← AppRole auth, secret + cert templates, bootstrap
+│   ├── vault-agent/       ← agent config + cert/secret templates (node-side only)
 │   └── README.md
+├── vault/                 ← Vault-side setup. Talks ONLY to Vault; never shipped
+│   ├── approle-bootstrap.sh   ← one parameterised script for every service
+│   └── roles/<service>.env    ← ROLE / COMMON_NAME / KV_PATH / IP_SAN
+├── ca/                    ← root-ca.crt — public, committed on purpose
 ├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
+│                            also the SSH bastion since manager was deleted
 └── hal9000/terraform/     ← Talos k8s cluster provisioning, kept
 ```
 
@@ -52,22 +57,31 @@ with the `claude@pve!claude-readonly` token, see network.md.)
 
 ### Access
 
-Direct SSH from a workstation to these VMs may not work (keys aren't
-necessarily authorized there). The reliable path is via the **manager**
-host:
+Direct SSH from a workstation to these VMs does not work (keys aren't
+authorized there). The reliable path is via the **hermes** bastion.
+
+> **Changed 2026-09-14:** the `manager` VM (192.168.1.170) was deleted. The
+> root SSH keyring now lives on **hermes (192.168.1.199)**, the Pi 1 that
+> already serves DNS + HAProxy. Note hermes is therefore three roles on one
+> box — DNS, load balancer, and SSH keyring.
 
 ```
-ssh root@192.168.1.170        # "manager" — jump host with the real keys
-ssh root@vault                # from manager, hostnames resolve directly
+ssh root@192.168.1.199        # "hermes" — bastion with the real keys
+ssh root@vault                # from hermes, its ssh config resolves aliases
 ssh root@authentik
 ssh root@postgres
 ssh root@omni
+ssh athena
 ```
+
+Hermes' `~/.ssh/config` defines: `athena`, `omni`, `vault`, `authentik`,
+`postgres`. From a workstation, hermes is the **only** host that answers —
+everything else is a second hop.
 
 ### Deploy / Update a Service
 
 ```sh
-# From manager, or hop through it:
+# From hermes, or hop through it:
 scp infra/olympus/services/<service>/* root@<service>:/root/<service>/
 ssh root@<service> "cd /root/<service> && docker compose up -d"
 ```
@@ -99,8 +113,13 @@ with a **Vault Agent sidecar**:
 
 - **Auth:** AppRole (these are VMs, not k8s pods). `role_id` (not secret)
   + `secret_id` (non-expiring bootstrap cred, scoped to a one-path
-  policy) as files on the VM. `bootstrap-vault-agent.sh` creates the
-  role + policy Vault-side, mirroring `vault/bootstrap-k8s-auth.sh`.
+  policy) as files on the VM. The Vault-side objects are created by
+  **`infra/vault/approle-bootstrap.sh roles/<service>.env`** — centralised
+  2026-09-14, because that script only ever talks to Vault and the node
+  itself is denied on `auth/approle/role/<role>`.
+- **Survives a rebuild:** policy, AppRole and KV entry live in Vault. A
+  reprovisioned node needs a fresh `secret_id`
+  (`--secret-id-only`), not another bootstrap.
 - **Secrets:** agent renders `kv/<service>` → `./secrets/<x>.env`, which
   the real container reads via `env_file`.
 - **Certs:** agent issues + auto-renews the `pki_infra` leaf cert →
@@ -109,8 +128,10 @@ with a **Vault Agent sidecar**:
 - **Reload:** agent touches `./certs/.reload`; a host cron (`reload.sh`)
   restarts the consumers. Keeps the Docker socket out of the agent.
 
-To adopt for another service, copy `vault-agent/`, change the AppRole,
-KV path, and cert `common_name` — full steps in `infra/athena/README.md`.
+To adopt for another service: copy `vault-agent/` (config + templates), add
+`infra/vault/roles/<service>.env`, run the bootstrap. The root CA is a
+committed file at `infra/ca/root-ca.crt` — it is public, so there is no
+Vault round-trip to fetch it. Full steps in `infra/athena/README.md`.
 
 ### hermes (native Alpine, not compose)
 

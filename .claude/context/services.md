@@ -3,7 +3,7 @@
 ## Outside K8s (VMs on Apollo)
 
 ### Vault
-- **Location:** Apollo VM (`vault`, reachable via `manager` 192.168.1.170)
+- **Location:** Apollo VM (`vault`, reachable via the `hermes` bastion 192.168.1.199)
 - **Role:** Secrets management, certificate issuance (PKI, see network.md)
 - **HA:** Raft (single node), Shamir seal (1 share/1 threshold), auto-unsealed
   by a sidecar `unsealer` container reading `VAULT_UNSEAL_KEY`

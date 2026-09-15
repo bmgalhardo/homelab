@@ -1,0 +1,125 @@
+# A scoped, read-only identity for Claude Code (or any assistant/automation)
+# to inspect the cluster, instead of handing it the human cluster-admin
+# kubeconfig.
+#
+# RBAC has no "deny" rule — you cannot say "everything except secrets". So the
+# core group is enumerated explicitly below and `secrets` is simply absent.
+#
+# What this deliberately does NOT grant, and why:
+#   secrets                  - the point of the exercise
+#   pods/exec, pods/attach   - a shell in a pod reads its env, files and tokens
+#   pods/portforward         - reach services that are otherwise unexposed
+#   create/update/delete     - anywhere; read-only by design
+#   serviceaccounts/token    - minting tokens for other identities
+#   impersonate              - acting as someone with more access
+#
+# Note that `create pods` alone would be a full escalation: a pod can mount any
+# secret in its namespace and print it. Read-only is what keeps this honest.
+#
+# Caveats this CANNOT solve (see CLAUDE.md):
+#   - pod logs and pod env vars still leak credentials that apps put there
+#   - shell access to the workstation reads any file the user can read
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: automation
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: claude
+  namespace: automation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: claude-readonly
+rules:
+  # Core group, enumerated: `resources: ["*"]` here would include secrets.
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - pods/status
+      - services
+      - endpoints
+      - configmaps
+      - persistentvolumeclaims
+      - persistentvolumes
+      - namespaces
+      - nodes
+      - nodes/status
+      - events
+      - serviceaccounts
+      - replicationcontrollers
+      - resourcequotas
+      - limitranges
+    verbs: ["get", "list", "watch"]
+
+  # Kubelet stats — how node disk/memory pressure gets diagnosed
+  # (/api/v1/nodes/<n>/proxy/stats/summary).
+  #
+  # THE ONE POWERFUL GRANT HERE: nodes/proxy reaches the kubelet API directly,
+  # which can also read logs and exec into containers, bypassing the exclusions
+  # above. Drop this line if you want a strictly tight role and accept losing
+  # per-node disk analysis.
+  - apiGroups: [""]
+    resources: ["nodes/proxy", "nodes/metrics", "nodes/stats"]
+    verbs: ["get"]
+
+  # Everything else is read-only by resource wildcard; none of these groups
+  # contain a secret-like resource.
+  - apiGroups:
+      - apps
+      - batch
+      - autoscaling
+      - policy
+      - storage.k8s.io
+      - networking.k8s.io
+      - discovery.k8s.io
+      - apiextensions.k8s.io
+      - admissionregistration.k8s.io
+      - scheduling.k8s.io
+      - coordination.k8s.io
+      - metrics.k8s.io
+      - rbac.authorization.k8s.io
+      - gateway.networking.k8s.io
+      - gateway.nginx.org
+      - cert-manager.io
+      - acme.cert-manager.io
+      - metallb.io
+      - secrets.hashicorp.com          # VaultStaticSecret specs, not the synced Secret
+      - helm.toolkit.fluxcd.io
+      - kustomize.toolkit.fluxcd.io
+      - source.toolkit.fluxcd.io
+      - notification.toolkit.fluxcd.io
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: claude-readonly
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: claude-readonly
+subjects:
+  - kind: ServiceAccount
+    name: claude
+    namespace: automation
+---
+# Long-lived token so the kubeconfig keeps working unattended.
+#
+# It never expires, which is the same "nothing rotates" pattern as everything
+# else in todos.md — rotate by deleting this Secret and regenerating the
+# kubeconfig. For a short-lived alternative:
+#   kubectl -n automation create token claude --duration=8h
+apiVersion: v1
+kind: Secret
+metadata:
+  name: claude-token
+  namespace: automation
+  annotations:
+    kubernetes.io/service-account.name: claude
+type: kubernetes.io/service-account-token

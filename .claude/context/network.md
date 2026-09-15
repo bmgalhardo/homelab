@@ -10,7 +10,7 @@
 | hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
 | qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
-| manager | **192.168.1.170** (confirmed 2026-08-21) | Apollo VM | SSH/Terraform jump host for Olympus VMs |
+| ~~manager~~ | ~~192.168.1.170~~ | Apollo VM | **DELETED 2026-09-14** — bastion role moved to `hermes` (.199) |
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
 | vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
 | authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |
@@ -156,11 +156,13 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   version — grant ACLs to the user, not the token, for any new
   read/write token going forward.
 - **SSH access to the Proxmox hosts themselves** (not just the Olympus
-  VMs) also goes through `manager` (192.168.1.170) as a jump host —
-  direct `ssh root@192.168.1.197` from an arbitrary workstation is
-  refused (no trusted key). `ssh root@192.168.1.170` then `ssh
-  root@192.168.1.197` from there works. Used 2026-08-25 to run `pveum`/
-  `pvesh` commands for the token work above.
+  VMs) goes through a jump host — direct `ssh root@192.168.1.197` from an
+  arbitrary workstation is refused (no trusted key). **Since 2026-09-14 the
+  jump host is `hermes` (192.168.1.199)**, after the `manager` VM
+  (192.168.1.170) was deleted: `ssh root@192.168.1.199` then
+  `ssh root@192.168.1.197`. Verified 2026-09-14 — hermes reaches apollo,
+  hades, vault and athena. Used 2026-08-25 (via the old manager) to run
+  `pveum`/`pvesh` for the token work above.
 
 ## Known Access Gotchas
 

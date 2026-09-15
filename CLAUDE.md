@@ -19,7 +19,7 @@ Network: `192.168.1.0/24`
 | **K8s** | Single control plane (not HA) |
 | **Deployment** | Static Docker Compose per VM (Ansible retired 2026-08-21) |
 | **DNS** | dnsmasq on Hermes (independent) |
-| **Storage** | NFS from Hades for K8s |
+| **Storage** | virtiofs from Hades for k8s media/photos; `local-path` on a dedicated per-node disk for PVCs (NFS retired at the elysium rebuild) |
 | **Certificates** | Vault-managed, *.bgalhardo.internal |
 
 ## Documentation
@@ -36,10 +36,35 @@ Network: `192.168.1.0/24`
 
 See `.claude/context/todos.md` for full roadmap.
 
+## Access for assistants/automation
+
+**Use the scoped kubeconfig, not the admin context:**
+
+```sh
+export KUBECONFIG=.claude/secrets/kube-claude.yaml
+```
+
+`~/.kube/config` is the human Omni OIDC identity with **full cluster-admin**.
+The scoped one is a ServiceAccount (`automation/claude`) that is read-only and
+cannot read Secrets, exec into pods, or mutate anything. Identity declared in
+`kubernetes/20-infra-wiring/rbac-claude.yaml`; regenerate the kubeconfig with
+`infra/elysium/make-claude-kubeconfig.sh`.
+
+Ask before doing anything the scoped identity cannot do — don't reach for the
+admin context to work around a Forbidden.
+
+**What RBAC does not protect**, so don't rely on it alone:
+- pod **logs** and pod **env vars** leak credentials the app puts there
+- shell access reads any file the user can read (`.claude/secrets/*`, Vault
+  tokens, `.env` files)
+
+The durable fix for the first one is keeping credentials out of pod specs —
+use `secretKeyRef`, never an inline password in `env:`.
+
 ## Conventions
 
 **Code & Config:**
-- Terraform for VM provisioning (`infra/{olympus,hal9000}/terraform`)
+- Terraform for VM provisioning (`infra/{olympus,elysium}/terraform`)
 - Static Docker Compose per VM for services (`infra/olympus/services/<name>/`)
 - K8s manifests in `kubernetes/`
 - No sensitive data in git — `.env` per VM (gitignored), Vault for
@@ -48,16 +73,25 @@ See `.claude/context/todos.md` for full roadmap.
 **File Organization:**
 - `infra/olympus/terraform/` — Proxmox VM provisioning (vault, authentik,
   postgres, omni)
-- `infra/hal9000/terraform/` — Talos k8s cluster VM provisioning
-  (`hal9000` → `elysium` at the rebuild — see todos.md)
+- `infra/elysium/terraform/` — Talos k8s cluster VM provisioning.
+  `infra/hal9000/` is the retired predecessor — VMs stopped, not yet destroyed
 - `infra/olympus/services/` — static `docker-compose.yml` per VM service
 - `infra/athena/` — Argus logging/metrics stack (Pi4 node)
-- `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose)
-- `kubernetes/` — k8s manifests for the hal9000 cluster
+- `infra/vault/` — Vault-side AppRole/policy bootstrap. Talks only to Vault,
+  never shipped to a node; one parameterised script + `roles/<service>.env`
+- `infra/ca/` — internal root CA certificate. Public, committed deliberately
+  (the *private* key stays in Vault)
+- `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose).
+  **Also the SSH bastion** — `manager` (192.168.1.170) was deleted 2026-09-14;
+  hermes holds the root keyring and is the only host a workstation can reach
+- `kubernetes/` — k8s manifests for elysium, reconciled by Flux in three
+  tiers: `10-infra-base` → `20-infra-wiring` → `30-apps`. A thing belongs in
+  tier 2 if tier 1 has to install its CRD first. See `kubernetes/flux/README.md`
 
 **Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).
 `elysium` (was `hal9000`) = k8s, the plane above. `hermes`/`athena` =
-standalone Pis. Possible later: `manager` → `charon`, `qdevice` → `themis`.
+standalone Pis. `manager` was deleted 2026-09-14 (bastion role → hermes).
+Possible later: `qdevice` → `themis`.
 
 ## When to Update This File
 

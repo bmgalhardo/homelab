@@ -68,11 +68,11 @@ use `secretKeyRef`, never an inline password in `env:`.
 ## Conventions
 
 **Code & Config:**
-- **Manifests and configs are not a logbook.** Keep YAML/HCL to the config
+- **Manifests, configs and README.md are not a logbook.** Keep YAML/HCL to the config
   itself. No rationale, no incident history, no dated notes, no "do not
   re-add X because Y". A comment earns its place only when the line is
   actively misleading without it — and then it is one line.
-  Rationale belongs in the directory's `README.md`; incidents, decisions and
+  `README.md` is for human facing instruction related only to that folder; incidents, decisions and
   root causes belong in `.claude/context/`. Same rule this file states about
   itself: keep it small, reference detailed docs, don't duplicate.
 - Terraform for VM provisioning (`infra/{olympus,elysium}/terraform`)

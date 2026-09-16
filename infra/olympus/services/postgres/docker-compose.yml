@@ -1,8 +1,36 @@
 services:
+  # Issues + renews the TLS leaf postgres serves. See vault-agent/config.hcl;
+  # Vault-side setup in vault-agent/bootstrap-vault-agent.sh.
+  vault-agent:
+    image: hashicorp/vault:1.13.3
+    container_name: vault-agent
+    restart: unless-stopped
+    # Explicit: the template command chowns the key to postgres' uid, which
+    # only root can do.
+    user: root
+    cap_add:
+      - IPC_LOCK
+    entrypoint: ["vault", "agent", "-config=/vault-agent/config.hcl"]
+    volumes:
+      - ./vault-agent/config.hcl:/vault-agent/config.hcl:ro
+      - ./vault-agent/templates:/vault-agent/templates:ro
+      - ./vault-agent/ca.crt:/vault-agent/ca.crt:ro       # internal root CA
+      - ./vault-agent/role_id:/vault-agent/role_id:ro     # not secret
+      - ./vault-agent/secret_id:/vault-agent/secret_id:ro # secret — gitignored
+      - ./certs:/certs
   postgres:
     image: tensorchord/vchord-postgres:pg17-v0.5.3
     # image: postgres:17.6-alpine3.22
     restart: always
+    depends_on:
+      - vault-agent
+    command:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/postgres.crt
+      - -c
+      - ssl_key_file=/certs/postgres.key
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       start_period: 20s
@@ -17,6 +45,7 @@ services:
     - 5432:5432
     volumes:
     - ./data:/var/lib/postgresql/data
+    - ./certs:/certs:ro
   pg_backup:
     image: postgres:17.6-alpine3.22
     restart: always

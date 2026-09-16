@@ -4,7 +4,7 @@ services:
     container_name: vault
     entrypoint: vault server -config /vault/vault.hcl
     ports:
-    - "8200:8200"
+    # 8200 (plaintext, tls_disable=1) is deliberately NOT published
     - "443:8201"
     volumes:
     - ./data:/vault/data

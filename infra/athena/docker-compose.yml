@@ -20,9 +20,6 @@ services:
       - ./vault-agent/secret_id:/vault-agent/secret_id:ro # secret — gitignored
       - ./secrets:/secrets
       - ./certs:/certs
-    mem_limit: 64m
-
-  # ── Loki ──────────────────────────────────────────────────────────────────
   loki:
     image: grafana/loki:3.3.2
     container_name: loki
@@ -33,15 +30,12 @@ services:
     volumes:
       - ./loki/config.yml:/etc/loki/config.yml:ro
       - ./data/loki:/loki
-    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:3100/ready | grep -q ready"]
       interval: 30s
       timeout: 5s
       retries: 6
       start_period: 30s
-
-  # ── Prometheus ────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v3.1.0
     container_name: prometheus
@@ -57,9 +51,6 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./data/prometheus:/prometheus
-    mem_limit: 384m
-
-  # ── Grafana ───────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:11.4.0
     container_name: grafana
@@ -79,15 +70,13 @@ services:
       GF_SERVER_PROTOCOL: "https"
       GF_SERVER_CERT_FILE: "/certs/athena.crt"
       GF_SERVER_CERT_KEY: "/certs/athena.key"
+      GF_INSTALL_PLUGINS: "grafana-lokiexplore-app"
     ports:
       - "3000:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./certs:/certs:ro
-      - ./data/grafana:/var/lib/grafana
-    mem_limit: 256m
-
-  # ── Alloy (syslog receiver) ───────────────────────────────────────────────
   alloy:
     image: grafana/alloy:v1.5.1
     container_name: alloy
@@ -106,4 +95,3 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - ./data/alloy:/var/lib/alloy/data
-    mem_limit: 128m

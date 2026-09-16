@@ -16,7 +16,10 @@ STAMP="$DIR/certs/.reload.done"
 [ -f "$STAMP" ] && [ ! "$SENTINEL" -nt "$STAMP" ] && exit 0
 
 cd "$DIR"
-docker compose restart grafana
+# `up -d`, not `restart`: restart reuses the existing container and its baked-in
+# environment, so a re-rendered secrets/*.env would never reach the app. Compose
+# recreates the container only when something actually changed.
+docker compose up -d grafana
 # Prometheus reloads in place, no restart
 curl -sf -X POST http://localhost:9090/-/reload || true
 

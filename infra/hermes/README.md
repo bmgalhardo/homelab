@@ -10,8 +10,6 @@ cluster — DNS survives a cluster outage. See `.claude/context/network.md`.
 - **Packages:** `world` (6 explicit — ARMv6 needs busybox-native or
   built-from-source; no Docker, no Alloy)
 
-## Files here vs on the box
-
 | repo | on hermes |
 |------|-----------|
 | `dnsmasq.d/custom.conf` | `/etc/dnsmasq.d/custom.conf` (mode 644) |
@@ -19,8 +17,6 @@ cluster — DNS survives a cluster outage. See `.claude/context/network.md`.
 | `interfaces` | `/etc/network/interfaces` |
 | `world` | `/etc/apk/world` |
 
-Not in git: `/etc/haproxy/certs/*.pem` (private keys), SSH host keys,
-`/etc/shadow`. Those live only in the apkovl — see Backup.
 
 ## Deploy a change
 
@@ -52,7 +48,7 @@ jq -r '.data.certificate, .data.private_key' /tmp/a.json \
 rc-service haproxy restart && lbu commit
 ```
 
-No auto-renewal — same gap as every other leaf cert (`todos.md` P0).
+No auto-renewal (todos.md` P0).
 
 ## Rebuild from bare Alpine
 
@@ -77,8 +73,3 @@ scp root@192.168.1.199:/media/mmcblk0p1/hermes.apkovl.tar.gz \
     <nas>/backups/hermes/hermes-$(date +%F).apkovl.tar.gz
 ```
 
-## Phase 2 (Argus) — not yet done
-
-busybox `syslogd` is **not** currently running here. To ship logs to Argus:
-`SYSLOGD_OPTS="-t -R athena:1514"` in `/etc/conf.d/syslog`,
-`rc-update add syslog default`, `rc-service syslog start`, `lbu commit`.

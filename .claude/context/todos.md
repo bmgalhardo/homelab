@@ -2,17 +2,23 @@
 
 ## P0: Critical (Blocking)
 
-### local-path Never Worked — Talos Disk Selector (found 2026-09-15)
-- **Status:** root cause found, fix committed to
-  `infra/elysium/omni/patches/local-path.yaml`. **Needs
-  `omnictl cluster template sync` + a node reboot to take effect.**
+### ~~local-path Never Worked — Talos Disk Selector~~ ✅ FIXED 2026-09-15
+- **Status:** RESOLVED. Selector corrected in
+  `infra/elysium/omni/patches/local-path.yaml`, synced and applied. Verified
+  2026-09-16: PVCs bind, `ollama` running after 40h Pending, `couchdb` and
+  the rest provisioning normally. Kept here because the failure mode — a
+  silent 38h outage with no error anywhere in k8s — is the reference example
+  for the Argus fact probes (`argus.md`).
 - **Symptom:** every `local-path` PVC Pending forever. Zero local-path PVs
   have ever existed on elysium.
   - `ai/ollama-models` — Pending since 2026-09-13T22:58 (~38h before it was
     noticed)
   - `obsidian/obsidian-config` — Pending since 2026-09-15T12:55
-  - `openwebui` in CrashLoopBackOff, **423 restarts** — a downstream effect
-    of ollama never starting, not an openwebui bug
+  - `openwebui` in CrashLoopBackOff, 531 restarts — this turned out to be a
+    **separate** bug, not ollama fallout: an unencoded `@` in the Postgres
+    password made `DATABASE_URL` parse the password tail as the hostname
+    (`could not translate host name "...@192.168.1.177"`). Fixed 2026-09-16.
+    URL-encode credentials in any connection string.
 - **Root cause:** the Talos user volume failed at boot on both workers:
   ```
   talosctl -n talos-562-ij1 get volumestatus u-local-path -o yaml
@@ -177,6 +183,29 @@
   `pvecm status` shows `Total votes: 3`; test HAProxy failover on Alpine.
 
 ## P1: High (This Month)
+
+### Consolidate Vault Agent adoption across VMs (deferred 2026-09-16)
+- **Task:** roll the Vault Agent sidecar out to the Olympus VMs in one pass,
+  rather than per-service as opportunity arises. `infra/athena/vault-agent/`
+  is the proven reference — it is deployed, authenticating and renewing.
+- **State of postgres — read before touching it:**
+  - `infra/olympus/services/postgres/vault-agent/*` is **RECONSTRUCTED
+    2026-09-16, never reviewed, never deployed.** The originals (written
+    2026-09-13) were untracked and lost to a `git clean`; the postgres VM had
+    no deployed copy to recover from — its deploy dir is **`/root/`**, not
+    `/root/postgres/`, and runs only `postgres` + `pg_backup`.
+  - Rebuilt from the athena template plus the contract still documented in
+    `docker-compose.yml` (mount paths, `/certs/postgres.{crt,key}`,
+    `user: root` to chown the key). Each file is marked RECONSTRUCTED.
+  - The compose file in git already has the vault-agent service and
+    `ssl=on`, so deploying it is a behaviour change to a live database —
+    verify TLS before pointing pgadmin/immich at it.
+- **Also covered by the same pass:** authentik, omni. Each needs a role file
+  in `infra/vault/roles/` and the sidecar copied in.
+- **Lesson worth keeping:** everything lost here was untracked. Commit new
+  infra files even as WIP — `git clean -fd` does not care that they were the
+  only copy.
+
 
 ### 3-2-1 Backup Strategy
 - **Task:** Implement 3-copy backup resilience

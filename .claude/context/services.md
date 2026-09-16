@@ -59,39 +59,61 @@ PXE boot; nothing used it once `netboot` was retired (2026-08-21).
 `infra/olympus/services/tftp-server/` + the tfvars block removed; VM
 deletion pending (still in the drifted tfstate).
 
-## Inside K8s (hal9000, Talos — 2 nodes: talos-y43-va4 control-plane,
-talos-y6i-w43 worker)
+## Inside K8s (elysium, Talos v1.14.0 / k8s v1.37.0 — 3 nodes)
 
-Live namespaces as of 2026-08-21: `cert-manager`, `default`,
-`external-dns`, `home`, `immich`, `longhorn-system`, `metallb-system`,
-`nginx-gateway`, `system`, `vault-secrets-operator` (+ the 4 standard
-`kube-*`). Confirmed by listing pods directly, not from manifests.
+`talos-r5o-rk4` control-plane, `talos-562-ij1` (label `homelab/node=apollo`,
+`power=always-on`), `talos-7bu-8ma` (`homelab/node=hades`, `power=managed`).
+Reconciled by Flux in three tiers — see `kubernetes/flux/README.md`.
+Verified 2026-09-16 with the scoped kubeconfig.
 
-### Home Assistant — running (ns `home`)
-- Storage: Longhorn (see storage.md — single-node, no redundancy)
-- Also in `home`: `mosquitto` (MQTT broker), `hass-mqtt-device-healthcheck`
+Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
+`flux-system`, `immich`, `local-path-storage`, `metallb-system`,
+`nginx-gateway`, `system`, `vault-secrets-operator` (+ `kube-*`).
 
-### Immich — running (ns `immich`)
-- `immich-server` (StatefulSet) + `immich-ml`, both healthy
+### system namespace
+- `homepage`, `pgadmin`, `redis`, `cloudflare-ddns`
+- **`couchdb`** (added 2026-09-15) — Obsidian LiveSync backend, exposed on the
+  **external** Gateway at `couchdb.bgalhardo.com` for phone sync. It holds a
+  *replica*, not the vault: the vault is the markdown on each device, so its
+  local-path PVC being unbacked is acceptable — re-seed from a device.
+  Must run as uid 5984, see `kubernetes/30-apps/system/README.md`.
+- Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
-### system namespace — running
-- `homepage`, `pgadmin`, `redis`, `cloudflare-ddns`, plus the
-  `internal-nginx`/`external-nginx` Gateway data planes (see network.md)
-- `mongo` has a manifest (`kubernetes/system/mongo.yml`) and an orphaned
-  Longhorn-backed PVC (`data-mongo-0`) but **no live StatefulSet** —
-  manifest exists, never applied or since removed. Not investigated
-  further this session.
+### immich — running
+`immich-server` + `immich-ml`. Photos/cache on virtiofs (Hades); the DB lives
+on the `postgres` VM and is covered by its `pg_backup` sidecar.
 
-### ⚠️ Manifests with no live match
-`kubernetes/mediacenter/` (plex, sonarr, radarr, prowlarr, sabnzbd,
-overseerr), `kubernetes/monitoring/` (grafana, mimir, loki, alloy,
-exporters), `kubernetes/gaming/` (valheim), `kubernetes/nvidia/`
-(device plugin) — full manifests exist in git, confirmed 2026-08-21 via
-`kubectl get deploy,statefulset,daemonset -A` that **none of them are
-deployed**: no matching namespaces, pods, or RuntimeClasses anywhere in
-the cluster. Either decommissioned without cleaning up git, or written
-but never applied — not determined this session. There is currently no
-metrics/logs stack running in this cluster at all.
+### ai — running
+`ollama`, `litellm`, `openwebui`. All three were broken for days by unrelated
+faults found 2026-09-15: ollama by the local-path selector bug (38h Pending),
+openwebui by an unencoded `@` in its Postgres password inside `DATABASE_URL`
+(531 restarts, a misleading symptom that looked like an openwebui bug).
+
+### automation — RBAC only
+`automation/claude` ServiceAccount + `claude-readonly` ClusterRole, the scoped
+read-only identity for assistants. See CLAUDE.md.
+
+### Parked, not deployed
+`kubernetes/30-apps/_parked/`: `home` (Home Assistant), `mediacenter` (plex,
+sonarr, radarr, sabnzbd, overseerr), `nvidia`, `gaming`. All declare
+`local-path` for `/config` — they grow the unbacked-PVC surface when unparked.
+
+## Outside K8s (athena — Pi4, 192.168.1.196)
+
+The Argus logging/metrics stack, deliberately off the cluster so it survives a
+k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
+
+- `loki` (3100), `prometheus` (9090), `grafana` (3000, HTTPS), `alloy`
+  (syslog receiver, 1514), `vault-agent`
+- **Vault Agent sidecar** — AppRole auth, renders the Grafana admin creds and
+  issues the node's TLS leaf. First implementation of the pattern; the
+  reference for every other VM.
+- **Grafana is stateless** — no `grafana.db` volume. Datasources and dashboards
+  are provisioned from files, so the Vault admin password applies on every
+  boot rather than only at first init. Dashboards are exported back to files
+  with `grafana/export-dashboards.sh`.
+- Phase 1 complete 2026-09-14; Phase 2 (shipping logs from every host) not
+  started. See `argus.md`.
 
 ## Outside K8s (Hermes, Independent)
 

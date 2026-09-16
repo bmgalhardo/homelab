@@ -18,6 +18,9 @@
 | control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
 | ha.bgalhardo.internal | K8s IP | Apollo | Home Assistant |
+| couchdb.bgalhardo.com | Gateway `external` → **192.168.1.201** | k8s `system` | Obsidian LiveSync backend — **internet-facing** via Cloudflare |
+| openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
+| litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
 | prometheus.bgalhardo.internal | K8s IP | Apollo | Metrics |
 | grafana.bgalhardo.internal | K8s IP | Apollo | Dashboards |
 

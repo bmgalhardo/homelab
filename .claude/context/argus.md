@@ -18,9 +18,8 @@ Phase 3), the logbook, this doc.
 - **Hermes dnsmasq updated** — `athena.bgalhardo.internal → .196` live,
   plus the `apollo`/`hades`/`hermes` records and the 8.8.8.8 fallback
   (`infra/hermes/`).
-- **Stack written, not deployed** — `infra/athena/`: vault-agent + loki +
-  prometheus + grafana + alloy. Next: run `bootstrap-vault-agent.sh`,
-  deploy, verify. See `infra/athena/README.md`.
+- **Stack deployed 2026-09-14** — `infra/athena/`: vault-agent + loki +
+  prometheus + grafana + alloy. See Phase 1 below and `infra/athena/README.md`.
 - **Continuing via the hermes bastion** (192.168.1.199).
 
 ## Why
@@ -242,8 +241,8 @@ infra/athena/                    ← the stack (built). deploy dir /root/athena/
 ├── prometheus/prometheus.yml
 ├── alloy/config.alloy
 ├── grafana/provisioning/datasources/datasources.yml
-├── vault-agent/                 ← AppRole auth, secret + cert templates, bootstrap + reload
-└── README.md                    ← deploy, verify, "Vault Agent as a template"
+├── vault-agent/                 ← AppRole auth, secret + cert templates, reload
+└── README.md                    ← deploy, verify
 
 argus/                           ← the agent (repo root), added Phase 3
 ├── docker-compose.yml
@@ -311,14 +310,17 @@ and `argus/state/` only, with `git pull --rebase` before push.
 
 **Open from Phase 1:**
 
-- [ ] **`mem_limit` is silently not enforced.** athena's kernel cmdline has
-      `cgroup_disable=memory`, so `/proc/cgroups` has no memory controller
-      and Docker discards every limit ("Your kernel does not support memory
-      limit capabilities"). `docker stats` reports 0B for all containers.
-      The designed ~1.4 GiB ceiling does not exist. Currently harmless —
-      the whole stack idles at ~365 MB of 3.8 GB — but nothing stops Loki
-      or Prometheus eating the Pi. Fix: drop `cgroup_disable=memory` (add
-      `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline, reboot.
+- [ ] **No memory ceiling on the stack.** athena's kernel cmdline has
+      `cgroup_disable=memory`, so `/proc/cgroups` has no memory controller and
+      Docker silently discards every `mem_limit` ("Your kernel does not
+      support memory limit capabilities"); `docker stats` reports 0B for all
+      containers. The `mem_limit` lines were therefore removed from the compose
+      file (2026-09-16) rather than left as decoration. Currently harmless —
+      the whole stack idles at ~365 MB of 3.8 GB — but nothing stops Loki or
+      Prometheus eating the Pi, which matters once Phase 2 starts shipping real
+      log volume. Fix: drop `cgroup_disable=memory` (add
+      `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline and reboot,
+      then restore the limits.
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
       `prometheus.yml` — wire pve-exporter / node-exporter in Phase 2.
 

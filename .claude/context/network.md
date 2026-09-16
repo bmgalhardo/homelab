@@ -115,6 +115,11 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   | vault, authentik, proxmox, unifi, omni | ✅ Live, full chain verified against root CA |
   | truenas | Cert issued, not yet installed — host is offline (power-managed) |
   | netboot | Retired — cert revoked in `pki_infra`, service no longer used |
+- **Root CA file:** committed at `infra/ca/root-ca.crt` and distributed from
+  there, not fetched from Vault — the CA is what proves "this is really
+  Vault", so fetching it over an unverified connection would let a MITM hand
+  over its own CA and own that machine's trust until 2035. Static for a
+  decade, so it belongs in the provisioning artifact.
 - **Root CA trust:** `bgalhardo.internal`'s root CA is not in any public
   trust store — must be imported manually into each browser/client
   (Firefox: Settings → Certificates → Authorities → Import).
@@ -201,7 +206,7 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   since Vault runs off-cluster on Apollo, not as a pod) — every
   kubernetes-auth login 403'd, breaking cert-manager's `vault` Issuer and
   every VaultSecretsOperator secret. Fixed via
-  `infra/olympus/services/vault/bootstrap-k8s-auth.sh`, which now also
+  `infra/vault/k8s-auth-bootstrap.sh`, which now also
   codifies the roles/policies/CA-refresh that used to live only in Vault
   itself — re-run it if this recurs. Also fixed in passing: two
   `VaultStaticSecret`s (`cloudflare-ddns`, `cloudflare-letsencrypt`) were

@@ -50,9 +50,10 @@ flux get kustomizations --watch
 flux get helmreleases -A
 ```
 
-Note that the vault script needs to be run in order to vso can retrieve the secrets.
+VSO syncs nothing until Vault trusts the cluster. Run once per cluster, with
+the admin kubeconfig (see `infra/vault/README.md`):
 ```sh
 VAULT_ADDR=https://vault.bgalhardo.internal \
 VAULT_TOKEN=... \
-./infra/olympus/services/vault/bootstrap-k8s-auth.sh
+./infra/vault/k8s-auth-bootstrap.sh
 ```

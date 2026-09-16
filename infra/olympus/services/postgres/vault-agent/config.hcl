@@ -1,8 +1,4 @@
-# Vault Agent — postgres VM. Cert only; the postgres password still lives in
-# .env on the VM. Adapted from infra/athena/vault-agent/config.hcl.
-#
-# RECONSTRUCTED 2026-09-16 — the original was untracked and lost. Review before
-# deploying. Vault-side setup: infra/vault/approle-bootstrap.sh roles/postgres.env
+# Vault Agent — postgres VM.
 
 pid_file = "/vault-agent/pidfile"
 
@@ -37,9 +33,7 @@ template_config {
   exit_on_retry_failure         = false
 }
 
-# Two stanzas with identical secret args share one issued pair — consul-template
-# caches the write. ip_sans is required: clients reach postgres by IP as well as
-# by name, and the AppRole policy allow-lists exactly this value.
+# identical secret args → one issued cert/key pair (consul-template caches the write)
 template {
   source      = "/vault-agent/templates/postgres-cert.tpl"
   destination = "/certs/postgres.crt"
@@ -50,8 +44,5 @@ template {
   source      = "/vault-agent/templates/postgres-key.tpl"
   destination = "/certs/postgres.key"
   perms       = "0600"
-  # postgres refuses to start if the key is group- or world-readable, and it
-  # must be owned by the postgres uid. Only root can chown, which is why this
-  # container runs as root (see docker-compose.yml).
   command     = "sh -c 'chown 999:999 /certs/postgres.key /certs/postgres.crt && chmod 600 /certs/postgres.key && touch /certs/.reload'"
 }

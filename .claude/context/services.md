@@ -14,12 +14,17 @@
   retired 2026-08-21). Listener config in `vault.hcl` (same dir)
 - **K8s integration:** kubernetes auth method, `cert_manager` and
   `vault-secrets-operator` policies/roles configured via
-  `infra/olympus/services/vault/bootstrap-k8s-auth.sh` (idempotent, safe
-  to re-run). Vault is NOT in-cluster, so `auth/kubernetes/config` needs
-  an explicit `token_reviewer_jwt` — see script header. This was silently
-  missing 2025-12-12 → 2026-08-21, breaking cert-manager's `vault` Issuer
-  and every VaultSecretsOperator secret cluster-wide; fixed by re-running
-  the bootstrap script (see network.md).
+  `infra/vault/k8s-auth-bootstrap.sh` (idempotent, safe to re-run).
+  Vault is NOT in-cluster, so `auth/kubernetes/config` needs an explicit
+  `token_reviewer_jwt` from the `vault-auth` SA, and `vault write` replaces
+  the whole config object — any hand-edit that omits it silently breaks
+  every login. That happened 2025-12-12 → 2026-08-21, breaking
+  cert-manager's `vault` Issuer and every VaultSecretsOperator secret
+  cluster-wide; fixed by re-running the script (see network.md).
+  The script also creates the `vault-ca` Secret in `vault-secrets-operator`
+  from `infra/ca/root-ca.crt`. It can't be a `VaultStaticSecret`: VSO needs
+  that CA before it can reach Vault at all. Until it exists the
+  `VaultConnection` stays unhealthy and nothing syncs.
 
 ### Postgres
 - **Location:** Apollo VM (`postgres`, 192.168.1.177)

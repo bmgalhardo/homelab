@@ -93,8 +93,8 @@ use `secretKeyRef`, never an inline password in `env:`.
   `infra/hal9000/` is the retired predecessor — VMs stopped, not yet destroyed
 - `infra/olympus/services/` — static `docker-compose.yml` per VM service
 - `infra/athena/` — Argus logging/metrics stack (Pi4 node)
-- `infra/vault/` — Vault-side AppRole/policy bootstrap. Talks only to Vault,
-  never shipped to a node; one parameterised script + `roles/<service>.env`
+- `infra/vault/` — Vault-side config: AppRole bootstrap (`roles/<service>.env`)
+  and elysium's kubernetes auth. Talks only to Vault, never shipped to a node
 - `infra/ca/` — internal root CA certificate. Public, committed deliberately
   (the *private* key stays in Vault)
 - `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose).

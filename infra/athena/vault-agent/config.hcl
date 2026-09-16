@@ -1,7 +1,4 @@
-# Vault Agent — athena. Reusable sidecar pattern (see README).
-# Template for any VM/node service that needs Vault secrets or a leaf cert.
-# To adopt elsewhere: copy this file + templates/, change the AppRole
-# (role_id/secret_id), the KV path, and the cert common_name.
+# Vault Agent — athena.
 
 pid_file = "/vault-agent/pidfile"
 
@@ -31,7 +28,6 @@ auto_auth {
   }
 }
 
-# No API proxy / cache needed — templating only.
 template_config {
   static_secret_render_interval = "5m"
   exit_on_retry_failure         = false
@@ -45,9 +41,8 @@ template {
   command     = "sh -c 'touch /certs/.reload'"
 }
 
-# ── Cert: pki_infra leaf for athena.bgalhardo.internal (the node hostname) ───
-# consul-template caches the issue response, so the two stanzas below share one
-# cert/key pair (identical secret args). This is HashiCorp's documented pattern.
+# ── Cert: pki_infra leaf for athena.bgalhardo.internal ──────────────────────
+# identical secret args → one issued cert/key pair (consul-template caches the write)
 template {
   source      = "/vault-agent/templates/athena-cert.tpl"
   destination = "/certs/athena.crt"

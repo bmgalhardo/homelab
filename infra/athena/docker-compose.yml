@@ -1,10 +1,4 @@
 services:
-  # ── Vault Agent ───────────────────────────────────────────────────────────
-  # Reusable sidecar pattern (see README "Vault Agent as a template").
-  # Authenticates to Vault via AppRole, then:
-  #   - renders secrets  -> ./secrets/*.env   (consumed via env_file)
-  #   - issues/renews the leaf cert -> ./certs/athena.{crt,key}  (node hostname)
-  #   - touches ./certs/.reload on any change; a host timer restarts consumers
   vault-agent:
     image: hashicorp/vault:1.13.3
     container_name: vault-agent

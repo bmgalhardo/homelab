@@ -27,8 +27,7 @@ rc-update add docker default && service docker start
 
 ### Vault side (once — not per rebuild)
 
-Lives in `infra/vault/`, **not here**: it talks only to Vault, and this node
-cannot run it (its own token is denied on `auth/approle/role/athena`).
+See `infra/vault/README.md`.
 
 ```sh
 export VAULT_ADDR=https://vault.bgalhardo.internal

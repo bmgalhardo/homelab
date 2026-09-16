@@ -48,8 +48,6 @@ jq -r '.data.certificate, .data.private_key' /tmp/a.json \
 rc-service haproxy restart && lbu commit
 ```
 
-No auto-renewal (todos.md` P0).
-
 ## Rebuild from bare Alpine
 
 1. Flash **Alpine armhf** (the ARMv6 build) to the SD card, boot, `setup-alpine`

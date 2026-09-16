@@ -1,13 +1,10 @@
 services:
-  # Issues + renews the TLS leaf postgres serves. See vault-agent/config.hcl;
   # Vault-side setup: infra/vault/approle-bootstrap.sh roles/postgres.env
   vault-agent:
     image: hashicorp/vault:1.13.3
     container_name: vault-agent
     restart: unless-stopped
-    # Explicit: the template command chowns the key to postgres' uid, which
-    # only root can do.
-    user: root
+    user: root   # the template command chowns the key to postgres' uid
     cap_add:
       - IPC_LOCK
     entrypoint: ["vault", "agent", "-config=/vault-agent/config.hcl"]

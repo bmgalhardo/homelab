@@ -22,7 +22,6 @@ infra/
 │       │   ├── docker-compose.yml
 │       │   ├── vault.hcl
 │       │   ├── unsealer.sh
-│       │   ├── bootstrap-k8s-auth.sh  ← Vault-side k8s auth config, see network.md
 │       │   └── .env.example    ← names only, real values live in .env on the VM
 │       ├── authentik/
 │       │   ├── docker-compose.yml
@@ -31,6 +30,7 @@ infra/
 │       │   ├── docker-compose.yml
 │       │   ├── backup.sh
 │       │   ├── restore.sh
+│       │   ├── vault-agent/    ← TLS leaf only; not deployed yet (todos.md)
 │       │   └── .env.example
 │       └── omni/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
@@ -39,12 +39,13 @@ infra/
 │   ├── vault-agent/       ← agent config + cert/secret templates (node-side only)
 │   └── README.md
 ├── vault/                 ← Vault-side setup. Talks ONLY to Vault; never shipped
-│   ├── approle-bootstrap.sh   ← one parameterised script for every service
-│   └── roles/<service>.env    ← ROLE / COMMON_NAME / KV_PATH / IP_SAN
+│   ├── approle-bootstrap.sh   ← one parameterised script for every VM/node service
+│   ├── roles/<service>.env    ← ROLE / COMMON_NAME / KV_PATH / IP_SAN
+│   └── k8s-auth-bootstrap.sh  ← elysium kubernetes auth + vault-ca Secret
 ├── ca/                    ← root-ca.crt — public, committed on purpose
 ├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
 │                            also the SSH bastion since manager was deleted
-└── hal9000/terraform/     ← Talos k8s cluster provisioning, kept
+└── elysium/               ← Talos k8s cluster: terraform/ (VMs) + omni/ (machine config)
 ```
 
 (There was also an `infra/proxmox/` proxmoxer helper script — removed, gone

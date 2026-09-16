@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
-# Vault-side setup for a service's Vault Agent (AppRole auth).
-#
-# This script talks ONLY to Vault. It never touches the target node — which is
-# also why the node can never run it: a node's own AppRole token is denied on
-# auth/approle/role/<role> by design. Run it from wherever your Vault CLI is
-# authenticated.
-#
-# The objects it creates (policy, AppRole, KV entry) live in Vault's raft store
-# and survive any node rebuild. Reprovisioning a node does NOT require re-running
-# this — only re-delivering a secret_id (see --secret-id-only).
-#
+# Vault-side setup for a service's Vault Agent: policy, AppRole, optional KV seed.
 # Idempotent. Requires: vault CLI authenticated (VAULT_ADDR / VAULT_TOKEN).
+# See README.md.
 #
 #   ./approle-bootstrap.sh roles/athena.env
 #   ./approle-bootstrap.sh roles/athena.env --print-policy   # no writes
 #   ./approle-bootstrap.sh roles/athena.env --secret-id-only # rotate/redeliver
 #
-# Run as a subprocess, never `source` it: set -e in a sourced script kills
-# your shell.
+# Run it, never `source` it: set -e would kill your shell.
 
 set -euo pipefail
 
@@ -30,7 +20,6 @@ if [ -z "$ROLEFILE" ] || [ ! -f "$ROLEFILE" ]; then
   exit 1
 fi
 
-# Role definitions are plain env files — see roles/README or any existing one.
 KV_PATH=""; IP_SAN=""; KV_SEED=""
 # shellcheck disable=SC1090
 . "$ROLEFILE"
@@ -41,9 +30,6 @@ KV_PATH=""; IP_SAN=""; KV_SEED=""
 PKI_ROLE="${PKI_ROLE:-pki_infra/issue/internal}"
 
 # ── build the policy ────────────────────────────────────────────────────────
-# allowed_parameters is a strict allow-list: any parameter not named here is
-# rejected at request time, so ip_sans must be listed even though it is also
-# scoped by value.
 build_policy() {
   if [ -n "$KV_PATH" ]; then
     printf 'path "%s" {\n  capabilities = ["read"]\n}\n\n' "$KV_PATH"
@@ -92,7 +78,6 @@ ROLE_ID=$(vault read -field=role_id "auth/approle/role/${ROLE}/role-id")
 SECRET_ID=$(vault write -field=secret_id -f "auth/approle/role/${ROLE}/secret-id")
 
 # ── seed KV if the role wants one and it does not exist yet ─────────────────
-# Guarded: re-running never clobbers an existing password.
 if [ -n "$KV_SEED" ]; then
   KV_KV="${KV_PATH#kv/data/}"
   if ! vault kv get "kv/${KV_KV}" >/dev/null 2>&1; then

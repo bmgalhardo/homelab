@@ -129,38 +129,110 @@ Feeding the model `.claude/context/*.md` matters: Hades being unreachable at
 04:00 is power management, not an incident, and only the context files know
 that.
 
-## Log Sources & How They Ship
+## Integration List — reviewed 2026-09-16
 
-| Source | Method | Notes |
-|--------|--------|-------|
-| k8s (hal9000) | Alloy DaemonSet | Manifests already exist in `kubernetes/monitoring/alloy/` — repoint `loki.write` at athena (`http://192.168.1.196:3100`) |
-| Proxmox hosts (Apollo, Hades) | Alloy native (Debian, apt) | journald + `/var/log/pve*` |
-| Olympus VMs (vault, authentik, postgres, omni) | Alloy native or journald→syslog | Docker json-file logs + journald |
-| qdevice LXC | Alloy native (Debian) | corosync-qnetd |
-| Hermes (Pi 1 B+, Alpine) | **busybox syslogd forwarding** (`-R athena:1514`) | Pi 1 — ARMv6, 512MB, no ARMv6 Alloy build. No loss: dnsmasq + haproxy log to syslog natively. `syslogd` not yet running there — see `infra/hermes/README.md` |
-| UDM Pro | UniFi remote syslog export | Settings → System → Remote Logging |
+Every source below was checked against live state on 2026-09-16: Proxmox API
+(`claude@pve!claude-readonly`), k8s (`automation/claude`), Omni/Talos (Reader
+service account), TLS sweeps of every endpoint, athena's Loki/Prometheus, and
+read-only SSH on hermes. **Verdicts are proposed** until the open decisions at
+the end of this section are settled.
 
-athena runs `loki.source.syslog` on 1514 (Alloy) to receive the last two.
+**Collection principle (proposed):** anything numeric or binary is collected
+**continuously in Prometheus**, and the 04:00 agent reads the 24h worst case
+(`min_over_time` / `max_over_time`). Agent-side probes are only for facts that
+carry a *reason* string (Talos `errorMessage`, Flux/VSO condition messages,
+Authentik, backup/snapshot freshness, key expiry). Two reasons:
 
-## Fact Probes (no logs involved)
+- Vault was transiently sealed on 2026-09-14; a point-in-time check at 04:00
+  would have missed it.
+- Hades is power-managed, so its facts need "last observed + age" semantics,
+  not "missing".
 
-Deliberately low-privilege — this is the argument against colocating on the
-bastion (now hermes):
+### Logs
 
-| Fact | Source | Credential |
-|------|--------|-----------|
-| Node status, ZFS pool health, SMART/wear, storage % | Proxmox API `/nodes/{node}/{status,disks/list,disks/zfs,storage}` | `claude@pve!claude-readonly` (working since 2026-08-25, see network.md) |
-| Per-guest RAM: allocated vs used, with history | Proxmox API `/nodes/{node}/{qemu,lxc}/{vmid}/rrddata?timeframe={day,week,month}` — PVE keeps RRD, **no exporter needed**. Flag guests near their allocation ceiling and any host >95%. Confirmed 2026-09-08. | `claude@pve!claude-readonly` |
-| Cert expiry (vault, authentik, proxmox, unifi, omni, litellm, ...) | TLS connect, read `notAfter` | **none** |
-| Pod/deployment readiness, restart counts, PVC status | k8s API | read-only ServiceAccount (`automation/claude`, live 2026-09-15) |
-| **Talos volume health** — `volumestatus` where `phase != running`, reporting `spec.errorMessage` | `talosctl get volumestatus` | Omni service account (`.claude/secrets/omni.env` — **missing, must be restored**) |
-| Pod memory vs requests/limits | k8s metrics API (`metrics.k8s.io`) — the one RAM signal invisible from the Proxmox side; flags over/under-provisioned pods | read-only ServiceAccount (new) |
-| PKI leaf inventory, seal status | Vault API | read-only policy (new) |
-| Cluster quorum | `pvecm status` | SSH — no API equivalent |
-| Backup freshness (`/backups/{daily,weekly,monthly}` mtimes) | SSH to `postgres` VM | SSH |
+| Source | Verdict | Method | Notes |
+|--------|---------|--------|-------|
+| k8s pod logs | change | Alloy HelmRelease, `loki.source.kubernetes` (API tail), 1 replica | `kubernetes/monitoring/alloy/` was deleted in `17e511d` — nothing to reuse. API tailing needs no hostPath, so no privileged PSA namespace on Talos |
+| k8s events | **add** | Same Alloy, `loki.source.kubernetes_events` | Events expire after 1h — 0 Warning events on 09-16 despite 40+ restarts. This is where `ProvisioningFailed` / `BackOff` live |
+| Talos node logs (kubelet, containerd, etcd, machined, kernel) | **add** | Omni patch `machine.logging.destinations` (json_lines over TCP/UDP) | Not pod logs. Receiver on athena not chosen — verify an Alloy component before committing |
+| Proxmox hosts (apollo, hades) | keep | Alloy native (apt), journald | Drop `/var/log/pve*` — task failures come from `/cluster/tasks` (fact below) |
+| Olympus VMs (vault, authentik, postgres, omni) | change | Alloy container in each VM's compose (`loki.source.docker` + journald) — one template for all | vault and omni are 512 MB; vault had 16 MB free and ~63 MB swapped out on 09-16. Needs vault + omni → 1 GB (open decision) |
+| qdevice LXC | **drop** | — | 16 MB RAM, no room for any shipper. Covered by the quorum fact |
+| Hermes (Pi 1, ARMv6) | change | HAProxy: `log 192.168.1.196:1514 format rfc5424 local2` direct. dnsmasq: syslog → busybox `syslogd -R` to an RFC3164 listener | On 09-16: syslogd running without `-R`; HAProxy logs to `127.0.0.1 local2` UDP with no listener (lost); dnsmasq logs to a file. Don't ship `log-queries` — volume ≫ signal |
+| UDM Pro | keep | UniFi remote syslog | Format unverified — likely RFC3164, same listener as hermes |
+| athena's own containers | **add** | `loki.source.docker` on athena's Alloy | vault-agent renewal failures, Loki/Prometheus errors. Cheapest item on the list |
 
-SSH is needed for two things, not everything. Use a dedicated key with
-forced commands, not the bastion's keyring.
+athena needs a second syslog listener: busybox `-R` sends RFC3164 over UDP,
+and `alloy/config.alloy` only accepts RFC5424 on 1514.
+
+### Facts
+
+| Fact | Verdict | Source | Credential | Notes |
+|------|---------|--------|-----------|-------|
+| Node status, ZFS health + last scrub, SMART/wear, storage % | keep | Proxmox API `/nodes/{node}/{status,disks/list,disks/smart,disks/zfs/{pool},storage}` | `claude@pve!claude-readonly` | Verified. For host memory use `available`, not `used` (includes ZFS ARC) |
+| Per-guest RAM | change | Proxmox RRD + `status/current` `ballooninfo` | same | Only meaningful with the balloon device on. Guests without it (postgres, elysium-cp confirmed) report host RSS ≈ allocation, so "near ceiling" fires on all of them. Fix: `balloon = memory` in Terraform (stats only, no ballooning) |
+| Cert expiry | change | blackbox_exporter on athena, `probe_ssl_earliest_cert_expiry` | none | vault:443, authentik:443, omni:443 + :8100, apollo:8006, hades:8006, proxmox (HAProxy):443, unifi:443, athena:3000, gateways .200/.201 (SNI), couchdb.bgalhardo.com. Postgres:5432 after `ssl=on` needs STARTTLS → agent-side |
+| Vault health / seal | change | blackbox on `/v1/sys/health` (503 = sealed), continuous | none | Unauthenticated over 443 (8200 is closed) |
+| Vault PKI leaf inventory | **drop** | — | — | `pki_infra/certs` accumulates superseded leaves (athena reissues every ~10 days) → noise; TLS probes cover what is served. Keep a one-off intermediate CA expiry check |
+| k8s workload health | extend | k8s API | **new `automation/argus` SA**, same ClusterRole as `claude` | Pod readiness/restarts, PVC phase, **Flux Kustomization/HelmRelease Ready, cert-manager Certificate Ready, VSO `SecretSynced`, Node conditions, Gateway/HTTPRoute Accepted** — RBAC verified for all. Key VSO on `SecretSynced`, not `Ready`. Separate SA: independent revocation, and it lives on a box running an LLM over untrusted logs |
+| Talos volume health | keep | `talosctl get volumestatus` via Omni | Omni SA, **Reader** role (`.claude/secrets/omni.env`, restored + verified 09-16) | The only layer that reports a cause (`spec.errorMessage`) |
+| Omni SA key expiry | **add** | PGP subkey expiry inside the key — no API call | none | Current key expires **2027-09-15** (1y). todos.md incident #2, on a schedule |
+| Pod/container memory | change | kubelet cAdvisor + kube-state-metrics via in-cluster Alloy → `remote_write` | in-cluster | metrics-server is **not installed** (`metrics.k8s.io` empty 09-16). Also avoids the Talos kubelet-serving-cert setup metrics-server needs |
+| Cluster quorum | change | Proxmox API `/cluster/status` (quorate) + `/cluster/config/qdevice` (State, last vote) | `claude@pve!claude-readonly` | Verified — removes the `pvecm status` SSH need |
+| Proxmox failed tasks | **add** | `/cluster/tasks`, status != OK | same | vzdump / migration failures. 0 in the 7 days to 09-16 |
+| Postgres backup freshness | keep | SSH forced command → `stat` newest `/backups/{daily,weekly,monthly}` | dedicated key | Not verified 09-16 (no keyring on hermes) |
+| `odin` snapshot age per dataset | **add** | SSH forced command → `zfs list -t snapshot` on hades | dedicated key | The todos.md P0 — fires today (photos 2025-12-03, backups never). Not exposed by the PVE API |
+| Authentik SAML signing cert expiry | **add** | Authentik API `/api/v3/crypto/certificatekeypairs/` | read-only Authentik token (new) | Not TLS-visible. Expired 3 months unnoticed (todos.md) |
+| DNS | **add** | blackbox DNS probes against hermes (athena, vault, a wildcard name, one external) | none | Hermes DNS is a SPOF with no heartbeat |
+| Public DNS drift | **add** | `couchdb.bgalhardo.com` via a public resolver == WAN IP | none | external-dns / cloudflare-ddns fail on Cloudflare timeouts |
+| athena host (disk, memory) | **add** | node_exporter on athena | none | No cgroup memory limits (Phase 1 open item) |
+
+SSH remains for exactly two facts (backup mtimes, odin snapshots), via a
+dedicated key with forced commands — not a bastion keyring.
+
+### Metrics (Prometheus on athena)
+
+| Target | Verdict | Notes |
+|--------|---------|-------|
+| athena stack (prometheus, loki, alloy, grafana) | keep | 4/4 up |
+| pve-exporter | **drop** | RRD covers guests for the agent, node_exporter covers hosts. Reconsider only for guest charts in Grafana |
+| node_exporter — apollo, hades | add | apt `prometheus-node-exporter`; zfs collector gives pool state + ARC size |
+| node_exporter — athena | add, priority | Only memory ceiling signal while cgroups are off |
+| node_exporter — hermes | skip | `community` repo not enabled; HAProxy exporter + DNS probe give the service view |
+| HAProxy built-in exporter (hermes) | add | 3.4.4 is built with `prometheus-exporter` (verified). Proxmox backend up/down |
+| blackbox_exporter (athena) | add | Certs, Vault health, DNS, HTTP up for every HTTPRoute |
+| elysium (the `hal9000` stub) | add | In-cluster Alloy scrapes kube-state-metrics, cAdvisor, Flux / cert-manager / VSO controller metrics → `remote_write`. Needs `--web.enable-remote-write-receiver`. Drop unneeded cAdvisor series and scrape at 60s, or the 2 GB size cap silently shortens 30d retention |
+| Deferred | — | unpoller (UDM, waiting on API key), postgres_exporter, app metrics (Immich, Plex) |
+
+### Found during the review (2026-09-16)
+
+What the list above would have caught — evidence for it, not yet triaged into
+todos.md:
+
+- **hermes:** `log-queries` → `/var/log/dnsmasq-debug.log` on the tmpfs root
+  (213 MB), 2.7 MB and growing, no rotation; from an uncommitted
+  `zz-debug.conf` (`lbu status: A`)
+- **hermes:** HAProxy logs lost — UDP to `127.0.0.1`, nothing listening
+- **hades:** 25 GB (`personal`) + 8 GB (`elysium-hades`) allocated on a 31 GiB
+  host plus ZFS ARC; 727 MB available while `elysium-hades` used only 185 MB
+- **vault VM:** 512 MB, 16 MB free, ~63 MB swapped out
+- **Vault transiently sealed ~2026-09-14 21:48:** `immich/immich-db`
+  VaultStaticSecret still `SecretSynced=False "Vault is sealed"` two days later,
+  while `Ready=True`
+- `external-dns` 27 restarts (Cloudflare API timeout), `litellm` 9 (last exit
+  137, 09-15)
+- **apollo NVMe** (Crucial P3 1TB): 33% used, 25.1 TB written, 111 unsafe
+  shutdowns — a trend to watch, not an alarm
+- hades up 243h — "off at 04:00" did not hold that week
+- hermes `~/.ssh` held only `authorized_keys` (changed 09-15 11:39) — no keyring
+- Loki had zero labels — nothing ingested yet, including athena itself
+
+### Open decisions
+
+- [ ] Hermes keyring removal — intentional? Postgres backup + odin snapshot
+      facts could not be verified without it
+- [ ] Raise vault + omni to 1 GB for log shipping (+1 GB on Apollo, at 81%)
+- [ ] Adopt the continuous-in-Prometheus collection principle
 
 ## LLM Split — local vs Claude API
 
@@ -322,20 +394,29 @@ and `argus/state/` only, with `git pull --rebase` before push.
       `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline and reboot,
       then restore the limits.
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
-      `prometheus.yml` — wire pve-exporter / node-exporter in Phase 2.
+      `prometheus.yml` — wire them per the Integration List metrics table
+      (pve-exporter proposed dropped).
 
-### Phase 2 — Ship logs from everything ☐
-- [ ] Alloy DaemonSet in k8s (reuse `kubernetes/monitoring/alloy/`, repoint `loki.write`)
-- [ ] Alloy on Apollo + Hades (journald + `/var/log/pve*`)
-- [ ] Alloy on the Olympus VMs + qdevice LXC
-- [ ] Hermes → busybox syslogd `-R argus:1514` (Pi 1 / ARMv6 — no Alloy)
+### Phase 2 — Ship logs + metrics from everything ☐
+
+Order from the 2026-09-16 review — see Integration List for the method per source.
+
+- [ ] athena: `loki.source.docker`, RFC3164 syslog listener, node_exporter,
+      blackbox_exporter
+- [ ] hermes: remove debug `log-queries`, HAProxy logs direct to athena,
+      `syslogd -R`, HAProxy exporter, `lbu commit`
+- [ ] k8s: Alloy HelmRelease — pod logs, events, `remote_write` of
+      kube-state-metrics + cAdvisor; `automation/argus` ServiceAccount
+- [ ] Proxmox hosts: Alloy (journald) + node_exporter
+- [ ] Olympus VMs: Alloy compose template (after the RAM decision)
+- [ ] Talos node logs via `machine.logging.destinations`
 - [ ] UDM Pro → remote syslog
 - [ ] Verify: every host in `network.md` appears as a Loki label
-- [ ] **Delete `kubernetes/monitoring/loki/` and `kubernetes/monitoring/grafana/`**
-      once the athena stack is serving (agreed 2026-09-07). Keep `alloy/`.
+- [x] `kubernetes/monitoring/` is gone (removed in `17e511d`, flux first
+      stage) — no loki/grafana left to delete, and no alloy to reuse
 
 ### Phase 3 — Argus agent, first cut ☐
-- [ ] Collect: LogQL 24h window + the fact probes above
+- [ ] Collect: LogQL 24h window + the Integration List facts
 - [ ] Reduce: fingerprinting + fact diff
 - [ ] Judge: one Claude call, pydantic-validated structured output
 - [ ] Emit: Telegram only (no state yet)
@@ -360,10 +441,9 @@ and `argus/state/` only, with `git pull --rebase` before push.
   to surface somewhere other than the report it just failed to send. Partly
   covered by the Phase 5 dead-man's switch — decide if that's enough.
 - Metrics: **Prometheus is now in the argus stack** (2026-09-08, 30d/2GB
-  retention). It scrapes the argus stack itself today; host exporters
-  (pve-exporter, node-exporter) and k8s (`kube-state-metrics`) are commented
-  stubs in `prometheus.yml`. `kubernetes/monitoring/mimir/` stays retired —
-  the node-not-k8s logic still holds. Per-guest RAM pressure is still a fact
+  retention). It scrapes the argus stack itself today; the target list is in
+  the Integration List metrics table (2026-09-16). Mimir stays retired — the
+  node-not-k8s logic still holds. Per-guest RAM pressure is still a fact
   probe (PVE RRD), not a scrape target.
 
 ### Resolved

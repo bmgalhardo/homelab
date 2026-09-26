@@ -196,7 +196,11 @@
     `/root/postgres/`, and runs only `postgres` + `pg_backup`.
   - Rebuilt from the athena template plus the contract still documented in
     `docker-compose.yml` (mount paths, `/certs/postgres.{crt,key}`,
-    `user: root` to chown the key). Each file is marked RECONSTRUCTED.
+    `user: root` to chown the key).
+  - `infra/vault/roles/postgres.env` exists (2026-09-16) but has **not been
+    applied** to Vault — review with `--print-policy` first.
+  - `reload.sh` fixed 2026-09-16 to `exec -u postgres`: `pg_ctl` refuses to run
+    as root, and `docker compose exec` defaults to root in this image.
   - The compose file in git already has the vault-agent service and
     `ssl=on`, so deploying it is a behaviour change to a live database —
     verify TLS before pointing pgadmin/immich at it.
@@ -440,9 +444,13 @@ Two disks per worker now, and this is the shape to keep:
   commit**: MetalLB's webhook rejects overlapping CIDRs and Flux dry-runs the
   whole set against current state.
 - **VSO chart 1.5.1 can't own its own CRs.** `defaultAuthMethod` renders
-  `spec.namespace` as YAML null (CRD demands a string) and `defaultVaultConnection`
-  makes the Helm release wait on a VaultConnection that can't be healthy until
-  Vault trusts the cluster — which would stall tier 1 forever. Both disabled;
+  `spec.namespace` as YAML null (CRD demands a string; `VaultAuth "default" is
+  invalid: spec.namespace ... must be of type string`; setting `namespace: ""`
+  renders the same null, and 1.4.1 has the same template) and
+  `defaultVaultConnection` makes the Helm release wait on a VaultConnection that
+  can't be healthy until Vault trusts the cluster (`timeout waiting for:
+  [VaultConnection/.../default status: 'InProgress']`, then Stalled with no
+  remediation) — which would stall tier 1 forever. Both disabled;
   `VaultConnection` + `VaultAuth` declared by hand in
   `20-infra-wiring/vso-config.yaml`. `allowedNamespaces: ["*"]` is required or
   only the operator's own namespace may use them.

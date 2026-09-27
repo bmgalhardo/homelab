@@ -157,7 +157,7 @@ data:
           siteMonitor: http://openwebui.ai:8080
       - LiteLLM:
           icon: sh-litellm.png
-          href: https://litellm.bgalhardo.internal/ui
+          href: https://litellm.bgalhardo.internal/ui/
           siteMonitor: http://litellm.ai:4000
     - Personal:
       - Obsidian LiveSync:

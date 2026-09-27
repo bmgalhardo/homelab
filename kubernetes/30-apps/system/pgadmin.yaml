@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
       - name: pgadmin
-        image: dpage/pgadmin4:latest
-        imagePullPolicy: Always
+        image: dpage/pgadmin4:9.18.0
+        imagePullPolicy: IfNotPresent
         env:
         - name: PGADMIN_CONFIG_AUTHENTICATION_SOURCES
           value: "['oauth2']"

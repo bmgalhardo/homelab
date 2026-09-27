@@ -9,20 +9,30 @@ resource "proxmox_vm_qemu" "talos" {
   target_node        = each.value.node
   qemu_os            = "l26"
   agent              = 1
-  start_at_node_boot = true
-  power_state = "running"
-  memory      = each.value.memory
-  scsihw      = "virtio-scsi-single"
-  skip_ipv6   = true
-  protection  = false
-  tags        = "k8s"
+  start_at_node_boot = each.value.onboot
+  power_state        = each.value.onboot ? "running" : "stopped"
+  machine            = each.value.gpu == null ? null : "q35"
+  memory             = each.value.memory
+  scsihw             = "virtio-scsi-single"
+  skip_ipv6          = true
+  protection         = false
+  tags               = "k8s"
 
   boot = "order=scsi0;ide2"
 
   cpu {
-    type    = "x86-64-v2-AES"
+    type    = "x86-64-v3"
     sockets = 1
     cores   = each.value.cores
+  }
+
+  dynamic "pci" {
+    for_each = each.value.gpu == null ? [] : [each.value.gpu]
+    content {
+      id         = 0
+      mapping_id = pci.value
+      pcie       = true
+    }
   }
 
   network {
@@ -39,9 +49,9 @@ resource "proxmox_vm_qemu" "talos" {
       # persistent lives here — EPHEMERAL is wiped by a node reset.
       scsi0 {
         disk {
-          size     = each.value.disk_size
-          storage  = "local-lvm"
-          iothread = true
+          size       = each.value.disk_size
+          storage    = "local-lvm"
+          iothread   = true
           discard    = true
           emulatessd = true
           replicate  = true
@@ -72,7 +82,7 @@ resource "proxmox_vm_qemu" "talos" {
     ide {
       ide2 {
         cdrom {
-          iso = var.omni_iso
+          iso = coalesce(each.value.iso, var.omni_iso)
         }
       }
     }
@@ -86,6 +96,10 @@ resource "proxmox_vm_qemu" "talos" {
       # plan proposed deleting it. Ignored rather than declared: the goal is a
       # plan that is empty when nothing changed, so a real diff is worth reading.
       startup_shutdown,
+      # reads back false on VMs not cloned from a template; a diff forces replacement.
+      full_clone,
+      # onboot=false VMs are powered by hand after create.
+      power_state,
     ]
   }
 }
@@ -95,14 +109,17 @@ resource "proxmox_vm_qemu" "talos" {
 # ../README.md step 3.
 
 output "next" {
-  value = <<-EOT
-    VMs created. Now:
-      1. virtiofs on elysium-hades (telmate can't) — on the Hades PVE host:
-         for m in 0:series 1:movies 2:downloads 3:photos; do
-           qm set 1102 -virtiofs$${m%%:*} dirid=$${m##*:},cache=auto
-         done
-      2. Start the VMs; they register in Omni as available machines.
-      3. Wire their UUIDs into ../omni/cluster.yaml, then:
-         omnictl cluster template sync -f ../omni/cluster.yaml
-  EOT
+  value = join("\n", concat(
+    [
+      "Only for VMs this apply CREATED (updates keep their virtiofs):",
+      "  1. virtiofs (telmate can't), on the PVE host, then stop+start the VM:",
+    ],
+    [for name, n in var.node_data :
+      "     ${name}: qm config ${n.vmid} | grep -q virtiofs || for m in ${join(" ", [for i, d in n.virtiofs : "${i}:${d}"])}; do qm set ${n.vmid} -virtiofs$${m%%:*} dirid=$${m##*:},cache=auto; done"
+    if length(n.virtiofs) > 0],
+    [
+      "  2. Start the VM; it registers in Omni (labelled via the ISO preset or by hand).",
+      "  3. omnictl cluster template sync -f ../omni/cluster.yaml",
+    ],
+  ))
 }

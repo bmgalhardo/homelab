@@ -1,0 +1,3 @@
+proxmox_host         = "https://proxmox.bgalhardo.internal"
+proxmox_token_id     = "<user>@pve!<token>"
+proxmox_token_secret = "<secret>"

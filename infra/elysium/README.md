@@ -1,6 +1,6 @@
 # elysium — Talos/k8s cluster (rebuild of hal9000)
 
-Omni owns the cluster; Terraform only builds the 3 VMs. This covers infra
+Omni owns the cluster; Terraform only builds the VMs. This covers infra
 only — VM provisioning through a working, `Ready` Talos cluster. App
 deployment continues in `kubernetes/flux/README.md`.
 
@@ -9,6 +9,7 @@ deployment continues in `kubernetes/flux/README.md`.
 | `elysium-cp` | apollo | 2 / 4G / 20G | control plane (single) |
 | `elysium-apollo` | apollo | 2 / 4G / 40G | always-on: Home Assistant, `system` ns, add-ons |
 | `elysium-hades` | hades | 4 / 8G / 40G | media: Plex, Immich, *arr, sabnzbd — flaps with Hades power |
+| `elysium-hades-gpu` | hades | 4 / 8G / 40G | GTX 750 Ti passthrough — off by default, see [GPU node](#gpu-node) |
 
 - **CNI/LB/Gateway:** Flannel + kube-proxy (Talos defaults — no install
   step here); MetalLB + nginx-gateway-fabric come later as ordinary
@@ -17,7 +18,7 @@ deployment continues in `kubernetes/flux/README.md`.
 - **API VIP:** `192.168.1.180` (unchanged)
 
 ```
-terraform/   3 VMs, boot the Omni ISO
+terraform/   VMs, boot the Omni ISO
 omni/        ClusterTemplate + patches (omnictl cluster template sync)
 ```
 App manifests live in `kubernetes/` (bootstrap + apps).
@@ -56,13 +57,37 @@ omnictl media download elysium --output .
 ```
 The preset is a named, server-side resource — re-download anytime without
 retyping flags; `omnictl media preset list` / `delete elysium` to manage
-it. Upload the `.iso` to `local` storage on **both** PVE nodes
+it. `omni/media-presets.yaml` holds both presets: `omnictl apply -f` recreates them.
+Upload the `.iso` to `local` storage on **both** PVE nodes
 (`/var/lib/vz/template/iso/` — Proxmox UI, or `scp`), set `omni_iso` in
 `terraform/configs.auto.tfvars.json` to `local:iso/<name>.iso`.
 
 Keep `omni/cluster.yaml` `systemExtensions:` in sync with `--extensions`.
 
+GPU variant for `elysium-hades-gpu` (GTX 750 Ti is Maxwell: proprietary
+`nonfree-kmod`, `-lts` branch only — the open modules and `-production`
+don't support it). `--initial-labels` skips the manual labeling in step 4:
+```sh
+omnictl media preset create elysium-nvidia --arch amd64 \
+  --talos-version 1.14.0 \
+  --extensions siderolabs/qemu-guest-agent \
+  --extensions siderolabs/nonfree-kmod-nvidia-lts \
+  --extensions siderolabs/nvidia-container-toolkit-lts \
+  --initial-labels elysium/role=hades-gpu \
+  --embedded-machine-config-file omni/patches/trusted-ca.yaml \
+  --use-siderolink-grpc-tunnel
+
+# or recreate it from git: omnictl apply -f omni/media-presets.yaml
+omnictl media download elysium-nvidia --output .
+scp elysium-nvidia*.iso root@hades.bgalhardo.internal:/var/lib/vz/template/iso/
+# then set the node's `iso` in terraform/configs.auto.tfvars.json to local:iso/<that name>
+```
+
 ### 3. Build the VMs
+Needs `terraform/terraform.tfvars` with a Proxmox token that can create VMs
+(copy `terraform.tfvars.example`) and the `terraform.tfstate` — both
+gitignored, neither in `.claude/secrets/`. The read-only `claude-readonly`
+token cannot apply.
 ```sh
 cd infra/elysium/terraform
 terraform init && terraform apply
@@ -100,3 +125,25 @@ If `list /var/mnt` is missing entries despite `volumestatus` saying
 
 Cluster is up and `Ready`. Continue in `kubernetes/flux/README.md` for
 Vault re-auth, Flux bootstrap, and app deployment.
+
+## GPU node
+
+`elysium-hades-gpu` (vmid 1103) shares the `nvidia_750ti` PCI mapping with
+VM 102 `personal`, and Hades has RAM for only one of them — Proxmox refuses
+to start a VM whose mapped device is in use. It is created stopped and never
+starts at boot; swap by hand on the Hades host:
+
+```sh
+qm shutdown 102 && qm start 1103     # GPU → k8s
+qm shutdown 1103 && qm start 102     # GPU → personal
+```
+
+Workloads opt in with `runtimeClassName: nvidia` and a `nvidia.com/gpu: 1`
+limit. The GPU Operator (`kubernetes/10-infra-base/gpu-operator.yaml`) runs
+with its driver/toolkit off — Talos extensions provide both — and schedules
+its node components wherever NFD finds an NVIDIA PCI device. Check:
+```sh
+talosctl -n <ip> read /proc/driver/nvidia/version
+kubectl -n gpu-operator get pods      # nvidia-operator-validator Completed
+kubectl describe node <node> | grep nvidia.com/gpu
+```

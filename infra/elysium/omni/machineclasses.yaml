@@ -1,4 +1,4 @@
-# MachineClasses for the 3 elysium VMs, matched by the `elysium/role` label
+# MachineClasses for the elysium VMs, matched by the `elysium/role` label
 # set manually on each machine in the Omni UI. Referenced by
 # `machineClass:` in cluster.yaml's ControlPlane/Workers blocks.
 #
@@ -27,3 +27,11 @@ metadata:
 spec:
   matchlabels:
     - elysium/role=hades
+---
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: elysium-hades-gpu
+spec:
+  matchlabels:
+    - elysium/role=hades-gpu

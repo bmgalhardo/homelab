@@ -49,9 +49,10 @@
   Kustomization healthy, correctly** — the resources were applied as
   declared. Only the Talos layer knew, in one field. Captured as a worked
   example in `argus.md` and added there as a fact probe.
-- **Blocks:** `.claude/secrets/omni.env` (Omni service account) is **missing**,
-  so headless `talosctl`/`omnictl` do not work — it falls back to interactive
-  browser auth. Restore it; the Argus Talos probe depends on it too.
+- **Unblocked 2026-09-26:** `.claude/secrets/omni.env` (Omni service account)
+  restored — headless `omnictl` and `talosctl` (via `omnictl talosconfig -c
+  elysium`) verified working. The Argus Talos probe can use it. Role is
+  **Reader**: it cannot create media presets or sync the cluster template.
 
 
 ### ⛔ There Is Effectively One Copy Of Everything (found 2026-09-15)
@@ -316,8 +317,8 @@
   `system` + `immich` + `ai` deployed. Old hal9000 VMs still **stopped**, not
   destroyed.
 - **Access:** `kubectl` via `~/.kube/config` (Omni OIDC, context
-  `omni-elysium`). `.claude/secrets/omni.env` was removed; `omnictl` uses the
-  interactive session, and `talosctl`'s Omni-issued key **expires often** —
+  `omni-elysium`). `.claude/secrets/omni.env` (restored 2026-09-26) gives headless
+  `omnictl`; `talosctl`'s Omni-issued key **expires often** —
   re-issue with `omnictl talosconfig -c elysium` before any talosctl work.
   `kubectl` needs the `kubectl-oidc_login` plugin: it must be **int128/kubelogin**
   installed under that exact filename, NOT Azure's identically-named `kubelogin`
@@ -631,7 +632,7 @@ Same class of trap as the "missing record + catch-all wildcard" P0 below.
   future VM rebuild, and gives Pi provisioning (Hermes-style Alpine
   diskless) the same treatment.
 - **Why now:** came out of the elysium rebuild — `omnictl media` presets
-  (see `infra/elysium/omni/media-preset.yaml`) can be served over PXE
+  (see `infra/elysium/omni/media-presets.yaml`) can be served over PXE
   directly from Omni (`omnictl media download <preset> --format pxe`),
   no per-node ISO management at all.
 - **Shape:**

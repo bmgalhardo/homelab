@@ -44,7 +44,6 @@ infra/
 │   └── k8s-auth-bootstrap.sh  ← elysium kubernetes auth + vault-ca Secret
 ├── ca/                    ← root-ca.crt — public, committed on purpose
 ├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
-│                            also the SSH bastion since manager was deleted
 └── elysium/               ← Talos k8s cluster: terraform/ (VMs) + omni/ (machine config)
 ```
 
@@ -58,31 +57,28 @@ with the `claude@pve!claude-readonly` token, see network.md.)
 
 ### Access
 
-Direct SSH from a workstation to these VMs does not work (keys aren't
-authorized there). The reliable path is via the **hermes** bastion.
-
-> **Changed 2026-09-14:** the `manager` VM (192.168.1.170) was deleted. The
-> root SSH keyring now lives on **hermes (192.168.1.199)**, the Pi 1 that
-> already serves DNS + HAProxy. Note hermes is therefore three roles on one
-> box — DNS, load balancer, and SSH keyring.
+**There is no bastion (as of 2026-09-26).** `manager` was deleted
+2026-09-14; hermes briefly held the root keyring, and no longer does. The
+user keeps the SSH keys off-cluster. SSH is direct from a workstation, and
+only works where that workstation's key is in the target's
+`authorized_keys`:
 
 ```
-ssh root@192.168.1.199        # "hermes" — bastion with the real keys
-ssh root@vault                # from hermes, its ssh config resolves aliases
-ssh root@authentik
-ssh root@postgres
-ssh root@omni
-ssh athena
+ssh root@vault.bgalhardo.internal
+ssh root@authentik.bgalhardo.internal
+ssh root@postgres.bgalhardo.internal
+ssh root@omni.bgalhardo.internal
+ssh root@192.168.1.196        # athena
 ```
 
-Hermes' `~/.ssh/config` defines: `athena`, `omni`, `vault`, `authentik`,
-`postgres`. From a workstation, hermes is the **only** host that answers —
-everything else is a second hop.
+A new workstation has no SSH access until its key is authorized. k8s
+(scoped kubeconfig) and the Proxmox API (`claude-readonly` token) need no
+SSH — see CLAUDE.md and network.md.
 
 ### Deploy / Update a Service
 
 ```sh
-# From hermes, or hop through it:
+# From a workstation with an authorized key:
 scp infra/olympus/services/<service>/* root@<service>:/root/<service>/
 ssh root@<service> "cd /root/<service> && docker compose up -d"
 ```
@@ -148,7 +144,12 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   in git). `terraform.tfvars` (real Proxmox credentials) and
   `terraform.tfstate*` are gitignored. **State is drifted — see
   `todos.md` "Full VM Provisioning" before running it.**
-- `infra/hal9000/terraform/` — Talos k8s cluster VMs. Same pattern.
+- `infra/elysium/terraform/` — Talos k8s cluster VMs. Same pattern.
+- **A new workstation needs more than `.claude/secrets/`** to run Terraform:
+  `terraform.tfvars` (copy `terraform.tfvars.example`; a Proxmox token with
+  VM-create rights, not `claude-readonly`) and the matching
+  `terraform.tfstate`, per stack. Copy both from the workstation that last
+  applied.
 
 ⚠️ **Known issue:** `infra/olympus/terraform/main.tf` sets
 `cipassword = "root"` via cloud-init — every VM gets password auth

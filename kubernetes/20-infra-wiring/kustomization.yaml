@@ -6,9 +6,9 @@ resources:
   - rbac-claude.yaml      # scoped read-only identity for assistants/automation
   - metallb-config.yaml     # IPAddressPool + L2Advertisement
   - virtiofs-pvs.yaml       # media-series, media-movies, photos (pinned to hades)
-  - vso-config.yaml         # VaultConnection + VaultAuth (chart cannot own these, see file)
+  - vso-config.yaml         # VaultConnection + VaultAuth
   - issuer-vault.yaml       # + vault-ca VaultStaticSecret + cert-manager RBAC
   - issuer-letsencrypt.yaml # + cloudflare-letsencrypt VaultStaticSecret
   - gateways.yaml           # internal + external Gateways (gatewayClassName: nginx)
-  - external-dns.yaml       # Vault-backed: lives here, not controllers (see below)
+  - external-dns.yaml       # + cloudflare token VaultStaticSecret
 

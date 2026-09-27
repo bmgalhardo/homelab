@@ -8,7 +8,7 @@ spec:
     server: https://vault.bgalhardo.internal
     caBundleSecretRef:
       name: vault-ca
-      key: ca  
+      key: ca
     path: pki_cert_manager/sign/internal
     auth:
       kubernetes:

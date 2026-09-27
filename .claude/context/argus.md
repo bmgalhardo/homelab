@@ -407,6 +407,10 @@ and `argus/state/` only, with `git pull --rebase` before push.
 
 ### Phase 2a — k8s + GPU + AI metrics on athena ☐ (plan, 2026-09-26)
 
+**Status 2026-09-27:** steps 1–5 written — `kubernetes/10-infra-base/monitoring.yaml`
+(KSM 8.6.0, Alloy 1.13.0 with narrowed RBAC), athena remote-write receiver +
+5GB, LiteLLM `callbacks: ["prometheus"]`. Dashboards (6) after data flows.
+
 **Shape:** push, not pull. One Alloy Deployment in-cluster scrapes and
 `remote_write`s to athena's Prometheus. athena can't reach pod IPs, the
 cluster exposes no scrape endpoints, and a power-managed node simply stops

@@ -38,8 +38,9 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
-      - --storage.tsdb.retention.size=2GB
+      - --storage.tsdb.retention.size=5GB
       - --web.enable-lifecycle          # POST /-/reload after a config change
+      - --web.enable-remote-write-receiver   # elysium's in-cluster Alloy pushes here
     ports:
       - "9090:9090"
     volumes:

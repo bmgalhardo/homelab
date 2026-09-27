@@ -1,0 +1,171 @@
+# In-cluster metrics collection, pushed to Prometheus on athena (remote_write).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: kube-state-metrics
+      version: "8.6.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    nodeSelector:
+      homelab/node: apollo
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 256Mi }
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy
+  namespace: monitoring
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: alloy
+      version: "1.13.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controller:
+      type: deployment
+      replicas: 1
+      nodeSelector:
+        homelab/node: apollo
+    # Chart defaults also grant cluster-wide read on secrets/configmaps.
+    rbac:
+      rules:
+        - apiGroups: ["", "discovery.k8s.io"]
+          resources: ["endpoints", "endpointslices", "pods", "services"]
+          verbs: ["get", "list", "watch"]
+      clusterRules:
+        - apiGroups: [""]
+          resources: ["nodes", "nodes/metrics"]
+          verbs: ["get", "list", "watch"]
+    alloy:
+      resources:
+        requests: { cpu: 50m, memory: 128Mi }
+        limits: { memory: 512Mi }
+      configMap:
+        content: |
+          prometheus.remote_write "athena" {
+            endpoint {
+              url = "http://athena.bgalhardo.internal:9090/api/v1/write"
+            }
+            external_labels = { cluster = "elysium" }
+          }
+
+          // cAdvisor: per-container CPU / memory / network, from every kubelet
+          discovery.kubernetes "nodes" {
+            role = "node"
+          }
+
+          discovery.relabel "cadvisor" {
+            targets = discovery.kubernetes.nodes.targets
+            rule {
+              target_label = "__metrics_path__"
+              replacement  = "/metrics/cadvisor"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_node_name"]
+              target_label  = "node"
+            }
+          }
+
+          prometheus.scrape "cadvisor" {
+            job_name          = "cadvisor"
+            targets           = discovery.relabel.cadvisor.output
+            scheme            = "https"
+            bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+            tls_config {
+              insecure_skip_verify = true
+            }
+            scrape_interval = "60s"
+            forward_to      = [prometheus.relabel.cadvisor.receiver]
+          }
+
+          prometheus.relabel "cadvisor" {
+            rule {
+              source_labels = ["__name__"]
+              regex         = "container_(tasks_state|memory_failures_total|blkio_device_usage_total|last_seen|ulimits_soft|file_descriptors|sockets|threads_max|spec_.*)"
+              action        = "drop"
+            }
+            forward_to = [prometheus.remote_write.athena.receiver]
+          }
+
+          prometheus.scrape "kube_state_metrics" {
+            job_name        = "kube-state-metrics"
+            targets         = [{ "__address__" = "kube-state-metrics.monitoring.svc:8080" }]
+            honor_labels    = true
+            scrape_interval = "60s"
+            forward_to      = [prometheus.remote_write.athena.receiver]
+          }
+
+          // Pods: DCGM (GPU), LiteLLM, Flux and cert-manager controllers
+          discovery.kubernetes "pods" {
+            role = "pod"
+          }
+
+          discovery.relabel "pods" {
+            targets = discovery.kubernetes.pods.targets
+            rule {
+              source_labels = ["__meta_kubernetes_pod_phase"]
+              regex         = "Pending|Succeeded|Failed"
+              action        = "drop"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_label_app", "__meta_kubernetes_pod_container_port_name", "__meta_kubernetes_pod_container_port_number"]
+              separator     = ";"
+              regex         = "gpu-operator;nvidia-dcgm-exporter;metrics;9400|ai;litellm;;4000|flux-system;.*;http-prom;8080|cert-manager;.*;http-metrics;9402"
+              action        = "keep"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_label_app"]
+              target_label  = "job"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_namespace"]
+              target_label  = "namespace"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_name"]
+              target_label  = "pod"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_node_name"]
+              target_label  = "node"
+            }
+          }
+
+          prometheus.scrape "pods" {
+            targets         = discovery.relabel.pods.output
+            scrape_interval = "60s"
+            forward_to      = [prometheus.remote_write.athena.receiver]
+          }

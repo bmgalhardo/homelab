@@ -9,6 +9,7 @@ resources:
   - cert-manager.yaml
   - vault-secrets-operator.yaml
   - gpu-operator.yaml
+  - monitoring.yaml
   # Gateway API CRDs: pinned to v1.6.1 — the version NGF 2.7.0 itself bundles/tests against
   - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
   # local-path-provisioner: upstream manifest, ConfigMap overridden below

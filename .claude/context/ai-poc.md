@@ -3,10 +3,8 @@
 **Goal:** a small but complete GPU-in-Kubernetes platform: a GPU node, a
 served model behind a gateway, a benchmark that produces real latency /
 throughput numbers, and all of it observable on athena and deployed by Flux.
-Portfolio-shaped for MLOps roles (target on 2026-09-26: NVIDIA *Senior MLOps
-Engineer — DSX Enablement*, JR2024830, Germany/remote — k8s, batch
-schedulers, observability, GitOps, CI/CD, LLM performance evaluation, the
-NVIDIA stack).
+A learning project for MLOps practice: k8s, batch schedulers, observability,
+GitOps, CI/CD, LLM performance evaluation, the NVIDIA stack.
 
 Model size is not the point. Wiring, measurement and operability are.
 
@@ -27,20 +25,39 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
 **Models that fit fully in VRAM** (Q4): `qwen2.5:1.5b`, `qwen3:1.7b`,
 `llama3.2:1b`, `gemma3:1b`. 3B only partially offloads.
 
-## Current state (2026-09-26)
+## Current state (2026-09-27)
+
+- **GPU node live** — `talos-pcf-vwh` (vmid 1103), driver 580.178.04 loaded,
+  GPU Operator validator passed, node advertises `nvidia.com/gpu: 1`. DCGM
+  exporter *starts* on Maxwell (values unverified until Phase 2a scrapes it).
+- **Serving works** — `llama-mini` (CPU) and `qwen-gpu` answer via LiteLLM →
+  Open WebUI. Needed `ollama_chat/` (not `ollama/`): `/api/generate` flattens
+  the chat into one prompt and the 1B model answered Open WebUI's task
+  prompts with JSON schemas.
+- **Partial offload** — `qwen2.5:1.5b` gets 21/29 layers on GPU (716 MiB);
+  Ollama's fit estimate with the 4096 default ctx holds 8 layers on CPU
+  despite 1959 MiB free. Ollama's CUDA 13 runner skips CC 5.0; the CUDA 12
+  runner serves it. Latency: ~6.6 s warm on GPU vs 15–60 s on CPU. Tuning
+  target for step 4.
+- **Fallback verified** — GPU VM stopped, `ollama-gpu` Pending, a `qwen-gpu`
+  request was served by the CPU `ollama` (`llama3.2:1b`, 1m11s cold). Open WebUI
+  still labels it `qwen-gpu`; the backend shows in LiteLLM's
+  `x-litellm-model-api-base` / `x-litellm-attempted-fallbacks` headers.
+
+### Earlier (2026-09-26)
 
 - `elysium-hades-gpu` (vmid 1103) defined — Terraform, Omni machine class +
   Workers block (extensions + `KernelModuleConfig` patch), `elysium-nvidia`
-  media preset documented. **Not applied**: needs the ISO, `terraform apply`,
-  `omnictl cluster template sync` (Omni SA is Reader). Runbook:
-  `infra/elysium/README.md` → GPU node.
+  media preset in `infra/elysium/omni/media-presets.yaml`. Applied
+  2026-09-27 (no virtiofs on this node). Runbook: `infra/elysium/README.md`
+  → GPU node.
 - GPU Operator HelmRelease in `kubernetes/10-infra-base/gpu-operator.yaml`.
 - `ai` namespace: `ollama` (CPU, hades, `llama3.2:1b` + `nomic-embed-text`),
   `litellm` (gateway), `openwebui`. Added `ollama-gpu` (GPU node,
   `qwen2.5:1.5b`) and LiteLLM model `qwen-gpu` with fallback to `llama-mini`.
 - Talos VM CPU type `x86-64-v2-AES` → `x86-64-v3` (AVX2; both hosts
   verified). v2 hid AVX from the guests, crippling CPU inference and
-  blocking vLLM's CPU backend. Needs a VM restart per node to apply.
+  blocking vLLM's CPU backend. Applied 2026-09-27 on all Talos VMs.
 
 ## Power model
 
@@ -48,7 +65,7 @@ The GPU VM is off by default and swapped by hand with VM 102 (Hades has RAM
 for one of them). So: **anything that must answer at any time stays on the
 CPU `ollama`**. `ollama-gpu` is Pending while the GPU node is off; LiteLLM
 falls back to `llama-mini`. The fallback is a feature of the POC, not a
-workaround — it is the "graceful degradation" story.
+workaround — it demonstrates graceful degradation.
 
 ## Build order
 

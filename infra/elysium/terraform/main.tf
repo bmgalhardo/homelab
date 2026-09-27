@@ -13,6 +13,7 @@ resource "proxmox_vm_qemu" "talos" {
   power_state        = each.value.onboot ? "running" : "stopped"
   machine            = each.value.gpu == null ? null : "q35"
   memory             = each.value.memory
+  balloon            = each.value.memory # = memory: stats reporting only, never shrinks
   scsihw             = "virtio-scsi-single"
   skip_ipv6          = true
   protection         = false

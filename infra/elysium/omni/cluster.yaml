@@ -57,3 +57,20 @@ patches:
     file: patches/labels-hades.yaml
 systemExtensions:
   - siderolabs/qemu-guest-agent
+---
+kind: Workers
+name: hades-gpu
+machineClass:
+  name: elysium-hades-gpu
+  size: 1
+patches:
+  - name: local-path
+    file: patches/local-path.yaml
+  - name: labels-hades-gpu
+    file: patches/labels-hades-gpu.yaml
+  - name: nvidia
+    file: patches/nvidia.yaml
+systemExtensions:
+  - siderolabs/qemu-guest-agent
+  - siderolabs/nonfree-kmod-nvidia-lts
+  - siderolabs/nvidia-container-toolkit-lts

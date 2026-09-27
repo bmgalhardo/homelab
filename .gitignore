@@ -26,6 +26,7 @@ infra/**/vault-agent/pidfile
 # local credentials for Claude Code's own use (not a VM secret)
 .claude/secrets/*
 !.claude/secrets/*.example
+!.claude/secrets/.gitkeep
 
 # secrets
 .env

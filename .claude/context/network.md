@@ -10,7 +10,7 @@
 | hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
 | qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
-| ~~manager~~ | ~~192.168.1.170~~ | Apollo VM | **DELETED 2026-09-14** — bastion role moved to `hermes` (.199) |
+| ~~manager~~ | ~~192.168.1.170~~ | Apollo VM | **DELETED 2026-09-14** — no bastion since |
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
 | vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
 | authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |
@@ -130,9 +130,10 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 
 ## Proxmox API Access
 
-- **Endpoint:** `https://192.168.1.197:8006/api2/json` (reachable directly
-  from a workstation on this LAN — no jump host needed for the API itself,
-  unlike SSH to the Olympus VMs)
+- **Endpoint:** `https://proxmox.bgalhardo.internal/api2/json` — port 443 on
+  hermes HAProxy (SNI passthrough → apollo:8006, hades as backup). The node
+  cert only names `proxmox.bgalhardo.internal`, so `https://192.168.1.197:8006`
+  fails TLS verification.
 - **Version confirmed 2026-08-21:** PVE 9.2.3, both nodes (`apollo`,
   `hades`) online
 - **Old token (`root@pam!terraform`, in `infra/terraform.tfvars`):**
@@ -163,14 +164,10 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   non-functional on this cluster** until/unless retested on a future PVE
   version — grant ACLs to the user, not the token, for any new
   read/write token going forward.
-- **SSH access to the Proxmox hosts themselves** (not just the Olympus
-  VMs) goes through a jump host — direct `ssh root@192.168.1.197` from an
-  arbitrary workstation is refused (no trusted key). **Since 2026-09-14 the
-  jump host is `hermes` (192.168.1.199)**, after the `manager` VM
-  (192.168.1.170) was deleted: `ssh root@192.168.1.199` then
-  `ssh root@192.168.1.197`. Verified 2026-09-14 — hermes reaches apollo,
-  hades, vault and athena. Used 2026-08-25 (via the old manager) to run
-  `pveum`/`pvesh` for the token work above.
+- **SSH access to the Proxmox hosts themselves** — no jump host since
+  2026-09-26 (`manager` deleted 2026-09-14, hermes no longer holds keys).
+  `ssh root@192.168.1.197` works only from a workstation whose key is
+  authorized there; the user keeps the keys off-cluster.
 
 ## Known Access Gotchas
 

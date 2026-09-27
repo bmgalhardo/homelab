@@ -29,8 +29,8 @@
     services.md). Needs `--onboot 1`.
   - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
   - ~~VM: `manager` (192.168.1.170)~~ — **deleted 2026-09-14**. Was the
-    jump host with real SSH/Terraform access to the Olympus VMs; the root
-    keyring now lives on `hermes` (192.168.1.199)
+    jump host with real SSH/Terraform access to the Olympus VMs. No
+    bastion since 2026-09-26 — keys are kept off-cluster (see deployment.md)
   - Retired VMs: `tftp` (2026-09-08, PXE unused — repo removed, VM
     deletion pending), `netboot` (2026-08-21, cert revoked) — see network.md
   - K8s: Home Assistant, Immich, homepage/pgadmin/redis (`system` ns) —

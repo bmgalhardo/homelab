@@ -28,7 +28,7 @@ lbu commit
 `config.hcl` points at `./vault-agent/ca.crt`. Ship this file to that path.
 
 **Talos** takes it via machine config:
-`infra/elysium/omni/patches/trusted-ca.yaml` and `omni/media-preset.yaml`.
+`infra/elysium/omni/patches/trusted-ca.yaml` and `omni/media-presets.yaml`.
 
 **elysium's VSO** gets it as the `vault-ca` Secret from
 `infra/vault/k8s-auth-bootstrap.sh`.

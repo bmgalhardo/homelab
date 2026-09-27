@@ -8,19 +8,23 @@ tells you what changed. Eventful things get written to a logbook.
 `argus` is the **project/mission** — the report agent (repo-root `argus/`,
 Phase 3), the logbook, this doc.
 
-## Current State (2026-09-08)
+## Current State (2026-09-26)
+
+- **Next up: Phase 2a — k8s + GPU + AI metrics on athena** (plan below). The
+  GPU/AI POC (`ai-poc.md`) needs them first, and they are the in-cluster
+  half of Phase 2 anyway.
+- Stack on athena serves (Phase 1 ✅); Prometheus still scrapes only itself.
 
 - **Node `athena` online** — Pi4 4GB, arm64, Alpine 3.24 on a 120GB SATA
   SSD (persistent install), `192.168.1.196` (UniFi fixed), MAC
-  `2C:CF:67:64:2C:1D`. Docker installed. `ssh root@192.168.1.196` via the
-  **`hermes` bastion (192.168.1.199)** — `manager` was deleted 2026-09-14.
+  `2C:CF:67:64:2C:1D`. Docker installed. `ssh root@192.168.1.196` directly (no bastion — see
+  deployment.md).
 - **Interim VM 208 destroyed**, ~1 GiB reclaimed on Apollo.
 - **Hermes dnsmasq updated** — `athena.bgalhardo.internal → .196` live,
   plus the `apollo`/`hades`/`hermes` records and the 8.8.8.8 fallback
   (`infra/hermes/`).
 - **Stack deployed 2026-09-14** — `infra/athena/`: vault-agent + loki +
   prometheus + grafana + alloy. See Phase 1 below and `infra/athena/README.md`.
-- **Continuing via the hermes bastion** (192.168.1.199).
 
 ## Why
 
@@ -41,13 +45,13 @@ file mtimes, disk %, pod readiness. That's where the real incidents live.
 | Logging before agent | Yes — Loki/Alloy first | Agent is much weaker without a queryable substrate |
 | Loki placement | **Outside k8s** | k8s outage keeps logs queryable; survives the planned hal9000 rebuild |
 | Grafana placement | Same node as Loki | A debugging UI that dies with the cluster is useless |
-| Host | **`athena` — Pi4, `192.168.1.196`** | Bare node off the cluster: survives an Apollo failure, arm64 (all images OK), 4GB (stack ceiling ~1.4 GiB). Not the bastion — it holds root SSH keys (that role went to hermes 2026-09-14). Greek-pantheon set with apollo/hades/hermes; Athena = judgment + watchful guardian |
+| Host | **`athena` — Pi4, `192.168.1.196`** | Bare node off the cluster: survives an Apollo failure, arm64 (all images OK), 4GB (stack ceiling ~1.4 GiB). Holds no root SSH keys (there is no bastion). Greek-pantheon set with apollo/hades/hermes; Athena = judgment + watchful guardian |
 | Report tone | Simple and concise | Terse alert style, not narrative |
-| Scope | All infra + all k8s apps; **metrics in scope** | Proxmox, VMs, Hermes, UDM, app-level (Immich, HA, Plex, …). Prometheus is in the athena stack (host/stack metrics; k8s metrics still deferred) |
+| Scope | All infra + all k8s apps; **metrics in scope** | Proxmox, VMs, Hermes, UDM, app-level (Immich, HA, Plex, …). Prometheus is in the athena stack; k8s + GPU + AI metrics are Phase 2a |
 | Secrets + certs on `athena` | **Vault Agent sidecar** (AppRole) — first implementation, template for every other VM/node | Olympus VMs have no Vault auth today (plaintext `.env`). `infra/athena/vault-agent/` is the reference; unblocks the P3 "rotate all secrets" item. See `deployment.md` |
 | Judgment LLM | Claude API | See LLM Split below |
 | Code location | This repo | `.claude/context/*.md` is the agent's ground truth for "what normal looks like" |
-| Buy a GPU for local judgment | **No — deferred 2026-09-07** | ~€26/yr of API vs €400-700 capex + ~€200/yr power. Revisit only if a GPU is bought for the whole AI/media stack; see analysis below |
+| Buy a GPU for local judgment | **No — deferred 2026-09-07** | ~€26/yr of API vs €400-700 capex + ~€200/yr power. Revisit only if a GPU is bought for the whole AI/media stack; see analysis below. The existing 750 Ti goes to the AI POC (2026-09-26, `ai-poc.md`), not to Argus |
 | k8s `monitoring/loki` + `grafana` manifests | Delete once the athena stack serves | Agreed 2026-09-07. Keep `alloy/` — it becomes the k8s shipper |
 | Per-guest RAM as an Argus signal | Fact probe via **PVE RRD**, not a metrics exporter | `/nodes/*/{qemu,lxc}/*/rrddata` returns day/week/month history for free; only k8s pod-level usage needs the metrics API |
 
@@ -201,7 +205,11 @@ dedicated key with forced commands — not a bastion keyring.
 | node_exporter — hermes | skip | `community` repo not enabled; HAProxy exporter + DNS probe give the service view |
 | HAProxy built-in exporter (hermes) | add | 3.4.4 is built with `prometheus-exporter` (verified). Proxmox backend up/down |
 | blackbox_exporter (athena) | add | Certs, Vault health, DNS, HTTP up for every HTTPRoute |
-| elysium (the `hal9000` stub) | add | In-cluster Alloy scrapes kube-state-metrics, cAdvisor, Flux / cert-manager / VSO controller metrics → `remote_write`. Needs `--web.enable-remote-write-receiver`. Drop unneeded cAdvisor series and scrape at 60s, or the 2 GB size cap silently shortens 30d retention |
+| elysium (the `hal9000` stub) | add — **Phase 2a** | In-cluster Alloy scrapes kube-state-metrics, cAdvisor, Flux / cert-manager / VSO controller metrics → `remote_write`. Needs `--web.enable-remote-write-receiver`. Drop unneeded cAdvisor series and scrape at 60s, or the 2 GB size cap silently shortens 30d retention |
+| GPU (`elysium-hades-gpu`) | add — **Phase 2a** | GPU Operator's DCGM exporter (:9400) via the same Alloy. Maxwell is unsupported by DCGM on paper — fallback `nvidia_gpu_exporter` (NVML). Series vanish while the GPU VM is off: that is power state, not an outage |
+| LiteLLM | add — **Phase 2a** | `callbacks: ["prometheus"]` → `/metrics` on :4000 — requests, latency, TTFT, tokens, deployment health, fallbacks. `/metrics` accepts any API key (litellm #13644); don't widen the HTTPRoute for it |
+| Ollama | skip | No native `/metrics`; LiteLLM (per-model) + GPU exporter cover it |
+| Benchmark results (AIPerf) | add — **Phase 2a**, last | One-shot k8s Jobs — push, don't scrape. Pushgateway on athena vs `remote_write` from the Job: open |
 | Deferred | — | unpoller (UDM, waiting on API key), postgres_exporter, app metrics (Immich, Plex) |
 
 ### Found during the review (2026-09-16)
@@ -294,10 +302,10 @@ along free. Separately, Hades always-on has standalone value: it removes the
 NFS availability SPOF and softens the qdevice co-location caveat (services.md).
 
 Pre-purchase checks on Hades: PSU wattage (undocumented), free PCIe slot (the
-750 Ti is passed through to the Ubuntu workstation VM — worth pulling, 2GB
-Maxwell is below any useful floor), physical clearance in the 4U case, and a
-Talos worker VM *on Hades* for passthrough (all Talos VMs are on Apollo today
-— that's the P3 "K8s GPU worker setup" item). IOMMU already works.
+750 Ti is shared between VM 102 `personal` and the POC GPU node — 2GB Maxwell
+is below any useful judgment floor), physical clearance in the 4U case. The
+Talos GPU worker on Hades now exists (`elysium-hades-gpu`, `ai-poc.md`), so a
+bigger card is a mapping swap. IOMMU works.
 
 **Call Anthropic directly, not through litellm.** litellm is a k8s service;
 routing through it puts the cluster in the critical path of the thing whose
@@ -394,8 +402,64 @@ and `argus/state/` only, with `git pull --rebase` before push.
       `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline and reboot,
       then restore the limits.
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
-      `prometheus.yml` — wire them per the Integration List metrics table
-      (pve-exporter proposed dropped).
+      `prometheus.yml` — cluster side is Phase 2a; hosts per the Integration
+      List metrics table (pve-exporter proposed dropped).
+
+### Phase 2a — k8s + GPU + AI metrics on athena ☐ (plan, 2026-09-26)
+
+**Shape:** push, not pull. One Alloy Deployment in-cluster scrapes and
+`remote_write`s to athena's Prometheus. athena can't reach pod IPs, the
+cluster exposes no scrape endpoints, and a power-managed node simply stops
+sending instead of generating scrape failures. The same Alloy later takes pod
+logs + events (Phase 2), so it is built once.
+
+```
+elysium ─ Alloy (ns monitoring, pinned homelab/node=apollo, 1 replica)
+            ├─ kubelet /metrics/cadvisor  (per node, SA token, :10250)
+            ├─ kube-state-metrics
+            ├─ nvidia-dcgm-exporter :9400      (GPU node, when on)
+            ├─ litellm :4000/metrics
+            └─ flux / cert-manager / VSO controllers
+          → remote_write http://athena.bgalhardo.internal:9090/api/v1/write
+            external_labels { cluster = "elysium" }
+```
+
+**Steps**
+
+1. **athena prep** — add `--web.enable-remote-write-receiver` to Prometheus;
+   raise `retention.size` 2GB → 5GB (SSD has room; cAdvisor is the bulk);
+   port 9090 stays LAN-only. Ideally land the cgroup fix (Phase 1 open)
+   first — this is the first real ingest volume.
+2. **kube-state-metrics** — HelmRelease (`prometheus-community`), `monitoring`
+   ns, pinned to apollo. Allowlist the metric families Argus uses (pod phase,
+   restarts, PVC phase, deployment/DS availability, node conditions).
+3. **Alloy** — HelmRelease (`grafana/alloy`), Deployment mode. RBAC:
+   `nodes/metrics`, `nodes/proxy`, pods/services/endpoints list-watch.
+   Kubelet serves a self-signed cert on Talos → `insecure_skip_verify` on
+   that job only. Scrape 60s. Drop high-cardinality cAdvisor series
+   (`container_tasks_state`, `*_failures_total`, per-CPU, network per-iface
+   on pause containers).
+4. **GPU** — once the node exists (`ai-poc.md` step 1): scrape
+   `nvidia-dcgm-exporter` by label. If DCGM fails on Maxwell,
+   `dcgmExporter.enabled: false` + `nvidia_gpu_exporter` DaemonSet on
+   `homelab/gpu=nvidia`. Wanted: util, mem used, temp, power, clocks,
+   throttle reasons.
+5. **LiteLLM** — `callbacks: ["prometheus"]` in `litellm-config`; scrape the
+   Service.
+6. **Dashboards** — provision into `infra/athena/grafana/dashboards/`
+   (`export-dashboards.sh`): cluster/pods, NVIDIA GPU, LiteLLM (tokens/s,
+   TTFT, fallbacks, per-model latency).
+7. **Benchmark results** — AIPerf Job output (TTFT, ITL, tokens/s per
+   concurrency). Decide Pushgateway vs `remote_write`.
+
+**Exit checks:** `up{cluster="elysium"}` for every job; series count
+steady-state < ~50k (`prometheus_tsdb_head_series`); a pod restart visible in
+Grafana within 2 min; GPU util moves while a benchmark runs; LiteLLM fallback
+counter increments with the GPU VM stopped.
+
+**Argus reads it as:** the 04:00 agent queries 24h worst-case
+(`max_over_time`) and treats missing GPU / hades series as power state, per
+the collection principle above.
 
 ### Phase 2 — Ship logs + metrics from everything ☐
 
@@ -405,8 +469,8 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
       blackbox_exporter
 - [ ] hermes: remove debug `log-queries`, HAProxy logs direct to athena,
       `syslogd -R`, HAProxy exporter, `lbu commit`
-- [ ] k8s: Alloy HelmRelease — pod logs, events, `remote_write` of
-      kube-state-metrics + cAdvisor; `automation/argus` ServiceAccount
+- [ ] k8s: pod logs + events on the Phase 2a Alloy; `automation/argus`
+      ServiceAccount
 - [ ] Proxmox hosts: Alloy (journald) + node_exporter
 - [ ] Olympus VMs: Alloy compose template (after the RAM decision)
 - [ ] Talos node logs via `machine.logging.destinations`
@@ -432,7 +496,7 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
 - [ ] Dead-man's switch: ping healthchecks.io on success. **Telegram cannot
       report its own absence** — silence must be distinguishable from a quiet night
 - [ ] Move `ANTHROPIC_API_KEY` / Telegram token into Vault
-- [ ] Restricted SSH key with forced commands (drop the bastion keyring)
+- [ ] Restricted SSH key with forced commands (never the root keys)
 
 ## Open Questions
 

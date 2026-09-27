@@ -23,5 +23,12 @@ variable "node_data" {
     # attach as virtiofsN devices. telmate can't express these — set by
     # hand after create (README step 3), informational here only.
     virtiofs = optional(list(string), [])
+    # PVE Resource Mapping id (Datacenter -> Resource Mappings -> PCI) to pass
+    # through; switches the VM to q35.
+    gpu = optional(string)
+    # Overrides omni_iso for this node (a preset with node-specific extensions).
+    iso = optional(string)
+    # false: not started at host boot, created stopped, powered by hand.
+    onboot = optional(bool, true)
   }))
 }

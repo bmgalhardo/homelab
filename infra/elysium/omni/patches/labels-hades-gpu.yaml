@@ -1,0 +1,6 @@
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  homelab/node: hades-gpu
+  homelab/power: managed
+  homelab/gpu: nvidia

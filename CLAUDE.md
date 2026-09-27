@@ -33,6 +33,7 @@ Network: `192.168.1.0/24`
 - `backup-strategy.md` — 3-2-1 plan, RTO/RPO
 - `todos.md` — Actions, blockers, priorities
 - `argus.md` — Centralized logging + daily report agent (design & progress)
+- `ai-poc.md` — GPU node + MLOps POC (what the 750 Ti can run, build order)
 
 See `.claude/context/todos.md` for full roadmap.
 
@@ -98,15 +99,15 @@ use `secretKeyRef`, never an inline password in `env:`.
 - `infra/ca/` — internal root CA certificate. Public, committed deliberately
   (the *private* key stays in Vault)
 - `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose).
-  **Also the SSH bastion** — `manager` (192.168.1.170) was deleted 2026-09-14;
-  hermes holds the root keyring and is the only host a workstation can reach
+  **There is no SSH bastion** — SSH is direct from a workstation whose key is
+  authorized on the target; the user keeps the keys off-cluster
 - `kubernetes/` — k8s manifests for elysium, reconciled by Flux in three
   tiers: `10-infra-base` → `20-infra-wiring` → `30-apps`. A thing belongs in
   tier 2 if tier 1 has to install its CRD first. See `kubernetes/flux/README.md`
 
 **Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).
 `elysium` (was `hal9000`) = k8s, the plane above. `hermes`/`athena` =
-standalone Pis. `manager` was deleted 2026-09-14 (bastion role → hermes).
+standalone Pis. `manager` was deleted 2026-09-14 (no bastion since).
 Possible later: `qdevice` → `themis`.
 
 ## When to Update This File

@@ -4,8 +4,7 @@ Loki + Prometheus + Grafana + an Alloy syslog receiver + a Vault Agent
 sidecar. 
 
 - **Node:** `athena` — Pi4, `192.168.1.196`, 4GB, arm64, Alpine on a
-  120GB SATA SSD (persistent install). `ssh root@192.168.1.196` via the
-  **`hermes` bastion (192.168.1.199)** — `manager` was deleted 2026-09-14. All images are arm64-available.
+  120GB SATA SSD (persistent install). `ssh root@192.168.1.196`. All images are arm64-available.
 - **Deploy dir:** `/root/athena/`
 
 | Service | Port | Notes |

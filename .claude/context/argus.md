@@ -409,7 +409,11 @@ and `argus/state/` only, with `git pull --rebase` before push.
 
 **Status 2026-09-27:** steps 1–5 written — `kubernetes/10-infra-base/monitoring.yaml`
 (KSM 8.6.0, Alloy 1.13.0 with narrowed RBAC), athena remote-write receiver +
-5GB, LiteLLM `callbacks: ["prometheus"]`. Dashboards (6) after data flows.
+5GB, LiteLLM `callbacks: ["prometheus"]` (dedicated port 4001 — `/metrics` on
+4000 needs a key). All 11 jobs up, ~24k series (2026-09-28). Dashboards (6) in
+`infra/athena/grafana/dashboards/elysium/`: NVIDIA's DCGM dashboard (upstream,
+unmodified), LiteLLM, Cluster & pods. LiteLLM metrics carry `user_email`,
+`client_ip`, `user_agent` labels — PII + cardinality once there are users.
 
 **Shape:** push, not pull. One Alloy Deployment in-cluster scrapes and
 `remote_write`s to athena's Prometheus. athena can't reach pod IPs, the

@@ -44,6 +44,11 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
   input prompt`) → the model answered a fragment with a stock refusal. On 2 GB,
   1.5B + real chat context + full offload is pick-two. Now 8192: correct
   answers, fewer GPU layers; measure the cost in step 4.
+- **VRAM, measured at 8192 ctx** (DCGM `FB_USED` = 1027 MiB): weights 659
+  (19/29 layers) + KV 144 (+80 on CPU = 224 = 28 KB/token × 8192) + compute
+  119 + CUDA/driver ≈ 105. ~900 MiB unused → Ollama's fit estimate is very
+  conservative; try `num_gpu 99` in step 4. Offload vs ctx: 2048→24,
+  4096→21, 8192→19 layers. 5.2k-token prompt: 1m12s, mostly prefill.
 - **Fallback verified** — GPU VM stopped, `ollama-gpu` Pending, a `qwen-gpu`
   request was served by the CPU `ollama` (`llama3.2:1b`, 1m11s cold). Open WebUI
   still labels it `qwen-gpu`; the backend shows in LiteLLM's
@@ -74,11 +79,11 @@ workaround — it demonstrates graceful degradation.
 
 ## Build order
 
-1. **GPU node up** — ISO → apply → sync → swap GPU in. Exit:
+1. ✅ **GPU node up** — ISO → apply → sync → swap GPU in. Exit:
    `nvidia-operator-validator` Completed, node advertises `nvidia.com/gpu: 1`.
-2. **Serve** — `ollama-gpu` Running, `qwen-gpu` answers via LiteLLM, fallback
+2. ✅ **Serve** — `ollama-gpu` Running, `qwen-gpu` answers via LiteLLM, fallback
    verified by stopping the GPU VM mid-session.
-3. **Observe** — k8s + GPU + LiteLLM metrics on athena (plan: `argus.md` →
+3. ✅ **Observe** (2026-09-28) — k8s + GPU + LiteLLM metrics on athena (plan: `argus.md` →
    Phase 2a). Grafana dashboard: GPU util/mem/temp/power, tokens/s, TTFT,
    request rate, fallbacks.
 4. **Benchmark** — GenAI-Perf / AIPerf as a k8s Job against the LiteLLM

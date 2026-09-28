@@ -20,7 +20,7 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
 | vLLM (GPU) | ❌ | Requires CC ≥ 7.0 |
 | TensorRT-LLM, NIM, Triton+TensorRT, NeMo | ❌ | Need newer GPUs — rent a cloud T4/L4 by the hour for these |
 | GPU Operator: device plugin, NFD, validator | ✅ expected | Driver/toolkit off (Talos extensions provide them) |
-| GPU Operator: DCGM exporter, GFD | ⚠️ unverified | 750 Ti is not on the supported list. Fallback: `nvidia_gpu_exporter` (NVML / nvidia-smi) |
+| GPU Operator: DCGM exporter, GFD | ✅ verified | Not on the supported list, but both work (DCGM power reading unreliable) |
 
 **Models that fit fully in VRAM** (Q4): `qwen2.5:1.5b`, `qwen3:1.7b`,
 `llama3.2:1b`, `gemma3:1b`. 3B only partially offloads.
@@ -29,7 +29,7 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
 
 - **GPU node live** — `talos-pcf-vwh` (vmid 1103), driver 580.178.04 loaded,
   GPU Operator validator passed, node advertises `nvidia.com/gpu: 1`. DCGM
-  exporter *starts* on Maxwell (values unverified until Phase 2a scrapes it).
+  metrics reach athena with real values (2026-09-28).
 - **Serving works** — `llama-mini` (CPU) and `qwen-gpu` answer via LiteLLM →
   Open WebUI. Needed `ollama_chat/` (not `ollama/`): `/api/generate` flattens
   the chat into one prompt and the 1B model answered Open WebUI's task
@@ -91,6 +91,7 @@ workaround — it demonstrates graceful degradation.
 
 ## Open
 
-- [ ] DCGM exporter on Maxwell — works, or switch to `nvidia_gpu_exporter`
+- [x] DCGM exporter on Maxwell — works (14 metrics: util, FB used/free, temp,
+      clocks). `POWER_USAGE` reads ~0.75 W idle — treat as unreliable on this card
 - [ ] Taint the GPU node so only GPU workloads land there (evicted on swap)
 - [ ] Node sizing for step 5–6 (elysium workers are 4–8 GB)

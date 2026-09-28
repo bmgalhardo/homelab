@@ -46,7 +46,11 @@ spec:
         args: ["--config", "/app/config.yaml", "--port", "4000"]
         ports:
         - containerPort: 4000
+        - name: metrics
+          containerPort: 4001
         env:
+        - name: PROMETHEUS_METRICS_PORT
+          value: "4001"
         - name: LITELLM_MASTER_KEY
           valueFrom:
             secretKeyRef:

@@ -143,7 +143,7 @@ spec:
             rule {
               source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_label_app", "__meta_kubernetes_pod_container_port_name", "__meta_kubernetes_pod_container_port_number"]
               separator     = ";"
-              regex         = "gpu-operator;nvidia-dcgm-exporter;metrics;9400|ai;litellm;;4000|flux-system;.*;http-prom;8080|cert-manager;.*;http-metrics;9402"
+              regex         = "gpu-operator;nvidia-dcgm-exporter;metrics;9400|ai;litellm;metrics;4001|flux-system;.*;http-prom;8080|cert-manager;.*;http-metrics;9402"
               action        = "keep"
             }
             rule {

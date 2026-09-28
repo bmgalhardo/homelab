@@ -39,6 +39,11 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
   despite 1959 MiB free. Ollama's CUDA 13 runner skips CC 5.0; the CUDA 12
   runner serves it. Latency: ~6.6 s warm on GPU vs 15–60 s on CPU. Tuning
   target for step 4.
+- **Context vs VRAM** — `OLLAMA_CONTEXT_LENGTH=2048` only reached 24/29
+  layers and truncated Open WebUI's ~5k-token prompts to 1026 (`truncating
+  input prompt`) → the model answered a fragment with a stock refusal. On 2 GB,
+  1.5B + real chat context + full offload is pick-two. Now 8192: correct
+  answers, fewer GPU layers; measure the cost in step 4.
 - **Fallback verified** — GPU VM stopped, `ollama-gpu` Pending, a `qwen-gpu`
   request was served by the CPU `ollama` (`llama3.2:1b`, 1m11s cold). Open WebUI
   still labels it `qwen-gpu`; the backend shows in LiteLLM's

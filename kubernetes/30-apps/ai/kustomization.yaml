@@ -9,13 +9,9 @@ resources:
   - litellm.yml
   - openwebui.yml
 
-# hades: 6c/12t + 32GB for CPU inference, vs apollo's 4-core N100 which also
-# carries the always-on tier. Flip to apollo if you would rather the stack stay
-# up while hades sleeps — for a playground, losing it with hades is the better
-# trade. ollama-gpu is re-pinned to the GPU node below.
 patches:
-  - target: { kind: Deployment }
-    patch: &hades |
+  - target: { kind: Deployment, name: ollama }
+    patch: |
       - op: add
         path: /spec/template/spec/nodeSelector
         value: { homelab/node: hades }
@@ -24,10 +20,13 @@ patches:
         value:
           - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute }
           - { key: node.kubernetes.io/not-ready,  operator: Exists, effect: NoExecute }
-  - target: { kind: StatefulSet }
-    patch: *hades
+  - target: { kind: Deployment, name: litellm|openwebui }
+    patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value: { homelab/node: apollo }
   - target: { kind: Deployment, name: ollama-gpu }
     patch: |
-      - op: replace
+      - op: add
         path: /spec/template/spec/nodeSelector
         value: { homelab/gpu: nvidia }

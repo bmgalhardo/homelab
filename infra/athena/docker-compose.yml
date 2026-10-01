@@ -3,7 +3,7 @@ services:
     image: hashicorp/vault:1.13.3
     container_name: vault-agent
     restart: unless-stopped
-    mem_limit: 192m
+    mem_limit: 384m
     cap_add:
       - IPC_LOCK
     entrypoint: ["vault", "agent", "-config=/vault-agent/config.hcl"]
@@ -36,7 +36,7 @@ services:
     image: prom/prometheus:v3.1.0
     container_name: prometheus
     restart: unless-stopped
-    mem_limit: 768m
+    mem_limit: 1g
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -82,7 +82,7 @@ services:
     image: grafana/alloy:v1.20.1
     container_name: alloy
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       - loki
     command:
@@ -124,3 +124,22 @@ services:
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
       - ./vault-agent/ca.crt:/etc/blackbox/ca.crt:ro
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: cadvisor
+    restart: unless-stopped
+    mem_limit: 256m
+    command:
+      - --docker_only=true
+      - --containerd=/var/run/docker/containerd/containerd.sock
+      - --containerd-namespace=moby
+      - --housekeeping_interval=30s
+      - --store_container_labels=false
+      - --disable_metrics=advtcp,cpu_topology,cpuset,disk,hugetlb,memory_numa,percpu,process,referenced_memory,resctrl,sched,tcp,udp
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro

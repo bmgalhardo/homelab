@@ -45,6 +45,11 @@ scrape_configs:
       - targets: ["192.168.1.199:8405"]
         labels: { instance: hermes }
 
+  - job_name: cadvisor-athena
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { instance: athena }
+
   - job_name: blackbox
     static_configs:
       - targets: ["blackbox:9115"]

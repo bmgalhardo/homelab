@@ -1,6 +1,6 @@
 {
-  "uid": "elysium-logs",
-  "title": "Logs & events",
+  "uid": "hosts-logs",
+  "title": "Host logs",
   "schemaVersion": 39,
   "editable": true,
   "refresh": "1m",
@@ -12,15 +12,30 @@
   "templating": {
     "list": [
       {
-        "name": "namespace",
+        "name": "source",
+        "type": "custom",
+        "label": "Source",
+        "query": "journal,syslog,docker,talos",
+        "includeAll": true,
+        "multi": true,
+        "allValue": "journal|syslog|docker|talos",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "host",
         "type": "query",
         "datasource": {
           "type": "loki",
           "uid": "loki"
         },
+        "label": "Host",
         "query": {
-          "label": "namespace",
-          "stream": "{cluster=\"elysium\"}",
+          "label": "host",
+          "stream": "{job=~\"$source\"}",
           "type": 1
         },
         "refresh": 2,
@@ -30,7 +45,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "allValue": ".+"
+        "allValue": ".*"
       },
       {
         "name": "app",
@@ -39,10 +54,10 @@
           "type": "loki",
           "uid": "loki"
         },
-        "label": "App",
+        "label": "App / unit",
         "query": {
           "label": "app",
-          "stream": "{cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\"}",
+          "stream": "{job=~\"$source\", host=~\"$host\"}",
           "type": 1
         },
         "refresh": 2,
@@ -67,7 +82,7 @@
   "panels": [
     {
       "type": "timeseries",
-      "title": "Log lines / min by namespace",
+      "title": "Lines / 5m by host",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -84,13 +99,14 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (namespace) (count_over_time({cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} [1m]))",
+          "expr": "sum by (host) (count_over_time({job=~\"$source\", host=~\"$host\", app=~\"$app\"} |= \"$search\" [5m]))",
           "refId": "A",
-          "legendFormat": "{{namespace}}"
+          "legendFormat": "{{host}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
@@ -105,13 +121,17 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 1
     },
     {
       "type": "timeseries",
-      "title": "Error-looking lines / min by pod",
+      "title": "Error-looking lines / 5m by host and app",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -128,13 +148,14 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (pod) (count_over_time({cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)(error|fatal|panic|exception)\" [1m]))",
+          "expr": "sum by (host, app) (count_over_time({job=~\"$source\", host=~\"$host\", app=~\"$app\"} |~ \"(?i)(error|fail|fatal|panic|denied|oom|killed)\" [5m]))",
           "refId": "A",
-          "legendFormat": "{{pod}}"
+          "legendFormat": "{{host}} {{app}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
@@ -149,15 +170,19 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 2
     },
     {
       "type": "logs",
-      "title": "Kubernetes events (warnings) \u2014 full view: Kubernetes events dashboard",
+      "title": "Logs",
       "gridPos": {
-        "h": 10,
+        "h": 22,
         "w": 24,
         "x": 0,
         "y": 8
@@ -172,38 +197,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{cluster=\"elysium\", job=\"k8s-events\", namespace=~\"$namespace\"} |= \"type=Warning\"",
-          "refId": "A",
-          "legendFormat": ""
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending"
-      },
-      "id": 3
-    },
-    {
-      "type": "logs",
-      "title": "Pod logs",
-      "gridPos": {
-        "h": 16,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} |= \"$search\"",
+          "expr": "{job=~\"$source\", host=~\"$host\", app=~\"$app\"} |= \"$search\"",
           "refId": "A",
           "legendFormat": ""
         }
@@ -215,7 +209,7 @@
         "sortOrder": "Descending",
         "enableLogDetails": true
       },
-      "id": 4
+      "id": 3
     }
   ],
   "annotations": {

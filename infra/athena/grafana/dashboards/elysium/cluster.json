@@ -337,7 +337,14 @@
         "y": 24
       },
       "id": 8,
-      "options": {},
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "namespace",
+            "desc": false
+          }
+        ]
+      },
       "targets": [
         {
           "datasource": {
@@ -357,7 +364,13 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "namespace": 0,
+              "pod": 1,
+              "phase": 2
             }
           }
         }

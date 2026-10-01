@@ -1,11 +1,11 @@
 {
-  "uid": "elysium-logs",
-  "title": "Logs & events",
+  "uid": "elysium-events",
+  "title": "Kubernetes events",
   "schemaVersion": 39,
   "editable": true,
   "refresh": "1m",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "tags": [],
@@ -18,9 +18,10 @@
           "type": "loki",
           "uid": "loki"
         },
+        "label": "Namespace",
         "query": {
           "label": "namespace",
-          "stream": "{cluster=\"elysium\"}",
+          "stream": "{cluster=\"elysium\", job=\"k8s-events\"}",
           "type": 1
         },
         "refresh": 2,
@@ -33,31 +34,41 @@
         "allValue": ".+"
       },
       {
-        "name": "app",
-        "type": "query",
-        "datasource": {
-          "type": "loki",
-          "uid": "loki"
-        },
-        "label": "App",
-        "query": {
-          "label": "app",
-          "stream": "{cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\"}",
-          "type": 1
-        },
-        "refresh": 2,
+        "name": "type",
+        "type": "custom",
+        "label": "Type",
+        "query": "Warning,Normal",
         "includeAll": true,
         "multi": true,
+        "allValue": ".+",
+        "current": {
+          "text": [
+            "Warning"
+          ],
+          "value": [
+            "Warning"
+          ]
+        },
+        "options": []
+      },
+      {
+        "name": "kind",
+        "type": "custom",
+        "label": "Kind",
+        "query": "Pod,Deployment,ReplicaSet,StatefulSet,DaemonSet,Job,Node,PersistentVolumeClaim,HelmRelease,Kustomization,GitRepository,HelmRepository,VaultStaticSecret,Certificate",
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
         "current": {
           "text": "All",
           "value": "$__all"
         },
-        "allValue": ".*"
+        "options": []
       },
       {
-        "name": "search",
+        "name": "reason",
         "type": "textbox",
-        "label": "Line contains",
+        "label": "Reason contains",
         "current": {
           "value": ""
         }
@@ -67,7 +78,7 @@
   "panels": [
     {
       "type": "timeseries",
-      "title": "Log lines / min by namespace",
+      "title": "Events / 5m by reason",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -84,13 +95,14 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (namespace) (count_over_time({cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} [1m]))",
+          "expr": "sum by (reason) (count_over_time({cluster=\"elysium\", job=\"k8s-events\", namespace=~\"$namespace\"} | logfmt | type=~\"$type\" | kind=~\"$kind\" | reason=~\"(?i).*$reason.*\" [5m]))",
           "refId": "A",
-          "legendFormat": "{{namespace}}"
+          "legendFormat": "{{reason}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
@@ -105,13 +117,17 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 1
     },
     {
       "type": "timeseries",
-      "title": "Error-looking lines / min by pod",
+      "title": "Events / 5m by namespace",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -128,13 +144,14 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (pod) (count_over_time({cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)(error|fatal|panic|exception)\" [1m]))",
+          "expr": "sum by (namespace) (count_over_time({cluster=\"elysium\", job=\"k8s-events\", namespace=~\"$namespace\"} | logfmt | type=~\"$type\" | kind=~\"$kind\" | reason=~\"(?i).*$reason.*\" [5m]))",
           "refId": "A",
-          "legendFormat": "{{pod}}"
+          "legendFormat": "{{namespace}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
@@ -149,15 +166,19 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 2
     },
     {
       "type": "logs",
-      "title": "Kubernetes events (warnings) \u2014 full view: Kubernetes events dashboard",
+      "title": "Events",
       "gridPos": {
-        "h": 10,
+        "h": 20,
         "w": 24,
         "x": 0,
         "y": 8
@@ -172,38 +193,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{cluster=\"elysium\", job=\"k8s-events\", namespace=~\"$namespace\"} |= \"type=Warning\"",
-          "refId": "A",
-          "legendFormat": ""
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending"
-      },
-      "id": 3
-    },
-    {
-      "type": "logs",
-      "title": "Pod logs",
-      "gridPos": {
-        "h": 16,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{cluster=\"elysium\", job=\"pod-logs\", namespace=~\"$namespace\", app=~\"$app\"} |= \"$search\"",
+          "expr": "{cluster=\"elysium\", job=\"k8s-events\", namespace=~\"$namespace\"} | logfmt | type=~\"$type\" | kind=~\"$kind\" | reason=~\"(?i).*$reason.*\" | line_format \"{{.type}}  {{.reason}}  {{.kind}}/{{.name}}  ({{.count}}x)  {{.msg}}\"",
           "refId": "A",
           "legendFormat": ""
         }
@@ -215,7 +205,7 @@
         "sortOrder": "Descending",
         "enableLogDetails": true
       },
-      "id": 4
+      "id": 3
     }
   ],
   "annotations": {

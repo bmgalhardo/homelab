@@ -405,8 +405,13 @@ and `argus/state/` only, with `git pull --rebase` before push.
       usage (old values would OOM: vault-agent 101 MB vs 64m, alloy 186 MB vs
       128m). `cgroup_enable=memory` appended to `/boot/cmdline.txt` (in repo:
       `infra/athena/boot/`), rebooted, containers recreated — all 7 limits
-      enforced 2026-10-01. Real (anon) usage is small (alloy 70 MB, prometheus
-      102 MB); the rest is reclaimable page cache
+      enforced 2026-10-01. Size limits above the **binary**, not just anon
+      usage: the cgroup counts an executable's code pages as file cache.
+      Alloy 1.20.1 is a 502 MB binary — at 384m it evicted its own code and
+      re-read it from disk (~290 MB/s, load 5 on 4 cores, 1.1M limit hits)
+      until raised to 768m. Now: loki 1g, prometheus 1g, alloy 768m,
+      grafana 384m, vault-agent 384m, node-exporter/blackbox 64m. Thrash
+      signature: cgroup `io.stat` rbytes ≫ process `rchar`, `memory.events max` climbing
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
       `prometheus.yml` — cluster side is Phase 2a; hosts per the Integration
       List metrics table (pve-exporter proposed dropped).
@@ -493,7 +498,12 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
       Hermes DNS. Fixed `reload.sh`: plain `up -d` never recreated Grafana, so
       renewed certs never loaded (served cert was 1 day from expiry)
       Dashboards: `athena/` Node Exporter Full (grafana.com 1860, unmodified),
-      Probes; `elysium/` Logs & events (empty until the k8s log push lands)
+      Probes, Containers (cAdvisor `cadvisor-athena` job — the k8s kubelet job
+      is also `cadvisor`); `elysium/` Logs & events (namespace + app filters),
+      Kubernetes events (logfmt: type/kind/reason), Vault Secrets Operator;
+      `hermes/` HAProxy; `hosts/` Host logs. Every non-k8s log stream carries
+      `host` + `app` (docker: compose service; talos: `host=elysium-<node>`,
+      `app=<talos-service>`) so one dashboard filters them all
 - [x] hermes (2026-09-30): debug `log-queries` removed — its 172 MB log had
       filled the 213 MB tmpfs root since 2026-09-26 (writes and `lbu` failing).
       `syslogd -L -R athena:1515`, HAProxy logs direct to athena:1515

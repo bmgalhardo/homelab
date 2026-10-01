@@ -103,6 +103,10 @@ discovery.relabel "docker" {
     source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
     target_label  = "service"
   }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "app"
+  }
 }
 
 loki.source.docker "local" {
@@ -160,8 +164,12 @@ loki.process "talos" {
       level   = "\"talos-level\"",
     }
   }
+  stage.template {
+    source   = "host"
+    template = "elysium-{{ .node }}"
+  }
   stage.labels {
-    values = { node = "", service = "", level = "" }
+    values = { node = "", service = "", level = "", host = "", app = "service" }
   }
   stage.output {
     source = "msg"

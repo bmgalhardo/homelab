@@ -158,7 +158,7 @@ Authentik, backup/snapshot freshness, key expiry). Two reasons:
 |--------|---------|--------|-------|
 | k8s pod logs | change | Alloy HelmRelease, `loki.source.kubernetes` (API tail), 1 replica | `kubernetes/monitoring/alloy/` was deleted in `17e511d` — nothing to reuse. API tailing needs no hostPath, so no privileged PSA namespace on Talos |
 | k8s events | **add** | Same Alloy, `loki.source.kubernetes_events` | Events expire after 1h — 0 Warning events on 09-16 despite 40+ restarts. This is where `ProvisioningFailed` / `BackOff` live |
-| Talos node logs (kubelet, containerd, etcd, machined, kernel) | **add** | Omni patch `machine.logging.destinations` (json_lines over TCP/UDP) | Not pod logs. Receiver on athena not chosen — verify an Alloy component before committing |
+| Talos node logs (kubelet, containerd, etcd, machined, kernel) | **add** | Omni patch `machine.logging.destinations` (json_lines over TCP) | Not pod logs. Receiver: athena Alloy `otelcol.receiver.tcplog` :1516 (experimental in 1.20.1 — needs `--stability.level=experimental`; no parsing operators, so `loki.process` does the JSON) |
 | Proxmox hosts (apollo, hades) | keep | Alloy native (apt), journald | Drop `/var/log/pve*` — task failures come from `/cluster/tasks` (fact below) |
 | Olympus VMs (vault, authentik, postgres, omni) | change | Alloy container in each VM's compose (`loki.source.docker` + journald) — one template for all | vault and omni are 512 MB; vault had 16 MB free and ~63 MB swapped out on 09-16. Needs vault + omni → 1 GB (open decision) |
 | qdevice LXC | **drop** | — | 16 MB RAM, no room for any shipper. Covered by the quorum fact |
@@ -200,9 +200,9 @@ dedicated key with forced commands — not a bastion keyring.
 |--------|---------|-------|
 | athena stack (prometheus, loki, alloy, grafana) | keep | 4/4 up |
 | pve-exporter | **drop** | RRD covers guests for the agent, node_exporter covers hosts. Reconsider only for guest charts in Grafana |
-| node_exporter — apollo, hades | add | apt `prometheus-node-exporter`; zfs collector gives pool state + ARC size |
+| node_exporter — apollo, hades | add ✅ apollo 2026-10-01 | Debian package was already installed and running on apollo, never scraped. Hades: same install pending power-on |
 | node_exporter — athena | add, priority | Only memory ceiling signal while cgroups are off |
-| node_exporter — hermes | skip | `community` repo not enabled; HAProxy exporter + DNS probe give the service view |
+| node_exporter — hermes | add ✅ 2026-10-01 | community repo enabled, `prometheus-node-exporter` (17 MB RSS). Service view alone missed the full tmpfs root for 4 days |
 | HAProxy built-in exporter (hermes) | add | 3.4.4 is built with `prometheus-exporter` (verified). Proxmox backend up/down |
 | blackbox_exporter (athena) | add | Certs, Vault health, DNS, HTTP up for every HTTPRoute |
 | elysium (the `hal9000` stub) | add — **Phase 2a** | In-cluster Alloy scrapes kube-state-metrics, cAdvisor, Flux / cert-manager / VSO controller metrics → `remote_write`. Needs `--web.enable-remote-write-receiver`. Drop unneeded cAdvisor series and scrape at 60s, or the 2 GB size cap silently shortens 30d retention |
@@ -401,6 +401,10 @@ and `argus/state/` only, with `git pull --rebase` before push.
       log volume. Fix: drop `cgroup_disable=memory` (add
       `cgroup_enable=memory cgroup_memory=1`) in the boot cmdline and reboot,
       then restore the limits.
+      **2026-10-01:** `mem_limit` restored in compose, sized from measured
+      usage (old values would OOM: vault-agent 101 MB vs 64m, alloy 186 MB vs
+      128m). Still inert — `cgroup_disable=memory` comes from the Pi firmware,
+      so append to `/boot/cmdline.txt` + reboot (user action, pending)
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
       `prometheus.yml` — cluster side is Phase 2a; hosts per the Integration
       List metrics table (pve-exporter proposed dropped).
@@ -410,10 +414,18 @@ and `argus/state/` only, with `git pull --rebase` before push.
 **Status 2026-09-27:** steps 1–5 written — `kubernetes/10-infra-base/monitoring.yaml`
 (KSM 8.6.0, Alloy 1.13.0 with narrowed RBAC), athena remote-write receiver +
 5GB, LiteLLM `callbacks: ["prometheus"]` (dedicated port 4001 — `/metrics` on
-4000 needs a key). All 11 jobs up, ~24k series (2026-09-28). Dashboards (6) in
+4000 needs a key). All 11 jobs up, ~24k series (2026-09-28). Dashboards (3) in
 `infra/athena/grafana/dashboards/elysium/`: NVIDIA's DCGM dashboard (upstream,
 unmodified), LiteLLM, Cluster & pods. LiteLLM metrics carry `user_email`,
 `client_ip`, `user_agent` labels — PII + cardinality once there are users.
+
+**2026-09-30:** VSO scrape added (kube-rbac-proxy :8443, Alloy SA granted
+`nonResourceURLs: /metrics`); KSM limited to workload/node/storage collectors
+(drops secrets/configmaps/leases/webhooks and its cluster-wide secrets read).
+Still open: fallback counters have never been emitted (LiteLLM creates them on
+first fallback; none since scraping began) — exit check untested.
+`DCGM_FI_PROF_PIPE_TENSOR_ACTIVE` never exists on Maxwell (no tensor cores);
+that upstream panel stays empty.
 
 **Shape:** push, not pull. One Alloy Deployment in-cluster scrapes and
 `remote_write`s to athena's Prometheus. athena can't reach pod IPs, the
@@ -473,15 +485,32 @@ the collection principle above.
 
 Order from the 2026-09-16 review — see Integration List for the method per source.
 
-- [ ] athena: `loki.source.docker`, RFC3164 syslog listener, node_exporter,
-      blackbox_exporter
-- [ ] hermes: remove debug `log-queries`, HAProxy logs direct to athena,
-      `syslogd -R`, HAProxy exporter, `lbu commit`
-- [ ] k8s: pod logs + events on the Phase 2a Alloy; `automation/argus`
-      ServiceAccount
-- [ ] Proxmox hosts: Alloy (journald) + node_exporter
+- [x] athena (2026-09-30): `loki.source.docker`, host `/var/log/messages`,
+      RFC3164 listener on 1515, node_exporter (container, host network),
+      blackbox_exporter — probes every HTTPRoute, Vault health, Proxmox,
+      Hermes DNS. Fixed `reload.sh`: plain `up -d` never recreated Grafana, so
+      renewed certs never loaded (served cert was 1 day from expiry)
+      Dashboards: `athena/` Node Exporter Full (grafana.com 1860, unmodified),
+      Probes; `elysium/` Logs & events (empty until the k8s log push lands)
+- [x] hermes (2026-09-30): debug `log-queries` removed — its 172 MB log had
+      filled the 213 MB tmpfs root since 2026-09-26 (writes and `lbu` failing).
+      `syslogd -L -R athena:1515`, HAProxy logs direct to athena:1515
+      (previously sent to 127.0.0.1, where nothing listened), exporter on
+      :8405 scraped as `haproxy`; `lbu commit`ed
+- [x] athena syslog labels: relabel rules moved into the sources'
+      `relabel_rules` — the downstream `loki.relabel` never saw `__syslog_*`,
+      so host/app/severity had never been set. Busybox omits the hostname;
+      `host` comes from the sender IP (.199 hermes, .1 udm)
+- [ ] k8s: pod logs + events on the Phase 2a Alloy — written 2026-09-30,
+      awaiting push; `automation/argus` ServiceAccount
+- [~] Proxmox hosts: Alloy (journald) + node_exporter — apollo done
+      2026-10-01 (`infra/olympus/hosts/`, Alloy 1.20.1 apt, `MemoryMax=256M`,
+      ~98 MB). Hades: same steps when powered on (`hades=0` in `node` job until then)
 - [ ] Olympus VMs: Alloy compose template (after the RAM decision)
-- [ ] Talos node logs via `machine.logging.destinations`
+- [~] Talos node logs via `machine.logging.destinations` — receiver live on
+      athena :1516 (tested with a fake line); per-class patches
+      `logging-{cp,apollo,hades,hades-gpu}.yaml` written, need
+      `omnictl cluster template sync` (user)
 - [ ] UDM Pro → remote syslog
 - [ ] Verify: every host in `network.md` appears as a Loki label
 - [x] `kubernetes/monitoring/` is gone (removed in `17e511d`, flux first

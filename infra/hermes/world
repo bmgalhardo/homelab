@@ -4,3 +4,4 @@ dnsmasq
 haproxy
 openssh
 openssl
+prometheus-node-exporter

@@ -28,6 +28,18 @@ spec:
   values:
     nodeSelector:
       homelab/node: apollo
+    collectors:
+      - cronjobs
+      - daemonsets
+      - deployments
+      - jobs
+      - namespaces
+      - nodes
+      - persistentvolumeclaims
+      - persistentvolumes
+      - pods
+      - replicasets
+      - statefulsets
     resources:
       requests: { cpu: 20m, memory: 64Mi }
       limits: { memory: 256Mi }
@@ -65,10 +77,18 @@ spec:
         - apiGroups: ["", "discovery.k8s.io"]
           resources: ["endpoints", "endpointslices", "pods", "services"]
           verbs: ["get", "list", "watch"]
+        - apiGroups: [""]
+          resources: ["pods/log"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["", "events.k8s.io"]
+          resources: ["events"]
+          verbs: ["get", "list", "watch"]
       clusterRules:
         - apiGroups: [""]
           resources: ["nodes", "nodes/metrics"]
           verbs: ["get", "list", "watch"]
+        - nonResourceURLs: ["/metrics"]
+          verbs: ["get"]
     alloy:
       resources:
         requests: { cpu: 50m, memory: 128Mi }
@@ -128,6 +148,18 @@ spec:
             forward_to      = [prometheus.remote_write.athena.receiver]
           }
 
+          prometheus.scrape "vault_secrets_operator" {
+            job_name          = "vault-secrets-operator"
+            targets           = [{ "__address__" = "vault-secrets-operator-metrics-service.vault-secrets-operator.svc:8443" }]
+            scheme            = "https"
+            bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+            tls_config {
+              insecure_skip_verify = true
+            }
+            scrape_interval = "60s"
+            forward_to      = [prometheus.remote_write.athena.receiver]
+          }
+
           // Pods: DCGM (GPU), LiteLLM, Flux and cert-manager controllers
           discovery.kubernetes "pods" {
             role = "pod"
@@ -168,4 +200,53 @@ spec:
             targets         = discovery.relabel.pods.output
             scrape_interval = "60s"
             forward_to      = [prometheus.remote_write.athena.receiver]
+          }
+
+          // Logs: every container's stdout/stderr and cluster events, via the API
+          loki.write "athena" {
+            endpoint {
+              url = "http://athena.bgalhardo.internal:3100/loki/api/v1/push"
+            }
+            external_labels = { cluster = "elysium" }
+          }
+
+          discovery.relabel "pod_logs" {
+            targets = discovery.kubernetes.pods.targets
+            rule {
+              source_labels = ["__meta_kubernetes_namespace"]
+              target_label  = "namespace"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_name"]
+              target_label  = "pod"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_container_name"]
+              target_label  = "container"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_node_name"]
+              target_label  = "node"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name", "__meta_kubernetes_pod_label_app"]
+              separator     = ";"
+              regex         = ";*([^;]+).*"
+              target_label  = "app"
+            }
+            rule {
+              target_label = "job"
+              replacement  = "pod-logs"
+            }
+          }
+
+          loki.source.kubernetes "pods" {
+            targets    = discovery.relabel.pod_logs.output
+            forward_to = [loki.write.athena.receiver]
+          }
+
+          loki.source.kubernetes_events "cluster" {
+            job_name   = "k8s-events"
+            log_format = "logfmt"
+            forward_to = [loki.write.athena.receiver]
           }

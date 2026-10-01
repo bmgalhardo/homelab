@@ -10,9 +10,11 @@ sidecar.
 | Service | Port | Notes |
 |---------|------|-------|
 | loki | 3100 | monolithic, filesystem, TSDB, 90d retention |
-| prometheus | 9090 | 30d / 2GB retention, scrapes the local stack (host/k8s exporters are stubs) |
+| prometheus | 9090 | 30d / 5GB retention, scrapes the local stack + blackbox probes; elysium pushes via remote_write |
 | grafana | 3000 | HTTPS, Loki + Prometheus datasources pre-provisioned |
-| alloy | 1514 tcp+udp | syslog receiver — Hermes (Pi 1), UDM Pro |
+| alloy | 1514 tcp+udp (RFC5424), 1515 tcp+udp (RFC3164), 1516 tcp (Talos json_lines) | syslog receiver — Hermes (Pi 1), UDM Pro; Talos machine logs; ships athena's container + host logs |
+| node-exporter | 9100 (host network) | athena host metrics |
+| blackbox | 9115 (internal) | HTTP/TLS/DNS probes — targets in `prometheus/prometheus.yml` |
 | vault-agent | — | AppRole → renders `secrets/grafana.env` + issues `certs/athena.{crt,key}` |
 
 ## First deploy

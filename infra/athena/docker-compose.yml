@@ -3,6 +3,7 @@ services:
     image: hashicorp/vault:1.13.3
     container_name: vault-agent
     restart: unless-stopped
+    mem_limit: 192m
     cap_add:
       - IPC_LOCK
     entrypoint: ["vault", "agent", "-config=/vault-agent/config.hcl"]
@@ -18,9 +19,10 @@ services:
     image: grafana/loki:3.3.2
     container_name: loki
     restart: unless-stopped
+    mem_limit: 1g
     command: -config.file=/etc/loki/config.yml
     ports:
-      - "3100:3100"            # LogQL push + query — k8s Alloy DaemonSet targets this
+      - "3100:3100"            # LogQL push + query — elysium's in-cluster Alloy pushes here
     volumes:
       - ./loki/config.yml:/etc/loki/config.yml:ro
       - ./data/loki:/loki
@@ -34,6 +36,7 @@ services:
     image: prom/prometheus:v3.1.0
     container_name: prometheus
     restart: unless-stopped
+    mem_limit: 768m
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -46,10 +49,13 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./data/prometheus:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # node-exporter runs on the host network
   grafana:
     image: grafana/grafana:11.4.0
     container_name: grafana
     restart: unless-stopped
+    mem_limit: 384m
     depends_on:
       - loki
       - prometheus
@@ -73,9 +79,10 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./certs:/certs:ro
   alloy:
-    image: grafana/alloy:v1.5.1
+    image: grafana/alloy:v1.20.1
     container_name: alloy
     restart: unless-stopped
+    mem_limit: 384m
     depends_on:
       - loki
     command:
@@ -83,10 +90,37 @@ services:
       - /etc/alloy/config.alloy
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
+      - --stability.level=experimental    # otelcol.receiver.tcplog (Talos logs)
     ports:
       - "1514:1514/tcp"         # syslog RFC5424 — Hermes busybox syslogd -R, UDM remote logging
       - "1514:1514/udp"
+      - "1515:1515/tcp"         # syslog RFC3164 — busybox syslogd, UDM Pro
+      - "1515:1515/udp"
+      - "1516:1516/tcp"         # Talos machine logs (json_lines)
       - "127.0.0.1:12345:12345" # Alloy debug UI, localhost only
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - ./data/alloy:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log/host:ro
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: node-exporter
+    restart: unless-stopped
+    mem_limit: 64m
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=:9100
+    volumes:
+      - /:/host:ro
+  blackbox:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: blackbox
+    restart: unless-stopped
+    mem_limit: 64m
+    command: --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+      - ./vault-agent/ca.crt:/etc/blackbox/ca.crt:ro

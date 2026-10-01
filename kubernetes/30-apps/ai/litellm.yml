@@ -18,9 +18,26 @@ data:
         litellm_params:
           model: ollama_chat/qwen2.5:1.5b
           api_base: http://ollama-gpu.ai.svc.cluster.local:11434
+      - model_name: claude-fable-5-1
+        litellm_params:
+          model: anthropic/claude-fable-5-1
+          api_key: os.environ/ANTHROPIC_API_KEY
+      - model_name: claude-opus-5-5
+        litellm_params:
+          model: anthropic/claude-opus-5-5
+          api_key: os.environ/ANTHROPIC_API_KEY
+      - model_name: claude-sonnet-5-5
+        litellm_params:
+          model: anthropic/claude-sonnet-5-5
+          api_key: os.environ/ANTHROPIC_API_KEY
+      - model_name: claude-haiku-4-5
+        litellm_params:
+          model: anthropic/claude-haiku-4-5
+          api_key: os.environ/ANTHROPIC_API_KEY
     litellm_settings:
       fallbacks: [{ "qwen-gpu": ["llama-mini"] }]
       callbacks: ["prometheus"]
+      drop_params: true
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
 ---
@@ -41,7 +58,7 @@ spec:
     spec:
       containers:
       - name: litellm
-        image: ghcr.io/berriai/litellm:v1.102.1
+        image: ghcr.io/berriai/litellm:v1.103.0
         imagePullPolicy: IfNotPresent
         args: ["--config", "/app/config.yaml", "--port", "4000"]
         ports:
@@ -61,6 +78,16 @@ spec:
             secretKeyRef:
               name: litellm-secrets
               key: database_url
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: anthropic_api_key
+        - name: TYPESAFE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: typesafe_api_key
         volumeMounts:
         - mountPath: /app/config.yaml
           name: litellm-config

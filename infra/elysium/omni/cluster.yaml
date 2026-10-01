@@ -27,6 +27,8 @@ machineClass:
 patches:
   - name: control-vip
     file: patches/control-vip.yaml
+  - name: logging-cp
+    file: patches/logging-cp.yaml
 systemExtensions:
   - siderolabs/qemu-guest-agent
 ---
@@ -40,6 +42,8 @@ patches:
     file: patches/local-path.yaml
   - name: labels-apollo
     file: patches/labels-apollo.yaml
+  - name: logging-apollo
+    file: patches/logging-apollo.yaml
 systemExtensions:
   - siderolabs/qemu-guest-agent
 ---
@@ -55,6 +59,8 @@ patches:
     file: patches/virtiofs-hades.yaml
   - name: labels-hades
     file: patches/labels-hades.yaml
+  - name: logging-hades
+    file: patches/logging-hades.yaml
 systemExtensions:
   - siderolabs/qemu-guest-agent
 ---
@@ -68,6 +74,8 @@ patches:
     file: patches/local-path.yaml
   - name: labels-hades-gpu
     file: patches/labels-hades-gpu.yaml
+  - name: logging-hades-gpu
+    file: patches/logging-hades-gpu.yaml
   - name: nvidia
     file: patches/nvidia.yaml
 systemExtensions:

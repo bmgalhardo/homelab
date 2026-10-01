@@ -1,0 +1,32 @@
+// Proxmox host (apollo, hades) — ships the systemd journal to Loki on athena.
+// HOSTNAME is set per host in /etc/default/alloy.
+
+loki.write "athena" {
+  endpoint {
+    url = "http://192.168.1.196:3100/loki/api/v1/push"
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "severity"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "12h"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { job = "journal", host = sys.env("HOSTNAME") }
+  forward_to    = [loki.write.athena.receiver]
+}

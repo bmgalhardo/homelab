@@ -94,6 +94,8 @@ use `secretKeyRef`, never an inline password in `env:`.
   `infra/hal9000/` is the retired predecessor — VMs stopped, not yet destroyed
 - `infra/olympus/services/` — static `docker-compose.yml` per VM service
 - `infra/athena/` — Argus logging/metrics stack (Pi4 node)
+- `infra/olympus/hosts/` — agents on the Proxmox hosts themselves (node_exporter,
+  Alloy journald → athena)
 - `infra/vault/` — Vault-side config: AppRole bootstrap (`roles/<service>.env`)
   and elysium's kubernetes auth. Talks only to Vault, never shipped to a node
 - `infra/ca/` — internal root CA certificate. Public, committed deliberately

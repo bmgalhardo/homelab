@@ -1,7 +1,6 @@
-// athena — Alloy as the syslog receiver for hosts that can't run Alloy natively.
-// Phase 2 sources: Hermes (Pi 1, ARMv6 — busybox `syslogd -R athena:1514`) and
-// the UDM Pro (Settings -> System -> Remote Logging). Everything else ships
-// straight to Loki :3100 with its own Alloy / promtail.
+// athena — Alloy: syslog receiver for hosts that can't run Alloy natively
+// (Hermes busybox syslogd, UDM Pro) and the log shipper for athena's own containers.
+// Everything else ships straight to Loki :3100 with its own Alloy.
 
 loki.write "default" {
   endpoint {
@@ -25,13 +24,35 @@ loki.source.syslog "network" {
     labels        = { job = "syslog", transport = "udp" }
   }
 
-  forward_to = [loki.relabel.syslog.receiver]
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
+// RFC3164 (BSD) syslog on 1515 — busybox `syslogd -R athena:1515`, UDM Pro.
+loki.source.syslog "bsd" {
+  listener {
+    address       = "0.0.0.0:1515"
+    protocol      = "udp"
+    syslog_format = "rfc3164"
+    labels        = { job = "syslog", transport = "udp" }
+  }
+
+  listener {
+    address       = "0.0.0.0:1515"
+    protocol      = "tcp"
+    syslog_format = "rfc3164"
+    labels        = { job = "syslog", transport = "tcp" }
+  }
+
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.default.receiver]
 }
 
 // Promote the useful syslog metadata to real Loki labels. Keep cardinality low:
-// host + facility + severity only — no message-derived labels.
+// host + facility + severity only — no message-derived labels. Applied inside the
+// sources via relabel_rules: __syslog_* labels are dropped before forward_to.
 loki.relabel "syslog" {
-  forward_to = [loki.write.default.receiver]
+  forward_to = []
 
   rule {
     source_labels = ["__syslog_message_hostname"]
@@ -48,5 +69,107 @@ loki.relabel "syslog" {
   rule {
     source_labels = ["__syslog_message_app_name"]
     target_label  = "app"
+  }
+
+  // busybox syslogd forwards without a hostname — label by sender instead.
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    regex         = "192\\.168\\.1\\.199"
+    target_label  = "host"
+    replacement   = "hermes"
+  }
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    regex         = "192\\.168\\.1\\.1"
+    target_label  = "host"
+    replacement   = "udm"
+  }
+}
+
+// athena's own containers.
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "local" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.local.targets
+  relabel_rules = discovery.relabel.docker.rules
+  labels        = { job = "docker", host = "athena" }
+  forward_to    = [loki.write.default.receiver]
+}
+
+// athena host syslog (busybox syslogd -> /var/log/messages), incl. kernel OOM kills.
+local.file_match "host" {
+  path_targets = [{ "__path__" = "/var/log/host/messages", job = "syslog", host = "athena" }]
+}
+
+loki.source.file "host" {
+  targets    = local.file_match.host.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// Talos machine logs (machine.logging.destinations, json_lines over TCP 1516).
+otelcol.receiver.tcplog "talos" {
+  listen_address = "0.0.0.0:1516"
+
+  output {
+    logs = [otelcol.processor.attributes.talos.input]
+  }
+}
+
+// Ship the JSON line as-is; loki.process parses it.
+otelcol.processor.attributes "talos" {
+  action {
+    key    = "loki.format"
+    action = "insert"
+    value  = "raw"
+  }
+
+  output {
+    logs = [otelcol.exporter.loki.talos.input]
+  }
+}
+
+otelcol.exporter.loki "talos" {
+  forward_to = [loki.process.talos.receiver]
+}
+
+loki.process "talos" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = {
+      msg     = "msg",
+      node    = "node",
+      service = "\"talos-service\"",
+      level   = "\"talos-level\"",
+    }
+  }
+  stage.labels {
+    values = { node = "", service = "", level = "" }
+  }
+  stage.output {
+    source = "msg"
+  }
+  stage.static_labels {
+    values = { job = "talos", cluster = "elysium" }
+  }
+  stage.label_drop {
+    values = ["exporter"]
   }
 }

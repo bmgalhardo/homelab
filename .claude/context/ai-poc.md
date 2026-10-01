@@ -65,6 +65,16 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
 - `ai` namespace: `ollama` (CPU, hades, `llama3.2:1b` + `nomic-embed-text`),
   `litellm` (gateway), `openwebui`. Added `ollama-gpu` (GPU node,
   `qwen2.5:1.5b`) and LiteLLM model `qwen-gpu` with fallback to `llama-mini`.
+- 2026-10-01: LiteLLM v1.103.0 (TypeSafe Jev passthrough at `/typesafe`),
+  pinned to apollo (stateless; DB is the postgres VM) so the gateway outlives
+  hades. Anthropic, named only: `claude-fable-5-1` / `claude-opus-5-5` /
+  `claude-sonnet-5-5` / `claude-haiku-4-5` (wildcard rejected: a second,
+  unguarded name per model, and every model open to every key). Pricing and
+  param support come from the cost map LiteLLM fetches from GitHub `main` at
+  startup — v1.103.0's bundled copy lacks the 5.5 models, so a failed fetch
+  ("Falling back to local backup" in the pod log) means unpriced 5.5 spend
+  and possible `temperature` 400s. `drop_params: true`. Keys: `anthropic_api_key`, `typesafe_api_key`
+  in `kv/apps/litellm`. No Claude model is in the fallback chain.
 - Talos VM CPU type `x86-64-v2-AES` → `x86-64-v3` (AVX2; both hosts
   verified). v2 hid AVX from the guests, crippling CPU inference and
   blocking vLLM's CPU backend. Applied 2026-09-27 on all Talos VMs.

@@ -390,7 +390,7 @@ and `argus/state/` only, with `git pull --rebase` before push.
 
 **Open from Phase 1:**
 
-- [ ] **No memory ceiling on the stack.** athena's kernel cmdline has
+- [x] **No memory ceiling on the stack.** athena's kernel cmdline has
       `cgroup_disable=memory`, so `/proc/cgroups` has no memory controller and
       Docker silently discards every `mem_limit` ("Your kernel does not
       support memory limit capabilities"); `docker stats` reports 0B for all
@@ -403,8 +403,10 @@ and `argus/state/` only, with `git pull --rebase` before push.
       then restore the limits.
       **2026-10-01:** `mem_limit` restored in compose, sized from measured
       usage (old values would OOM: vault-agent 101 MB vs 64m, alloy 186 MB vs
-      128m). Still inert — `cgroup_disable=memory` comes from the Pi firmware,
-      so append to `/boot/cmdline.txt` + reboot (user action, pending)
+      128m). `cgroup_enable=memory` appended to `/boot/cmdline.txt` (in repo:
+      `infra/athena/boot/`), rebooted, containers recreated — all 7 limits
+      enforced 2026-10-01. Real (anon) usage is small (alloy 70 MB, prometheus
+      102 MB); the rest is reclaimable page cache
 - [ ] Prometheus host/cluster scrape targets are commented stubs in
       `prometheus.yml` — cluster side is Phase 2a; hosts per the Integration
       List metrics table (pve-exporter proposed dropped).

@@ -79,6 +79,17 @@
 - **OS/disk:** Alpine 3.24, kernel 6.18-rpi, on a **120GB KingSpec SATA
   SSD** (`/dev/sda`, `SHFS37A120G`) — persistent `sys` install, boots
   from the SSD, no SD card in play
+- **USB boot is fragile.** SSD on a USB3/UAS adapter (`14b0:0206`). On
+  2026-10-01 a reboot hung in the bootloader (`MSD cmd timeout … FAT read
+  failed`) and took 3 cold power cycles, stuck because `BOOT_ORDER=0x234`
+  had no `f` (restart). No undervoltage (`get_throttled=0x0`).
+  Same day: bootloader 2025-02-11 → **2026-09-23**, `BOOT_ORDER=0xf14`
+  (USB-MSD → SD → restart, retries on its own). Applied by self-update —
+  no SD card: `pieeprom.upd` (built with `rpi-eeprom-config`) + `pieeprom.sig`
+  (sha256 + `ts:`) in `/boot`, reboot, delete both. `vcgencmd` via
+  `raspberrypi-utils`; Alpine has no `rpi-eeprom-update`. If it recurs:
+  USB 2.0 port, then a powered adapter
+- **Kernel cmdline:** `infra/athena/boot/cmdline.txt` (`cgroup_enable=memory`)
 - **IP:** `192.168.1.196` (DHCP → pin in UniFi)
 - **Role:** Argus stack — Loki + Prometheus + Grafana + Alloy + Vault
   Agent + (later) the report agent. Independent of the Proxmox cluster on

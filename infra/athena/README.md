@@ -15,6 +15,10 @@ sidecar.
 | alloy | 1514 tcp+udp (RFC5424), 1515 tcp+udp (RFC3164), 1516 tcp (Talos json_lines) | syslog receiver — Hermes (Pi 1), UDM Pro; Talos machine logs; ships athena's container + host logs |
 | node-exporter | 9100 (host network) | athena host metrics |
 | blackbox | 9115 (internal) | HTTP/TLS/DNS probes — targets in `prometheus/prometheus.yml` |
+
+`boot/cmdline.txt` → `/boot/cmdline.txt` on the node (one line). `cgroup_enable=memory`
+overrides the firmware's `cgroup_disable=memory`; without it every `mem_limit` is ignored.
+Containers created before the change keep running unlimited until `docker compose up -d --force-recreate`.
 | vault-agent | — | AppRole → renders `secrets/grafana.env` + issues `certs/athena.{crt,key}` |
 
 ## First deploy

@@ -1,0 +1,12 @@
+api:
+  listen: "127.0.0.1:1984"
+
+rtsp:
+  listen: ""
+
+webrtc:
+  listen: ""
+
+streams:
+  cam1: ${CAM1_URL}
+  # cam2: ${CAM2_URL}

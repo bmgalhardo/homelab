@@ -10,7 +10,8 @@
 | hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
 | qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
-| ~~manager~~ | ~~192.168.1.170~~ | Apollo VM | **DELETED 2026-09-14** — no bastion since |
+| cerberus | **192.168.1.175** (LXC 105, live 2026-10-06) | Apollo LXC (Debian) | Protect kiosk on Apollo HDMI |
+| daedalus | **192.168.1.170** | Workstation | daedalus workstation |
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
 | vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
 | authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |

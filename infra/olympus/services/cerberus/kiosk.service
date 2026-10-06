@@ -1,0 +1,20 @@
+[Unit]
+Description=Protect kiosk
+After=go2rtc.service
+Wants=go2rtc.service
+
+[Service]
+User=kiosk
+SupplementaryGroups=video render
+RuntimeDirectory=kiosk
+Environment=XDG_RUNTIME_DIR=/run/kiosk
+Environment=LIBSEAT_BACKEND=noop
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+Environment=WLR_DRM_DEVICES=/dev/dri/card0
+ExecStart=/usr/bin/cage -- /usr/bin/chromium --ozone-platform=wayland --kiosk --incognito --no-first-run --noerrdialogs --disable-session-crashed-bubble --autoplay-policy=no-user-gesture-required http://127.0.0.1:1984/stream.html?src=cam1&mode=mse
+Restart=always
+RestartSec=5
+RuntimeMaxSec=1d
+
+[Install]
+WantedBy=multi-user.target

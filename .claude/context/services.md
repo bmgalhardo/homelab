@@ -154,16 +154,17 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
 - **Caveat:** LXC runs on Apollo — an Apollo outage takes the qdevice with
   it, so Hades alone can't hold quorum. Still covers the Hades-outage case.
 
-### Iris (Protect kiosk)
-- **Location:** Apollo LXC `iris` (Debian 13, unprivileged, DHCP)
+### Cerberus (Protect kiosk)
+- **Location:** Apollo LXC `cerberus` (192.168.1.175, Debian 13, unprivileged)
 - **Role:** UniFi Protect live view (2 cams) on Apollo's HDMI. go2rtc pulls
   the RTSPS substreams (`rtspx://` = no cert check); cage + Chromium shows
   `stream.html` side by side. iGPU shared via `dev0`/`dev1`, no passthrough.
-- **Config:** `infra/olympus/services/iris/` — RTSPS tokens in `.env`
+- **Config:** `infra/olympus/services/cerberus/` — RTSPS tokens in `.env`
 - **Depends on:** Apollo, UDM Pro (Protect)
-- **Status:** Drafted 2026-10-05, not deployed. Untested: cage/wlroots in an
-  unprivileged LXC without udev — if it can't open the DRM device, retry
-  with `--unprivileged 0` before anything else.
+- **Status:** Live 2026-10-06, LXC 105, cam1 only (cam2 not online yet —
+  commented out in `go2rtc.yaml` and the kiosk URL). Unprivileged works;
+  monitor is on HDMI‑A‑2. Log noise that is harmless: dbus, ALSA, GCM, one
+  `Atomic commit failed: busy` at start.
 - **Chosen over:** UniFi Viewport (cost), iGPU VM passthrough (HDMI out from
   Gen12 iGPU in a VM is unreliable, host loses console), Protect web UI
   (session expiry).

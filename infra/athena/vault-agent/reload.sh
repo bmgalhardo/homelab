@@ -18,6 +18,8 @@ STAMP="$DIR/certs/.reload.done"
 cd "$DIR"
 # recreate, not `restart` (keeps the old env) or plain `up -d` (no-op when the compose file is unchanged)
 docker compose up -d --force-recreate grafana
+# unpoller reads its API key file only at startup
+docker compose restart unpoller
 # Prometheus reloads in place, no restart
 curl -sf -X POST http://localhost:9090/-/reload || true
 

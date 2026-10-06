@@ -159,11 +159,6 @@ data:
           icon: sh-litellm.png
           href: https://litellm.bgalhardo.internal/ui/
           siteMonitor: http://litellm.ai:4000
-    - Personal:
-      - Obsidian LiveSync:
-          icon: couchdb.png
-          href: https://couchdb.bgalhardo.com/_utils
-          siteMonitor: http://couchdb.system:5984
   bookmarks.yaml: |
     - Developer:
       - Github:

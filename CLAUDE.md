@@ -93,7 +93,8 @@ use `secretKeyRef`, never an inline password in `env:`.
 - `infra/elysium/terraform/` — Talos k8s cluster VM provisioning.
   `infra/hal9000/` is the retired predecessor — VMs stopped, not yet destroyed
 - `infra/olympus/services/` — static `docker-compose.yml` per VM service
-- `infra/athena/` — Argus logging/metrics stack (Pi4 node)
+- `infra/athena/` — monitoring stack on the athena Pi4 (Loki, Prometheus, Grafana, Alloy)
+- `argus/` — argus, the daily report agent (Python, uv). Deploys to athena
 - `infra/olympus/hosts/` — agents on the Proxmox hosts themselves (node_exporter,
   Alloy journald → athena)
 - `infra/vault/` — Vault-side config: AppRole bootstrap (`roles/<service>.env`)
@@ -109,7 +110,8 @@ use `secretKeyRef`, never an inline password in `env:`.
 
 **Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).
 `elysium` (was `hal9000`) = k8s, the plane above. `hermes`/`athena` =
-standalone Pis. `manager` was deleted 2026-09-14 (no bastion since).
+standalone Pis; `athena` is the monitoring node. `argus` = the report
+agent that runs on it. `manager` was deleted 2026-09-14 (no bastion since).
 Possible later: `qdevice` → `themis`.
 
 ## When to Update This File

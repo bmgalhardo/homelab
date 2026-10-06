@@ -5,7 +5,7 @@
 | FQDN | IP | Device | Role |
 |------|----|----|------|
 | udm.bgalhardo.internal | 192.168.1.1 | UDM Pro | Gateway |
-| athena.bgalhardo.internal | **192.168.1.196** (Pi4 online 2026-09-08 — MAC `2C:CF:67:64:2C:1D`, DHCP; pin in UniFi) | Pi4 4GB, arm64, 120GB SSD | Runs the Argus stack — logging + metrics + report agent |
+| athena.bgalhardo.internal | **192.168.1.196** (Pi4 online 2026-09-08 — MAC `2C:CF:67:64:2C:1D`, DHCP; pin in UniFi) | Pi4 4GB, arm64, 120GB SSD | Monitoring node — logging + metrics, runs the argus agent |
 | apollo.bgalhardo.internal | 192.168.1.197 (confirmed 2026-08-21 — Proxmox mgmt port 8006 open, ping OK) | Beelink | Proxmox host |
 | hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
@@ -18,7 +18,6 @@
 | control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
 | ha.bgalhardo.internal | K8s IP | Apollo | Home Assistant |
-| couchdb.bgalhardo.com | Gateway `external` → **192.168.1.201** | k8s `system` | Obsidian LiveSync backend — **internet-facing** via Cloudflare |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
 | prometheus.bgalhardo.internal | K8s IP | Apollo | Metrics |

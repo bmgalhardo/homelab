@@ -12,15 +12,16 @@ sidecar.
 | loki | 3100 | monolithic, filesystem, TSDB, 90d retention |
 | prometheus | 9090 | 30d / 5GB retention, scrapes the local stack + blackbox probes; elysium pushes via remote_write |
 | grafana | 3000 | HTTPS, Loki + Prometheus datasources pre-provisioned |
-| alloy | 1514 tcp+udp (RFC5424), 1515 tcp+udp (RFC3164), 1516 tcp (Talos json_lines) | syslog receiver — Hermes (Pi 1), UDM Pro; Talos machine logs; ships athena's container + host logs |
+| alloy | 1514 tcp+udp (RFC5424), 1515 tcp+udp (RFC3164), 1516 tcp (Talos json_lines), 1517 udp (UniFi, raw) | syslog receiver — Hermes (Pi 1), UniFi syslog + CEF; Talos machine logs; ships athena's container + host logs |
 | node-exporter | 9100 (host network) | athena host metrics |
 | blackbox | 9115 (internal) | HTTP/TLS/DNS probes — targets in `prometheus/prometheus.yml` |
 | cadvisor | 8080 (internal) | per-container CPU / memory vs limit / disk IO |
+| unpoller | 9130 (internal) | UniFi metrics from the UDM API; key `unifi_api_key` in `kv/athena` |
 
 `boot/cmdline.txt` → `/boot/cmdline.txt` on the node (one line). `cgroup_enable=memory`
 overrides the firmware's `cgroup_disable=memory`; without it every `mem_limit` is ignored.
 Containers created before the change keep running unlimited until `docker compose up -d --force-recreate`.
-| vault-agent | — | AppRole → renders `secrets/grafana.env` + issues `certs/athena.{crt,key}` |
+| vault-agent | — | AppRole → renders `secrets/{grafana.env,unifi_api_key}` + issues `certs/athena.{crt,key}` |
 
 ## First deploy
 
@@ -61,7 +62,7 @@ ssh root@athena '
   chown -R 10001:10001 data/loki &&
   chown -R 65534:65534 data/prometheus &&
   chown -R 472:472     data/grafana &&
-  touch secrets/grafana.env
+  touch secrets/grafana.env secrets/unifi_api_key
 '
 # paste the AppRole material printed by the bootstrap:
 ssh root@athena '

@@ -33,10 +33,17 @@ template_config {
   exit_on_retry_failure         = false
 }
 
-# ── Secrets: KV v2 at kv/athena -> env file for Grafana ─────────────────────
+# ── Secrets: KV v2 at kv/athena -> Grafana env file, UniFi API key ──────────
 template {
   source      = "/vault-agent/templates/grafana-env.tpl"
   destination = "/secrets/grafana.env"
+  perms       = "0640"
+  command     = "sh -c 'touch /certs/.reload'"
+}
+
+template {
+  source      = "/vault-agent/templates/unpoller-api-key.tpl"
+  destination = "/secrets/unifi_api_key"
   perms       = "0640"
   command     = "sh -c 'touch /certs/.reload'"
 }

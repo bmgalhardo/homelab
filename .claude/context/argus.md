@@ -5,7 +5,7 @@ tells you what changed. Eventful things get written to a logbook.
 
 **Naming:** `athena` is the **node** (Pi4) and the infra stack on it
 (`infra/athena/`, deploy dir `/root/athena/`, Vault AppRole + KV `athena`).
-`argus` is the **project/mission** — the report agent (repo-root `argus/`,
+`argus` is the **agent** — the daily report agent (repo-root `argus/`,
 Phase 3), the logbook, this doc.
 
 ## Current State (2026-09-26)
@@ -57,7 +57,7 @@ file mtimes, disk %, pod readiness. That's where the real incidents live.
 
 ## Architecture
 
-Four stages. Only stage 3 uses an LLM.
+Four stages. Only 2b (Haiku triage) and 3 (judgment) use an LLM.
 
 ```
 [1] COLLECT  (deterministic)
@@ -67,9 +67,10 @@ Four stages. Only stage 3 uses an LLM.
 [2] REDUCE   (deterministic — 99.9% of volume dies here)
     ├─ drop known-boring (per-source allowlist regex, config/boring.yml)
     ├─ fingerprint: strip timestamps/PIDs/IPs → hash → count
-    └─ diff facts against yesterday's snapshot
-                          ↓  ~50-300 candidates
-[3] JUDGE    (one Claude call)
+    ├─ diff facts against yesterday's snapshot
+    └─ 2b triage (Haiku): merge near-dupes, label boring/notable/unsure
+                          ↓  ~50-300 candidates → a few dozen
+[3] JUDGE    (one Opus/Sonnet call)
     ├─ in:  candidates + digest of .claude/context/*.md + open incidents
     └─ out: schema-validated JSON (pydantic)
                           ↓
@@ -163,7 +164,7 @@ Authentik, backup/snapshot freshness, key expiry). Two reasons:
 | Olympus VMs (vault, authentik, postgres, omni) | change | Alloy container in each VM's compose (`loki.source.docker` + journald) — one template for all | vault and omni are 512 MB; vault had 16 MB free and ~63 MB swapped out on 09-16. Needs vault + omni → 1 GB (open decision) |
 | qdevice LXC | **drop** | — | 16 MB RAM, no room for any shipper. Covered by the quorum fact |
 | Hermes (Pi 1, ARMv6) | change | HAProxy: `log 192.168.1.196:1514 format rfc5424 local2` direct. dnsmasq: syslog → busybox `syslogd -R` to an RFC3164 listener | On 09-16: syslogd running without `-R`; HAProxy logs to `127.0.0.1 local2` UDP with no listener (lost); dnsmasq logs to a file. Don't ship `log-queries` — volume ≫ signal |
-| UDM Pro | keep | UniFi remote syslog | Format unverified — likely RFC3164, same listener as hermes |
+| UDM Pro | keep | UniFi remote syslog | Live 2026-10-05 — raw on :1517 (syslog + CEF), UDM + APs |
 | athena's own containers | **add** | `loki.source.docker` on athena's Alloy | vault-agent renewal failures, Loki/Prometheus errors. Cheapest item on the list |
 
 athena needs a second syslog listener: busybox `-R` sends RFC3164 over UDP,
@@ -175,7 +176,7 @@ and `alloy/config.alloy` only accepts RFC5424 on 1514.
 |------|---------|--------|-----------|-------|
 | Node status, ZFS health + last scrub, SMART/wear, storage % | keep | Proxmox API `/nodes/{node}/{status,disks/list,disks/smart,disks/zfs/{pool},storage}` | `claude@pve!claude-readonly` | Verified. For host memory use `available`, not `used` (includes ZFS ARC) |
 | Per-guest RAM | change | Proxmox RRD + `status/current` `ballooninfo` | same | Only meaningful with the balloon device on. Guests without it (postgres, elysium-cp confirmed) report host RSS ≈ allocation, so "near ceiling" fires on all of them. Fix: `balloon = memory` in Terraform (stats only, no ballooning) |
-| Cert expiry | change | blackbox_exporter on athena, `probe_ssl_earliest_cert_expiry` | none | vault:443, authentik:443, omni:443 + :8100, apollo:8006, hades:8006, proxmox (HAProxy):443, unifi:443, athena:3000, gateways .200/.201 (SNI), couchdb.bgalhardo.com. Postgres:5432 after `ssl=on` needs STARTTLS → agent-side |
+| Cert expiry | change | blackbox_exporter on athena, `probe_ssl_earliest_cert_expiry` | none | vault:443, authentik:443, omni:443 + :8100, apollo:8006, hades:8006, proxmox (HAProxy):443, unifi:443, athena:3000, gateways .200/.201 (SNI), immich.bgalhardo.com. Postgres:5432 after `ssl=on` needs STARTTLS → agent-side |
 | Vault health / seal | change | blackbox on `/v1/sys/health` (503 = sealed), continuous | none | Unauthenticated over 443 (8200 is closed) |
 | Vault PKI leaf inventory | **drop** | — | — | `pki_infra/certs` accumulates superseded leaves (athena reissues every ~10 days) → noise; TLS probes cover what is served. Keep a one-off intermediate CA expiry check |
 | k8s workload health | extend | k8s API | **new `automation/argus` SA**, same ClusterRole as `claude` | Pod readiness/restarts, PVC phase, **Flux Kustomization/HelmRelease Ready, cert-manager Certificate Ready, VSO `SecretSynced`, Node conditions, Gateway/HTTPRoute Accepted** — RBAC verified for all. Key VSO on `SecretSynced`, not `Ready`. Separate SA: independent revocation, and it lives on a box running an LLM over untrusted logs |
@@ -188,7 +189,7 @@ and `alloy/config.alloy` only accepts RFC5424 on 1514.
 | `odin` snapshot age per dataset | **add** | SSH forced command → `zfs list -t snapshot` on hades | dedicated key | The todos.md P0 — fires today (photos 2025-12-03, backups never). Not exposed by the PVE API |
 | Authentik SAML signing cert expiry | **add** | Authentik API `/api/v3/crypto/certificatekeypairs/` | read-only Authentik token (new) | Not TLS-visible. Expired 3 months unnoticed (todos.md) |
 | DNS | **add** | blackbox DNS probes against hermes (athena, vault, a wildcard name, one external) | none | Hermes DNS is a SPOF with no heartbeat |
-| Public DNS drift | **add** | `couchdb.bgalhardo.com` via a public resolver == WAN IP | none | external-dns / cloudflare-ddns fail on Cloudflare timeouts |
+| Public DNS drift | **add** | `immich.bgalhardo.com` via a public resolver == WAN IP | none | external-dns / cloudflare-ddns fail on Cloudflare timeouts |
 | athena host (disk, memory) | **add** | node_exporter on athena | none | No cgroup memory limits (Phase 1 open item) |
 
 SSH remains for exactly two facts (backup mtimes, odin snapshots), via a
@@ -210,7 +211,8 @@ dedicated key with forced commands — not a bastion keyring.
 | LiteLLM | add — **Phase 2a** | `callbacks: ["prometheus"]` → `/metrics` on :4000 — requests, latency, TTFT, tokens, deployment health, fallbacks. `/metrics` accepts any API key (litellm #13644); don't widen the HTTPRoute for it |
 | Ollama | skip | No native `/metrics`; LiteLLM (per-model) + GPU exporter cover it |
 | Benchmark results (AIPerf) | add — **Phase 2a**, last | One-shot k8s Jobs — push, don't scrape. Pushgateway on athena vs `remote_write` from the Job: open |
-| Deferred | — | unpoller (UDM, waiting on API key), postgres_exporter, app metrics (Immich, Plex) |
+| unpoller (UDM, AP) | add | athena compose, API key in `kv/athena` (2026-10-05). DPI on (2026-10-06, ~+3k series) |
+| Deferred | — | postgres_exporter, app metrics (Immich, Plex) |
 
 ### Found during the review (2026-09-16)
 
@@ -242,37 +244,47 @@ todos.md:
 - [ ] Raise vault + omni to 1 GB for log shipping (+1 GB on Apollo, at 81%)
 - [ ] Adopt the continuous-in-Prometheus collection principle
 
-## LLM Split — local vs Claude API
+## LLM Split — Haiku triage, Opus/Sonnet judgment
 
-**Local (existing `kubernetes/ai/` stack):** stage 2 only. `nomic-embed-text`
-for embedding-based clustering of near-identical log lines — collapse 4,000
-lines into 30 clusters. Small models do this fine and it's the part that
-scales with volume.
+Both calls go to the Anthropic API directly (`anthropic` SDK). No LiteLLM, no
+local models — see "Call Anthropic directly" below.
 
-**Claude API:** stage 3. Correlating "Vault cert expired" → "cert-manager
-Issuer failing" → "every VSO secret stale" across three sources is exactly
-the reasoning this homelab has historically failed at.
+**Haiku 4.5 (`claude-haiku-4-5`) — stage 2b, triage.** Runs on the
+fingerprinted candidates: merges near-duplicates the regex fingerprint missed
+and labels each `boring | notable | unsure`. `boring` verdicts go into
+`state/fingerprints.json` so they never reach either model again. Cheap,
+high-volume, low judgment — what Haiku is for.
 
-**Not local for judgment (with current hardware).** Apollo is an N100 (4c/16GB)
+**Opus 5.5 (`claude-opus-5-5`) or Sonnet 5.5 (`claude-sonnet-5-5`) —
+stage 3, judgment.** Correlating "Vault cert expired" → "cert-manager Issuer
+failing" → "every VSO secret stale" across three sources is exactly the
+reasoning this homelab has historically failed at.
+
+**Not local (with current hardware).** Apollo is an N100 (4c/16GB)
 already carrying the k8s control plane, 5 VMs and the qdevice LXC; `ollama.yml`
 caps at 2 CPU/4Gi with `llama3.2:1b`, which won't hold a structured output
 schema — confident wrong incident reports are worse than none. Hades has CPU
 headroom (Ryzen 5 3600, 32GB) but the GTX 750 Ti is 2GB Maxwell, and Hades is
 power-managed and off at 04:00, which would put WoL in the alerting path.
 
-**Cost at ~8k in / 1.5k out, once daily:**
+**Judgment cost at ~8k in / 1.5k out, once daily:**
 
-| Model | ~$/day | ~$/month |
-|-------|--------|----------|
-| Haiku 4.5 | $0.016 | ~$0.50 |
-| Sonnet 5 | $0.031 | ~$0.95 |
-| Opus 5 | $0.078 | ~$2.35 |
+| Model | $/MTok in / out | ~$/day | ~$/month |
+|-------|-----------------|--------|----------|
+| Haiku 4.5 | $1 / $5 | $0.016 | ~$0.50 |
+| Sonnet 5.5 | $2 / $10 | $0.031 | ~$0.95 |
+| Opus 5.5 | $4 / $20 | $0.062 | ~$1.90 |
 
-Cost is not the deciding variable — pick on judgment quality. Start on
-**Opus 5**, downgrade if reports read fine on Sonnet.
+Triage cost scales with what survives fingerprinting; even 50k in / 5k out on
+Haiku is ~$0.075/day.
+
+Cost is not the deciding variable — pick on judgment quality. Start judgment
+on **Opus 5.5**, downgrade to Sonnet 5.5 if reports read the same. If Haiku
+triage proves unreliable, drop it and send candidates straight to stage 3 —
+it is an optimisation, not a dependency.
 
 Not worth chasing: Batch API (50% off, but up to 24h turnaround for one daily
-call) and prompt caching (5-min TTL, zero hits at one call/day).
+call) and prompt caching (zero hits at one call/day).
 
 ### If a GPU gets bought later (analysis 2026-09-07)
 
@@ -309,8 +321,8 @@ bigger card is a mapping swap. IOMMU works.
 
 **Call Anthropic directly, not through litellm.** litellm is a k8s service;
 routing through it puts the cluster in the critical path of the thing whose
-job is to notice the cluster is broken. Treat "litellm unreachable" as a
-finding. Use litellm only for the local embedding calls.
+job is to notice the cluster is broken. Argus does not use litellm at all;
+"litellm unreachable" is just a finding.
 
 ## Planned Layout
 
@@ -523,17 +535,27 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
       athena :1516 (tested with a fake line); per-class patches
       `logging-{cp,apollo,hades,hades-gpu}.yaml` written, need
       `omnictl cluster template sync` (user)
-- [ ] UDM Pro → remote syslog
+- [x] UDM Pro → remote syslog (2026-10-05) — `192.168.1.196:1517` UDP, all
+      categories except debug. Shipped nothing until a category was ticked.
+      APs send their own lines (`host="U6-Plus"`). The Network app's CEF
+      events (audit, security) come without `<PRI>` and were dropped by the
+      rfc3164 parser on 1515 — moved to a `raw` listener on 1517;
+      `app="unifi-cef"`, `category` label, CEF fields as structured metadata
 - [ ] Verify: every host in `network.md` appears as a Loki label
 - [x] `kubernetes/monitoring/` is gone (removed in `17e511d`, flux first
       stage) — no loki/grafana left to delete, and no alloy to reuse
 
 ### Phase 3 — Argus agent, first cut ☐
-- [ ] Collect: LogQL 24h window + the Integration List facts
-- [ ] Reduce: fingerprinting + fact diff
-- [ ] Judge: one Claude call, pydantic-validated structured output
-- [ ] Emit: Telegram only (no state yet)
-- [ ] Cron 04:00
+- [x] Collect (2026-10-02): Loki per job (5000-line cap each), Prometheus 24h
+      worst case, Proxmox API, Talos volumes via Omni. Each collector is optional
+      (enabled by its settings). k8s health comes from kube-state-metrics in
+      Prometheus — no k8s API collector, so no `automation/argus` SA yet
+- [x] Reduce: fingerprinting. Fact diff needs state → Phase 4
+- [ ] Triage: none in the first cut — Opus sees every cluster. Later: Jev run
+      in shadow, compared with Opus's verdicts for two weeks
+- [~] Judge: one Opus 5.5 call, pydantic-validated — not yet run with a real key
+- [~] Emit: Telegram — not yet sent to the real bot
+- [ ] Cron 04:00 on athena (`README.md`)
 
 ### Phase 4 — State + logbook ☐
 - [ ] `state/` fingerprints, facts, incidents
@@ -553,8 +575,8 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
 - Does Argus report on itself? A stuck collector or a failed Claude call needs
   to surface somewhere other than the report it just failed to send. Partly
   covered by the Phase 5 dead-man's switch — decide if that's enough.
-- Metrics: **Prometheus is now in the argus stack** (2026-09-08, 30d/2GB
-  retention). It scrapes the argus stack itself today; the target list is in
+- Metrics: **Prometheus is now in the athena stack** (2026-09-08, 30d/2GB
+  retention). It scrapes the athena stack itself today; the target list is in
   the Integration List metrics table (2026-09-16). Mimir stays retired — the
   node-not-k8s logic still holds. Per-guest RAM pressure is still a fact
   probe (PVE RRD), not a scrape target.

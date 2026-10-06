@@ -77,11 +77,7 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 
 ### system namespace
 - `homepage`, `pgadmin`, `redis`, `cloudflare-ddns`
-- **`couchdb`** (added 2026-09-15) — Obsidian LiveSync backend, exposed on the
-  **external** Gateway at `couchdb.bgalhardo.com` for phone sync. It holds a
-  *replica*, not the vault: the vault is the markdown on each device, so its
-  local-path PVC being unbacked is acceptable — re-seed from a device.
-  Must run as uid 5984, see `kubernetes/30-apps/system/README.md`.
+- `couchdb` (Obsidian LiveSync) removed 2026-10-05 — never used
 - Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
 ### immich — running
@@ -105,7 +101,7 @@ sonarr, radarr, sabnzbd, overseerr), `nvidia`, `gaming`. All declare
 
 ## Outside K8s (athena — Pi4, 192.168.1.196)
 
-The Argus logging/metrics stack, deliberately off the cluster so it survives a
+The athena logging/metrics stack, deliberately off the cluster so it survives a
 k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
 
 - `loki` (3100), `prometheus` (9090), `grafana` (3000, HTTPS), `alloy`
@@ -157,6 +153,20 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
 - **Verify:** `pvecm status` → `Total votes: 3`, both nodes `A,V`.
 - **Caveat:** LXC runs on Apollo — an Apollo outage takes the qdevice with
   it, so Hades alone can't hold quorum. Still covers the Hades-outage case.
+
+### Iris (Protect kiosk)
+- **Location:** Apollo LXC `iris` (Debian 13, unprivileged, DHCP)
+- **Role:** UniFi Protect live view (2 cams) on Apollo's HDMI. go2rtc pulls
+  the RTSPS substreams (`rtspx://` = no cert check); cage + Chromium shows
+  `stream.html` side by side. iGPU shared via `dev0`/`dev1`, no passthrough.
+- **Config:** `infra/olympus/services/iris/` — RTSPS tokens in `.env`
+- **Depends on:** Apollo, UDM Pro (Protect)
+- **Status:** Drafted 2026-10-05, not deployed. Untested: cage/wlroots in an
+  unprivileged LXC without udev — if it can't open the DRM device, retry
+  with `--unprivileged 0` before anything else.
+- **Chosen over:** UniFi Viewport (cost), iGPU VM passthrough (HDMI out from
+  Gen12 iGPU in a VM is unreliable, host loses console), Protect web UI
+  (session expiry).
 
 ## Dependency Graph
 

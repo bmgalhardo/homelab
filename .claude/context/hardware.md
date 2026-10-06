@@ -9,7 +9,7 @@
 | 1U | Cover | — | Aesthetics | — | — |
 | 1U | Pi Rack | — | 4-slot holder | — | — |
 | — | Hermes | Pi 1 B+ (ARMv6) | DNS/LB (Alpine) | 5W | No |
-| — | Athena | Pi 4 (4GB, arm64) + 120GB SSD | Argus: logging/metrics/report | 5W | Yes |
+| — | Athena | Pi 4 (4GB, arm64) + 120GB SSD | Monitoring: logging/metrics + argus agent | 5W | Yes |
 | 1U | Shelf | — | Mini PC mount | — | — |
 | — | Apollo | Beelink S12 Pro | Proxmox + K8s | TODO W | Yes |
 | 1U | Brush Panel | — | Cable mgmt | — | — |
@@ -27,6 +27,8 @@
   - LXC: `qdevice` (192.168.1.89) — corosync-qnetd for cluster quorum.
     Debian, not Alpine as earlier planned. Set up 2026-09-07 (see
     services.md). Needs `--onboot 1`.
+  - LXC: `iris` — Protect kiosk on Apollo's HDMI (drafted 2026-10-05, not
+    deployed; see services.md)
   - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
   - ~~VM: `manager` (192.168.1.170)~~ — **deleted 2026-09-14**. Was the
     jump host with real SSH/Terraform access to the Olympus VMs. No
@@ -73,7 +75,7 @@
   - XFS pool: TODO size (movies, videos)
   - ZFS pool: 8TB (2x 8TB HDDs) for photos + backups
 
-### Athena (Argus node — online 2026-09-08)
+### Athena (monitoring node — online 2026-09-08)
 
 - **Device:** Raspberry Pi 4, **4GB**, arm64 (eth0 MAC `2C:CF:67:64:2C:1D`)
 - **OS/disk:** Alpine 3.24, kernel 6.18-rpi, on a **120GB KingSpec SATA
@@ -91,8 +93,8 @@
   USB 2.0 port, then a powered adapter
 - **Kernel cmdline:** `infra/athena/boot/cmdline.txt` (`cgroup_enable=memory`)
 - **IP:** `192.168.1.196` (DHCP → pin in UniFi)
-- **Role:** Argus stack — Loki + Prometheus + Grafana + Alloy + Vault
-  Agent + (later) the report agent. Independent of the Proxmox cluster on
+- **Role:** Monitoring stack — Loki + Prometheus + Grafana + Alloy + Vault
+  Agent + (later) the argus agent. Independent of the Proxmox cluster on
   purpose. See `.claude/context/argus.md`.
 - **Power:** ~5W
 

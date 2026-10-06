@@ -1,5 +1,5 @@
 // athena — Alloy: syslog receiver for hosts that can't run Alloy natively
-// (Hermes busybox syslogd, UDM Pro) and the log shipper for athena's own containers.
+// (Hermes busybox syslogd, UniFi gear) and the log shipper for athena's own containers.
 // Everything else ships straight to Loki :3100 with its own Alloy.
 
 loki.write "default" {
@@ -28,7 +28,7 @@ loki.source.syslog "network" {
   forward_to    = [loki.write.default.receiver]
 }
 
-// RFC3164 (BSD) syslog on 1515 — busybox `syslogd -R athena:1515`, UDM Pro.
+// RFC3164 (BSD) syslog on 1515 — busybox `syslogd -R athena:1515`.
 loki.source.syslog "bsd" {
   listener {
     address       = "0.0.0.0:1515"
@@ -78,11 +78,127 @@ loki.relabel "syslog" {
     target_label  = "host"
     replacement   = "hermes"
   }
+}
+
+// UniFi gear (UDM, APs) on 1517, raw: the Network app's CEF events have no
+// <PRI> header, which the rfc3164 parser rejects.
+loki.source.syslog "unifi" {
+  listener {
+    address       = "0.0.0.0:1517"
+    protocol      = "udp"
+    syslog_format = "raw"
+    labels        = { job = "syslog", transport = "udp" }
+  }
+
+  relabel_rules = loki.relabel.unifi.rules
+  forward_to    = [loki.process.unifi.receiver]
+}
+
+loki.relabel "unifi" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    target_label  = "host"
+  }
   rule {
     source_labels = ["__syslog_connection_ip_address"]
     regex         = "192\\.168\\.1\\.1"
     target_label  = "host"
     replacement   = "udm"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "severity"
+  }
+  rule {
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+  }
+}
+
+loki.process "unifi" {
+  forward_to = [loki.write.default.receiver]
+
+  // The raw listener has already consumed <PRI>.
+  stage.regex {
+    expression = "^\\w{3} +\\d+ [\\d:]{8} (?P<hostname>\\S+) (?P<rest>.*)$"
+  }
+
+  // APs are labelled by their own hostname; the UDM keeps "udm".
+  stage.match {
+    selector = "{host!=\"udm\"}"
+
+    stage.labels {
+      values = { host = "hostname" }
+    }
+  }
+
+  stage.output {
+    source = "rest"
+  }
+
+  // CEF events: msg= becomes the line, the rest goes to structured metadata.
+  stage.match {
+    selector = "{job=\"syslog\"} |= \"CEF:\""
+
+    stage.regex {
+      expression = "^CEF:\\d+\\|[^|]*\\|[^|]*\\|[^|]*\\|(?P<cef_id>[^|]*)\\|(?P<cef_name>[^|]*)\\|(?P<cef_severity>[^|]*)\\|(?P<ext>.*)$"
+    }
+    stage.regex {
+      source     = "ext"
+      expression = "UNIFIcategory=(?P<category>\\S+)"
+    }
+    stage.regex {
+      source     = "ext"
+      expression = "(?:^| )msg=(?P<msg>.*?)(?: \\w+=|$)"
+    }
+    stage.regex {
+      source     = "ext"
+      expression = "(?:^| )src=(?P<src>\\S+)"
+    }
+    stage.regex {
+      source     = "ext"
+      expression = "UNIFIadmin=(?P<admin>.*?)(?: \\w+=|$)"
+    }
+    stage.static_labels {
+      values = { app = "unifi-cef" }
+    }
+    stage.labels {
+      values = { category = "" }
+    }
+    stage.structured_metadata {
+      values = { cef_id = "", cef_name = "", cef_severity = "", src = "", admin = "" }
+    }
+    stage.output {
+      source = "msg"
+    }
+  }
+
+  // Plain syslog: the UDM repeats its hostname ("<host> proc[pid]: msg",
+  // "<host> [RULE] …" for firewall logs), APs prefix "<mac>,<model>-<fw>: ".
+  stage.match {
+    selector = "{job=\"syslog\"} != \"CEF:\""
+
+    stage.regex {
+      expression = "^(?:[0-9a-f]{12},\\S+: (?:: )?)?(?:[^\\s\\[:]+ )?(?P<app>[^\\s\\[:]+)(?:\\[\\d+\\])?: (?P<msg>.*)$"
+    }
+    stage.regex {
+      expression = "^(?:\\S+ )?(?P<fw_line>\\[(?P<fw_rule>[^\\]]+)\\] .*)$"
+    }
+    stage.template {
+      source   = "app"
+      template = "{{ if .fw_rule }}firewall{{ else if .app }}{{ .app }}{{ end }}"
+    }
+    stage.labels {
+      values = { app = "" }
+    }
+    stage.output {
+      source = "msg"
+    }
+    stage.output {
+      source = "fw_line"
+    }
   }
 }
 

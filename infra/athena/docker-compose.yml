@@ -71,7 +71,7 @@ services:
       GF_SERVER_PROTOCOL: "https"
       GF_SERVER_CERT_FILE: "/certs/athena.crt"
       GF_SERVER_CERT_KEY: "/certs/athena.key"
-      GF_INSTALL_PLUGINS: "grafana-lokiexplore-app"
+      GF_INSTALL_PLUGINS: "grafana-lokiexplore-app,grafana-clock-panel"
     ports:
       - "3000:3000"
     volumes:
@@ -92,11 +92,12 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
       - --stability.level=experimental    # otelcol.receiver.tcplog (Talos logs)
     ports:
-      - "1514:1514/tcp"         # syslog RFC5424 — Hermes busybox syslogd -R, UDM remote logging
+      - "1514:1514/tcp"         # syslog RFC5424
       - "1514:1514/udp"
-      - "1515:1515/tcp"         # syslog RFC3164 — busybox syslogd, UDM Pro
+      - "1515:1515/tcp"         # syslog RFC3164 — Hermes busybox syslogd -R
       - "1515:1515/udp"
       - "1516:1516/tcp"         # Talos machine logs (json_lines)
+      - "1517:1517/udp"         # UniFi syslog + CEF (raw)
       - "127.0.0.1:12345:12345" # Alloy debug UI, localhost only
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
@@ -124,6 +125,19 @@ services:
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
       - ./vault-agent/ca.crt:/etc/blackbox/ca.crt:ro
+  unpoller:
+    image: ghcr.io/unpoller/unpoller:v5.5.0
+    container_name: unpoller
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - vault-agent
+    environment:
+      SSL_CERT_FILE: /etc/unpoller/ca.crt   # verify the UDM's Vault-issued cert
+    volumes:
+      - ./unpoller/up.conf:/etc/unpoller/up.conf:ro
+      - ./vault-agent/ca.crt:/etc/unpoller/ca.crt:ro
+      - ./secrets/unifi_api_key:/secrets/unifi_api_key:ro   # rendered by vault-agent
   cadvisor:
     image: ghcr.io/google/cadvisor:v0.60.6
     container_name: cadvisor

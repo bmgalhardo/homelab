@@ -98,7 +98,7 @@ todos.md.
    sanoid/syncoid, no replication cron. `odin/backups` (40G, incl. personal
    archives) has *never* been snapshotted. The mirror is redundancy, not
    backup. **P0 in todos.md** — verified on-host 2026-09-15.
-⚠️ **local-path PVCs are unbacked** — obsidian/couchdb/ollama today, plus
+⚠️ **local-path PVCs are unbacked** — ollama today, plus
    every parked app's `/config` when unparked
 ⚠️ **No automated Immich backup** — Manual until rsync setup
 ⚠️ **Backup PC power strategy** — Always-on vs WoL (pending decision)

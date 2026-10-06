@@ -45,6 +45,14 @@ scrape_configs:
       - targets: ["192.168.1.199:8405"]
         labels: { instance: hermes }
 
+  - job_name: unifi
+    static_configs:
+      - targets: ["unpoller:9130"]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: unpoller_dpi_(application|category)_present
+        action: drop
+
   - job_name: cadvisor-athena
     static_configs:
       - targets: ["cadvisor:8080"]
@@ -79,7 +87,6 @@ scrape_configs:
     params: { module: [https_public] }
     static_configs:
       - targets:
-          - https://couchdb.bgalhardo.com
           - https://immich.bgalhardo.com
     relabel_configs: *probe_relabel
 

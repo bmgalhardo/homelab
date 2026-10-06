@@ -34,7 +34,7 @@ infra/
 │       │   └── .env.example
 │       └── omni/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
-├── athena/                ← Argus logging+metrics stack (Pi4 node, not Olympus)
+├── athena/                ← athena logging+metrics stack (Pi4 node, not Olympus)
 │   ├── docker-compose.yml ← vault-agent + loki + prometheus + grafana + alloy
 │   ├── vault-agent/       ← agent config + cert/secret templates (node-side only)
 │   └── README.md

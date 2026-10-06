@@ -103,12 +103,11 @@
 - **Current exposure is small:** immich photos/cache are on virtiofs (hades),
   immich DB is on the postgres VM (has `pg_backup`), and redis/pgadmin/
   homepage/cloudflare-ddns are stateless. The only live local-path volume is
-  ollama models, which are regenerable. **`obsidian` (deployed 2026-09-15)
-  is the first genuinely irreplaceable local-path volume.**
+  ollama models, which are regenerable.
 - **Grows when `_parked/` is unparked:** plex (20Gi), sonarr, radarr,
   sabnzbd, overseerr and home-assistant all put `/config` on local-path.
 - **Two different designs, because of node locality:**
-  - **Apollo-pinned apps (obsidian, home-assistant)** — virtiofs volumes
+  - **Apollo-pinned apps (home-assistant)** — virtiofs volumes
     mount on `elysium-hades` ONLY, and a local-path PVC can only be mounted
     from the node holding it. **No single pod can mount both**, so an
     in-cluster Apollo->hades file copy is impossible. Backup must leave the
@@ -284,7 +283,7 @@
     `infra/olympus/terraform/`, document the Olympus VMs as hand-created,
     keep only `infra/hal9000/terraform/`
 - **Connects to:** every future Olympus VM; and the hal9000 rebuild (P2) —
-  do the `worker-1` resize there. (Argus ended up on a bare Pi4, not a VM,
+  do the `worker-1` resize there. (athena ended up on a bare Pi4, not a VM,
   so it no longer depends on this.)
 - **Status:** Not started. Documented 2026-09-08. User chose option A
   (reconcile) initially; revisit given the full scope above.
@@ -694,6 +693,25 @@ Same class of trap as the "missing record + catch-all wildcard" P0 below.
   stable for a while.
 - **Status:** Design discussion only (2026-09-11) — not started, no
   runner set up yet.
+
+### GitOps for athena (`infra/athena/`) (2026-10-05)
+- **Task:** stop hand-deploying athena (`scp` + reload after every change).
+  Only committed, pushed changes deploy — same model as Flux.
+- **Option A — pull (preferred default):** cron script on athena every 5 min,
+  read-only deploy key held only on athena. `git fetch`; if `main` moved,
+  diff `infra/athena/`, sync into `/root/athena/` (skip `data/ secrets/
+  certs/ .env`), then per path: `alloy/` → `alloy validate` + `/-/reload`;
+  `prometheus/` → `promtool check config` + `/-/reload`; dashboards → none
+  (Grafana rescans); compose / `unpoller/` → `docker compose up -d`;
+  `vault-agent/` → restart vault-agent; `reload.sh` → copy into place.
+  Log to syslog (lands in Loki → visible to Argus).
+- **Option B — self-hosted Actions runner on athena:** same deploy steps as a
+  workflow on push to `main` touching `infra/athena/**`. Gains run history,
+  PR checks and the runner the Omni pipeline above needs anyway. Runner on
+  athena deploys only to athena — no SSH keyring anywhere (no-bastion rule).
+- **Either way:** validation (`alloy validate`, `promtool`) can run on
+  GitHub-hosted runners as PR checks, no LAN access needed.
+- **Status:** not started. Generalises to the Olympus VMs later.
 
 ### Agentic DNS Controller
 - **Task:** Autonomous DNS based on infrastructure state

@@ -10,7 +10,7 @@ resources:
   - openwebui.yml
 
 patches:
-  - target: { kind: Deployment, name: ollama }
+  - target: { kind: Deployment, name: ollama|openwebui }
     patch: |
       - op: add
         path: /spec/template/spec/nodeSelector
@@ -20,7 +20,7 @@ patches:
         value:
           - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute }
           - { key: node.kubernetes.io/not-ready,  operator: Exists, effect: NoExecute }
-  - target: { kind: Deployment, name: litellm|openwebui }
+  - target: { kind: Deployment, name: litellm }
     patch: |
       - op: add
         path: /spec/template/spec/nodeSelector

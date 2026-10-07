@@ -167,9 +167,8 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   read/write token going forward.
 - **`daedalus@pve!power` token** — start/stop VMs for daedalus. Role
   `VMPower` (`VM.PowerMgmt VM.Audit Sys.Audit Mapping.Use`) on the user,
-  privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Created
-  by `infra/daedalus/pve-power-token.sh`; secret in
-  `.claude/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
+  privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Secret
+  in `.claude/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
   hades is woken by WoL from daedalus, never shut down by it.
 - **SSH access to the Proxmox hosts themselves** — no jump host since
   2026-09-26 (`manager` deleted 2026-09-14, hermes no longer holds keys).

@@ -11,6 +11,7 @@ Host-level agents on the Proxmox nodes themselves (not VMs). Debian 13 / PVE 9.
 |------|---------|
 | `config.alloy` | `/etc/alloy/config.alloy` |
 | `alloy-limits.conf` | `/etc/systemd/system/alloy.service.d/limits.conf` |
+| `cpu-governor.service` | `/etc/systemd/system/cpu-governor.service` (apollo) |
 
 ## Install
 
@@ -34,3 +35,14 @@ ssh $H "grep -q ^HOSTNAME= /etc/default/alloy || echo HOSTNAME=$H >> /etc/defaul
 ```
 
 Then add `<ip>:9100` to the `node` job in `infra/athena/prometheus/prometheus.yml`.
+
+## CPU governor (apollo)
+
+```sh
+scp infra/olympus/hosts/cpu-governor.service apollo:/etc/systemd/system/
+ssh apollo 'systemctl daemon-reload && systemctl enable --now cpu-governor &&
+  cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+```
+
+Anything else that sets the governor at boot wins over this unit:
+`crontab -l` (`@reboot ... performance`), `/etc/default/cpufrequtils`.

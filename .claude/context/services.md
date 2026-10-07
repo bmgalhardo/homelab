@@ -169,6 +169,31 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
   Gen12 iGPU in a VM is unreliable, host loses console), Protect web UI
   (session expiry).
 
+### Daedalus (remote agents)
+- **Location:** Apollo VM 101 (192.168.1.170, 1 vCPU / 2 GB), always on
+- **Role:** runs Claude Code remote agents for light work. Anything heavy
+  (Blender) is delegated over SSH to hephaestus on Hades.
+- **Config:** `infra/daedalus/` — `hephaestus.sh up|down|status` (WoL hades,
+  start/stop the VM via the `daedalus@pve!power` token, wait for SSH)
+- **Depends on:** Apollo, Proxmox API (via hermes HAProxy)
+
+### Hephaestus (Blender worker)
+- **Location:** Hades LXC 106 (192.168.1.176, Debian 13, unprivileged),
+  12 cores at `cpuunits 50`, 16 GB RAM (cap, not reserved), `onboot 0`
+- **Role:** headless Blender 4.5 LTS (`blender -b --python`) for game assets,
+  driven from daedalus. Scripts live in the game repo; inputs go up and
+  outputs come back with scp, not git.
+- **Config:** `infra/olympus/services/hephaestus/` (pct create + install.sh)
+- **CPU only:** the 750 Ti is bound to `vfio-pci` for VM passthrough (VM 102
+  `personal`, VM 1103 `elysium-hades-gpu`), so an LXC can't use it. Cycles
+  CPU works; EEVEE / viewport rendering won't.
+- **RAM:** Hades has 31 GB. VM 102 `personal` (20 GB, GPU) is on-demand only —
+  `onboot` off, kept shut, started with `VM_NAME=personal
+  infra/daedalus/hephaestus.sh up`. Don't run it alongside a heavy bake:
+  20 + 16 + `elysium-hades` 8 GB overcommits Hades.
+- **Status:** live 2026-10-07; smoke test (Cycles render + glTF export, scp
+  back) passed.
+
 ## Dependency Graph
 
 ```

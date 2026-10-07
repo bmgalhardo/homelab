@@ -7,11 +7,12 @@
 | udm.bgalhardo.internal | 192.168.1.1 | UDM Pro | Gateway |
 | athena.bgalhardo.internal | **192.168.1.196** (Pi4 online 2026-09-08 — MAC `2C:CF:67:64:2C:1D`, DHCP; pin in UniFi) | Pi4 4GB, arm64, 120GB SSD | Monitoring node — logging + metrics, runs the argus agent |
 | apollo.bgalhardo.internal | 192.168.1.197 (confirmed 2026-08-21 — Proxmox mgmt port 8006 open, ping OK) | Beelink | Proxmox host |
-| hades.bgalhardo.internal | 192.168.1.198 | Ryzen PC | Proxmox host + NAS |
+| hades.bgalhardo.internal | 192.168.1.198 (MAC `f0:2f:74:30:76:71`, enp10s0) | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
 | qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
 | cerberus | **192.168.1.175** (LXC 105, live 2026-10-06) | Apollo LXC (Debian) | Protect kiosk on Apollo HDMI |
-| daedalus | **192.168.1.170** | Workstation | daedalus workstation |
+| daedalus | **192.168.1.170** | Apollo VM 101 | Remote agents (Claude Code) |
+| hephaestus | **192.168.1.176** (LXC 106, 2026-10-07) | Hades LXC | Headless Blender worker |
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
 | vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
 | authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |
@@ -164,6 +165,12 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   non-functional on this cluster** until/unless retested on a future PVE
   version — grant ACLs to the user, not the token, for any new
   read/write token going forward.
+- **`daedalus@pve!power` token** — start/stop VMs for daedalus. Role
+  `VMPower` (`VM.PowerMgmt VM.Audit Sys.Audit Mapping.Use`) on the user,
+  privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Created
+  by `infra/daedalus/pve-power-token.sh`; secret in
+  `.claude/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
+  hades is woken by WoL from daedalus, never shut down by it.
 - **SSH access to the Proxmox hosts themselves** — no jump host since
   2026-09-26 (`manager` deleted 2026-09-14, hermes no longer holds keys).
   `ssh root@192.168.1.197` works only from a workstation whose key is

@@ -101,6 +101,8 @@ use `secretKeyRef`, never an inline password in `env:`.
   and elysium's kubernetes auth. Talks only to Vault, never shipped to a node
 - `infra/ca/` — internal root CA certificate. Public, committed deliberately
   (the *private* key stays in Vault)
+- `infra/daedalus/` — scripts for daedalus (Apollo VM, remote agents):
+  Proxmox power token, hephaestus wake/start/stop
 - `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose).
   **There is no SSH bastion** — SSH is direct from a workstation whose key is
   authorized on the target; the user keeps the keys off-cluster
@@ -111,7 +113,8 @@ use `secretKeyRef`, never an inline password in `env:`.
 **Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).
 `elysium` (was `hal9000`) = k8s, the plane above. `hermes`/`athena` =
 standalone Pis; `athena` is the monitoring node. `argus` = the report
-agent that runs on it. `manager` was deleted 2026-09-14 (no bastion since).
+agent that runs on it. `daedalus` = remote-agent VM; `hephaestus` =
+Blender worker LXC on Hades. `manager` was deleted 2026-09-14 (no bastion since).
 Possible later: `qdevice` → `themis`.
 
 ## When to Update This File

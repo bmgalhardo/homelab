@@ -30,15 +30,8 @@
   - LXC: `cerberus` — Protect kiosk on Apollo's HDMI (LXC 105, live
     2026-10-06; see services.md)
   - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
-  - ~~VM: `manager` (192.168.1.170)~~ — **deleted 2026-09-14**. Was the
-    jump host with real SSH/Terraform access to the Olympus VMs. No
-    bastion since 2026-09-26 — keys are kept off-cluster (see deployment.md)
-  - Retired VMs: `tftp` (2026-09-08, PXE unused — repo removed, VM
-    deletion pending), `netboot` (2026-08-21, cert revoked) — see network.md
-  - K8s: Home Assistant, Immich, homepage/pgadmin/redis (`system` ns) —
-    confirmed live 2026-08-21. Mediacenter, monitoring (Grafana/Loki/
-    Mimir/Alloy), gaming, and nvidia have manifests in `kubernetes/` but
-    are **not deployed** — see services.md
+  - VM 101 `daedalus` (remote agents)
+  - K8s workloads: see services.md
 - **Network:** Bridged to UDM (no bonding)
 - **Must verify:** RAM sufficient for corosync LXC + K8s + VMs
 
@@ -52,7 +45,7 @@
   arm64 and armv7 builds only — Grafana Alloy, for one, has no ARMv6 build.
   Anything needed on Hermes has to be busybox-native or built from source.
   For log shipping this is fine: dnsmasq and haproxy log to syslog, and
-  busybox `syslogd -R host:port` forwards remotely (see argus.md).
+  busybox `syslogd -R host:port` forwards remotely (see plans/argus.md).
 - **Runs:**
   - dnsmasq (DNS resolver for bgalhardo.internal)
   - HAProxy (L4 load balancer, SSL termination)
@@ -68,8 +61,10 @@
 - **Specs:** TODO (CPU cores, RAM, storage)
 - **Runs:**
   - Proxmox (2-node cluster with Apollo)
-  - NFS server (/mnt/photos, /mnt/media for K8s)
-  - Ubuntu personal workstation VM with GPU passthrough
+  - virtiofs shares (photos, media) into `elysium-hades`
+  - VMs: `elysium-hades`, 1103 `elysium-hades-gpu` (750 Ti), 102 `personal`
+    (Ubuntu workstation, 750 Ti, on-demand)
+  - LXC 106 `hephaestus` (Blender worker, `onboot 0`)
 - **Network:** Bridged to UDM (no bonding)
 - **Storage:**
   - XFS pool: TODO size (movies, videos)
@@ -95,7 +90,7 @@
 - **IP:** `192.168.1.196` (DHCP → pin in UniFi)
 - **Role:** Monitoring stack — Loki + Prometheus + Grafana + Alloy + Vault
   Agent + (later) the argus agent. Independent of the Proxmox cluster on
-  purpose. See `.claude/context/argus.md`.
+  purpose. See `.claude/context/plans/argus.md`.
 - **Power:** ~5W
 
 ## Spare Hardware
@@ -117,4 +112,4 @@
   Apollo, so an Apollo outage drops both Apollo's vote and the qdevice
 - **Utility node:** Hermes (DNS/LB, independent from cluster)
 - **Single K8s control plane:** Apollo (not HA yet)
-- **NFS single-point-of-failure:** Hades
+- **Storage single-point-of-failure:** Hades (virtiofs media/photos)

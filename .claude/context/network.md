@@ -19,11 +19,11 @@
 | postgres.bgalhardo.internal | **192.168.1.177** (confirmed 2026-08-21) | Apollo VM | Database |
 | control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
-| ha.bgalhardo.internal | K8s IP | Apollo | Home Assistant |
+| home.bgalhardo.com | Gateway `external` → 192.168.1.201 | k8s `home` | Home Assistant |
+| mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
-| prometheus.bgalhardo.internal | K8s IP | Apollo | Metrics |
-| grafana.bgalhardo.internal | K8s IP | Apollo | Dashboards |
+| prometheus / grafana | athena `:9090` / `:3000` | athena | Metrics, dashboards |
 
 ## DNS (dnsmasq on Hermes) — resolution only; **DHCP is the UDM Pro**
 
@@ -41,12 +41,10 @@
   HAProxy), unifi, omni, vault, athena, postgres, truenas.
 - ⚠️ **`apollo` / `hades` / `hermes` have no explicit record** → they hit
   the `.200` wildcard (k8s ingress), not the real host. This is the
-  `todos.md` P0 "Fix Apollo DNS Record" — the fix is three
+  `plans/todos.md` P0 "Fix Apollo DNS Record" — the fix is three
   `address=/…/` lines (`.197` / `.198` / `.199`), not a "bad" record.
   Low severity in practice: nothing resolves these by name today (Proxmox
   API is hit by IP; the HA name is `proxmox.bgalhardo.internal`).
-- **Certificates:** Vault-managed *.bgalhardo.internal (see Certificate Management below)
-- **Auto-renewal:** Not implemented — certs are issued manually via `vault write pki_infra/issue/internal`
 
 ## Load Balancer (HAProxy on Hermes)
 
@@ -97,13 +95,14 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   │
   └── pki_cert_manager — Second intermediate, separate chain
                         Used by cert-manager's `vault` Issuer inside the
-                        Talos/hal9000 k8s cluster (path
+                        elysium k8s cluster (path
                         pki_cert_manager/sign/internal). Broken
                         2025-12-12 → 2026-08-21 (see K8s auth incident
-                        below), now active and issuing again.
+                        below).
 ```
 
-- **Renewal:** Not automated. Certs are issued by hand via
+- **Renewal:** k8s certs renew via cert-manager; athena's leaf via its
+  Vault Agent. Every other `pki_infra` leaf is issued by hand via
   `vault write pki_infra/issue/internal common_name=<host>.bgalhardo.internal`
   and manually copied into each VM's `./certs/` (docker-compose volume,
   see `infra/olympus/services/<name>/`).
@@ -137,34 +136,12 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   fails TLS verification.
 - **Version confirmed 2026-08-21:** PVE 9.2.3, both nodes (`apollo`,
   `hades`) online
-- **Old token (`root@pam!terraform`, in `infra/terraform.tfvars`):**
-  rejected with 401 — stale/revoked, not a network issue (confirmed same
-  result from this workstation and from `manager`)
 - **`claude@pve!claude-readonly` token — working as of 2026-08-25.**
   Secret lives in `.claude/secrets/proxmox.env` (gitignored, not this
   file — see repo root `.gitignore`).
-  **History:** originally created with privilege separation enabled
-  (`--privsep 1`) and `PVEAuditor` granted directly to the token entity
-  — this returned `403 Permission check failed (Sys.Audit)` on
-  everything beyond `/version`/`/nodes`, confirmed not a `pveproxy`
-  cache issue (restarted `pveproxy`+`pvedaemon`, no change) and not
-  fixed by a PVE upgrade (9.2.3 → 9.2.11, retested, still broken).
-  Root cause: `pvesh get /access/permissions --userid <id>` resolved
-  correctly for `automation@pve!automation` (privsep=0, ACL on the
-  **user**) but resolved to `{}` for `claude@pve!claude-readonly`
-  (privsep=1, ACL on the **token**), even though `/etc/pve/user.cfg`
-  and `pveum acl list` both showed the token's ACL line as syntactically
-  correct. This PVE build (through at least 9.2.11) does not appear to
-  honor token-scoped (`type: token`) ACL entries at all.
-  **Fix:** switched to `--privsep 0` and moved the `PVEAuditor` grant
-  from the token to the plain user `claude@pve` — same pattern
-  `automation@pve` already used successfully. Token now resolves full
-  audit permissions; confirmed working against `/nodes/<node>/status`,
-  `/nodes/<node>/disks/list`, `/nodes/<node>/storage`. Practical
-  implication: **privilege separation on API tokens should be considered
-  non-functional on this cluster** until/unless retested on a future PVE
-  version — grant ACLs to the user, not the token, for any new
-  read/write token going forward.
+  **Token-scoped ACLs don't work on this cluster** (privsep=1 tokens resolved
+  to no permissions through PVE 9.2.11): use `--privsep 0` and grant the role
+  to the user, as `automation@pve` and `claude@pve` do.
 - **`daedalus@pve!power` token** — start/stop VMs for daedalus. Role
   `VMPower` (`VM.PowerMgmt VM.Audit Sys.Audit Mapping.Use`) on the user,
   privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Secret
@@ -177,17 +154,6 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 
 ## Known Access Gotchas
 
-- **Omni's k8s-proxy CA ≠ Kubernetes' internal CA.** A kubeconfig
-  downloaded from Omni for the `hal9000` cluster has (at least) 3 cluster
-  entries. Only the direct-to-apiserver one (`hal9000`, `192.168.1.180:6443`,
-  the Talos control-plane VIP — see `infra/hal9000/talos/control.yml`)
-  uses the Talos-internal `O=kubernetes` CA correctly. The two that go
-  through Omni's proxy (`omni-hal9000`, `omni-hal9000-bgalhardo`, both
-  `https://omni.bgalhardo.internal:8100`) actually present the homelab's
-  own PKI leaf cert for `omni.bgalhardo.internal` (see Certificate
-  Management below) — kubectl needs `certificate-authority` set to the
-  homelab root CA for those two, not the k8s-internal one, or you get
-  `x509: certificate signed by unknown authority`.
 - **Authentik's SAML *signing* cert is separate from its TLS cert**, and
   just as unrenewed. Found expired 2026-08-21 (`CN=authentik self-signed`,
   expired 2026-05-25) — this breaks SSO into Omni specifically (SAML
@@ -215,34 +181,11 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   `VaultStaticSecret`s (`cloudflare-ddns`, `cloudflare-letsencrypt`) were
   colliding on the same destination Secret name; the letsencrypt one now
   targets `cloudflare-api-token-letsencrypt`.
-- **Getting `kubectl` working against `hal9000` via Omni, end to end**
-  (confirmed working 2026-08-21):
-  1. Log into Omni UI (`https://omni.bgalhardo.internal`) via SAML SSO,
-     download kubeconfig for the `hal9000` cluster
-  2. That download uses an `exec`-based OIDC plugin (`kubectl oidc-login`,
-     from [int128/kubelogin](https://github.com/int128/kubelogin)) — not
-     a static token. Install it as `kubectl-oidc_login` somewhere on
-     `PATH` (e.g. `~/.local/bin`) — it's not a stock kubectl subcommand
-  3. The download also has **no `certificate-authority-data` at all** —
-     add it: `kubectl config set-cluster omni-hal9000
-     --certificate-authority=<root-ca.pem> --embed-certs=true`
-  4. The OIDC plugin makes its **own separate HTTPS call** (to
-     `/oidc/.well-known/openid-configuration`) that does *not* inherit
-     the cluster's CA data — it needs its own `--certificate-authority=
-     <path>` flag added to the `exec.args` list in the kubeconfig
-     directly, pointing at a durable copy of the root CA (not a
-     temp/session path)
-  5. The resulting `kubectl` command triggers a real interactive browser
-     OAuth flow (redirects to `http://localhost:8000/?code=...`, caught
-     by kubelogin's local callback listener) — must be run directly in
-     an interactive terminal by a human, not backgrounded or run with a
-     tight timeout that kills the listener before the browser redirect
-     completes
 
 ## Connectivity Summary
 
 - **Gateway:** UDM Pro (dual function: gateway + switch)
-- **Uplink:** UDM port 9 to ISP (bridge mode)
+- **Uplink:** UDM port 9 (`eth8`, WAN1) to ISP (bridge mode)
 - **Cluster nodes:** Direct to UDM (no bonding/LAGG)
 - **Utility node:** Hermes independent (can survive cluster outage)
-- **Storage access:** Hades NFS over same network segment
+- **Storage access:** virtiofs from Hades into `elysium-hades` (no NFS)

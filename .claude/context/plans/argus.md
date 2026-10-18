@@ -8,12 +8,18 @@ tells you what changed. Eventful things get written to a logbook.
 `argus` is the **agent** — the daily report agent (repo-root `argus/`,
 Phase 3), the logbook, this doc.
 
-## Current State (2026-09-26)
+## Current State (2026-10-16)
 
-- **Next up: Phase 2a — k8s + GPU + AI metrics on athena** (plan below). The
-  GPU/AI POC (`ai-poc.md`) needs them first, and they are the in-cluster
-  half of Phase 2 anyway.
-- Stack on athena serves (Phase 1 ✅); Prometheus still scrapes only itself.
+- **Phase 3 done** — argus deployed on athena (`/root/argus`, image built on
+  the Pi), root cron 03:30 local, every other day (48h window). First real report 2026-10-16.
+- **Next iteration (after the first cron report):** switch athena to the GHCR
+  image (`.github/workflows/argus.yml`, package public); `fetch-context.sh`
+  pulls context + CA from `raw.githubusercontent.com` (repo is public) in the
+  cron line; one canonical homelab state file (intended state + dependencies +
+  known failure modes, no open issues — those are argus's Phase 4 state),
+  other docs link to it; drop `CONTEXT_EXCLUDE`.
+- Phase 1 ✅, Phase 2a mostly done, Phase 2 partial (k8s log push, Talos
+  logging sync, Hades node_exporter/Alloy open). Phase 4 next after deploy.
 
 - **Node `athena` online** — Pi4 4GB, arm64, Alpine 3.24 on a 120GB SATA
   SSD (persistent install), `192.168.1.196` (UniFi fixed), MAC
@@ -28,7 +34,7 @@ Phase 3), the logbook, this doc.
 
 ## Why
 
-The homelab's failure mode is silence, not noise. Everything in `todos.md`
+The homelab's failure mode is silence, not noise. Everything in `plans/todos.md`
 that bit us — 9 expired `pki_infra` leaf certs, Omni's service-account JWT
 expired for 46 days, Authentik's SAML signing cert expired for 3 months,
 Vault k8s-auth missing `token_reviewer_jwt` for 8 months — produced almost
@@ -178,16 +184,16 @@ and `alloy/config.alloy` only accepts RFC5424 on 1514.
 | Per-guest RAM | change | Proxmox RRD + `status/current` `ballooninfo` | same | Only meaningful with the balloon device on. Guests without it (postgres, elysium-cp confirmed) report host RSS ≈ allocation, so "near ceiling" fires on all of them. Fix: `balloon = memory` in Terraform (stats only, no ballooning) |
 | Cert expiry | change | blackbox_exporter on athena, `probe_ssl_earliest_cert_expiry` | none | vault:443, authentik:443, omni:443 + :8100, apollo:8006, hades:8006, proxmox (HAProxy):443, unifi:443, athena:3000, gateways .200/.201 (SNI), immich.bgalhardo.com. Postgres:5432 after `ssl=on` needs STARTTLS → agent-side |
 | Vault health / seal | change | blackbox on `/v1/sys/health` (503 = sealed), continuous | none | Unauthenticated over 443 (8200 is closed) |
-| Vault PKI leaf inventory | **drop** | — | — | `pki_infra/certs` accumulates superseded leaves (athena reissues every ~10 days) → noise; TLS probes cover what is served. Keep a one-off intermediate CA expiry check |
+| Vault PKI leaf inventory | **drop** | — | — | `pki_infra/certs` accumulates superseded leaves (athena reissues every ~60 days) → noise; TLS probes cover what is served. Keep a one-off intermediate CA expiry check |
 | k8s workload health | extend | k8s API | **new `automation/argus` SA**, same ClusterRole as `claude` | Pod readiness/restarts, PVC phase, **Flux Kustomization/HelmRelease Ready, cert-manager Certificate Ready, VSO `SecretSynced`, Node conditions, Gateway/HTTPRoute Accepted** — RBAC verified for all. Key VSO on `SecretSynced`, not `Ready`. Separate SA: independent revocation, and it lives on a box running an LLM over untrusted logs |
 | Talos volume health | keep | `talosctl get volumestatus` via Omni | Omni SA, **Reader** role (`.claude/secrets/omni.env`, restored + verified 09-16) | The only layer that reports a cause (`spec.errorMessage`) |
-| Omni SA key expiry | **add** | PGP subkey expiry inside the key — no API call | none | Current key expires **2027-09-15** (1y). todos.md incident #2, on a schedule |
+| Omni SA key expiry | **add** | PGP subkey expiry inside the key — no API call | none | Current key expires **2027-09-15** (1y). plans/todos.md incident #2, on a schedule |
 | Pod/container memory | change | kubelet cAdvisor + kube-state-metrics via in-cluster Alloy → `remote_write` | in-cluster | metrics-server is **not installed** (`metrics.k8s.io` empty 09-16). Also avoids the Talos kubelet-serving-cert setup metrics-server needs |
 | Cluster quorum | change | Proxmox API `/cluster/status` (quorate) + `/cluster/config/qdevice` (State, last vote) | `claude@pve!claude-readonly` | Verified — removes the `pvecm status` SSH need |
 | Proxmox failed tasks | **add** | `/cluster/tasks`, status != OK | same | vzdump / migration failures. 0 in the 7 days to 09-16 |
 | Postgres backup freshness | keep | SSH forced command → `stat` newest `/backups/{daily,weekly,monthly}` | dedicated key | Not verified 09-16 (no keyring on hermes) |
-| `odin` snapshot age per dataset | **add** | SSH forced command → `zfs list -t snapshot` on hades | dedicated key | The todos.md P0 — fires today (photos 2025-12-03, backups never). Not exposed by the PVE API |
-| Authentik SAML signing cert expiry | **add** | Authentik API `/api/v3/crypto/certificatekeypairs/` | read-only Authentik token (new) | Not TLS-visible. Expired 3 months unnoticed (todos.md) |
+| `odin` snapshot age per dataset | **add** | SSH forced command → `zfs list -t snapshot` on hades | dedicated key | The plans/todos.md P0 — fires today (photos 2025-12-03, backups never). Not exposed by the PVE API |
+| Authentik SAML signing cert expiry | **add** | Authentik API `/api/v3/crypto/certificatekeypairs/` | read-only Authentik token (new) | Not TLS-visible. Expired 3 months unnoticed (plans/todos.md) |
 | DNS | **add** | blackbox DNS probes against hermes (athena, vault, a wildcard name, one external) | none | Hermes DNS is a SPOF with no heartbeat |
 | Public DNS drift | **add** | `immich.bgalhardo.com` via a public resolver == WAN IP | none | external-dns / cloudflare-ddns fail on Cloudflare timeouts |
 | athena host (disk, memory) | **add** | node_exporter on athena | none | No cgroup memory limits (Phase 1 open item) |
@@ -217,7 +223,7 @@ dedicated key with forced commands — not a bastion keyring.
 ### Found during the review (2026-09-16)
 
 What the list above would have caught — evidence for it, not yet triaged into
-todos.md:
+plans/todos.md:
 
 - **hermes:** `log-queries` → `/var/log/dnsmasq-debug.log` on the tmpfs root
   (213 MB), 2.7 MB and growing, no rotation; from an uncommitted
@@ -394,7 +400,7 @@ and `argus/state/` only, with `git pull --rebase` before push.
 - [x] **Exit checks all pass:** Loki `ready`; Prometheus healthy; Loki
       write→read round-trip OK (push 204, query matched); Grafana serving
       HTTPS on a Vault-issued leaf (`CN=athena.bgalhardo.internal`, issued
-      by `Intermediate CA [infra]`, 360h TTL, auto-renewed by vault-agent);
+      by `Intermediate CA [infra]`, 2160h TTL, auto-renewed by vault-agent);
       cert verifies against the root CA (rc=200); all 4 Prometheus targets
       `up` (prometheus, loki, alloy, grafana).
 - [x] AppRole verified end-to-end: login OK, reads its own KV, issues its
@@ -545,7 +551,7 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
 - [x] `kubernetes/monitoring/` is gone (removed in `17e511d`, flux first
       stage) — no loki/grafana left to delete, and no alloy to reuse
 
-### Phase 3 — Argus agent, first cut ☐
+### Phase 3 — Argus agent, first cut ✅ (2026-10-16)
 - [x] Collect (2026-10-02): Loki per job (5000-line cap each), Prometheus 24h
       worst case, Proxmox API, Talos volumes via Omni. Each collector is optional
       (enabled by its settings). k8s health comes from kube-state-metrics in
@@ -553,15 +559,30 @@ Order from the 2026-09-16 review — see Integration List for the method per sou
 - [x] Reduce: fingerprinting. Fact diff needs state → Phase 4
 - [ ] Triage: none in the first cut — Opus sees every cluster. Later: Jev run
       in shadow, compared with Opus's verdicts for two weeks
-- [~] Judge: one Opus 5.5 call, pydantic-validated — not yet run with a real key
-- [~] Emit: Telegram — not yet sent to the real bot
-- [ ] Cron 04:00 on athena (`README.md`)
+- [x] Judge (2026-10-16): one Opus 5.5 call, medium effort, JSON-schema output,
+      via the Batch API (half price) with a direct-call fallback; `--no-batch`.
+      ~26k in / ~3k out ≈ $0.08–0.09. Context docs are top-level `*.md` minus
+      `CONTEXT_EXCLUDE`. Sonnet 5.5 tried: $0.033 but missed the Grafana
+      restarts it had evidence for — staying on Opus
+- [x] Emit (2026-10-16): Telegram, with a model/tokens/cost footer. Each report
+      is also pushed to Loki `{job="argus", mode="sent|dry"}` (report, facts,
+      usage) so Claude Code can fetch it; the Loki collector skips that job
+- [x] Deployed to athena 2026-10-16, cron 03:30 (`argus/README.md`)
+- Seen: `select()` can drop rare clusters (the 02:00 SELinux denial was missing
+  from a later run's 60) — revisit with Phase 4 state
 
 ### Phase 4 — State + logbook ☐
 - [ ] `state/` fingerprints, facts, incidents
 - [ ] NEW / ONGOING / RESOLVED framing
 - [ ] `logbook/YYYY-MM.md` writes + deploy key
 - [ ] `boring.yml` tuning — expect 2 noisy weeks, that's normal
+- [ ] Prometheus checks → alerting rules (`infra/athena/prometheus/rules/argus.yml`,
+      with `for:`); collector reads `max_over_time(ALERTS{alertstate="firing"}[24h])`
+      instead of 14 hard-coded queries. Continuous evaluation (no 5m-subquery
+      gaps), thresholds visible in Prometheus/Grafana, community rule sets
+      (kubernetes-mixin, node-mixin) cover pod CPU/RAM, OOMKilled and host CPU.
+      Done before the own-repo extraction — it is the "checks-to-config" item.
+      No Alertmanager unless something must page before 04:00
 
 ### Phase 5 — Hardening ☐
 - [ ] Dead-man's switch: ping healthchecks.io on success. **Telegram cannot

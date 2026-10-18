@@ -30,7 +30,7 @@ infra/
 │       │   ├── docker-compose.yml
 │       │   ├── backup.sh
 │       │   ├── restore.sh
-│       │   ├── vault-agent/    ← TLS leaf only; not deployed yet (todos.md)
+│       │   ├── vault-agent/    ← TLS leaf only; not deployed yet (plans/todos.md)
 │       │   └── .env.example
 │       └── omni/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
@@ -143,7 +143,7 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   editable VM spec file (vmid, node, memory, cores, mac — not secret, safe
   in git). `terraform.tfvars` (real Proxmox credentials) and
   `terraform.tfstate*` are gitignored. **State is drifted — see
-  `todos.md` "Full VM Provisioning" before running it.**
+  `plans/todos.md` "Full VM Provisioning" before running it.**
 - `infra/elysium/terraform/` — Talos k8s cluster VMs. Same pattern.
 - **A new workstation needs more than `.claude/secrets/`** to run Terraform:
   `terraform.tfvars` (copy `terraform.tfvars.example`; a Proxmox token with
@@ -154,7 +154,7 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
 ⚠️ **Known issue:** `infra/olympus/terraform/main.tf` sets
 `cipassword = "root"` via cloud-init — every VM gets password auth
 enabled with a trivial password, in addition to SSH keys. Flagged in
-`todos.md`, not yet fixed.
+`plans/todos.md`, not yet fixed.
 
 ## Certificate Management
 
@@ -164,7 +164,7 @@ per-service, no auto-renewal yet.
 ## Known Issues (as of 2026-08-21 migration)
 
 - No backup automation for Vault at all; Postgres backs up locally but
-  doesn't ship offsite. See `todos.md`.
+  doesn't ship offsite. See `plans/todos.md`.
 - `authentik`'s compose file points at Postgres by IP
   (`192.168.1.177`), not by `postgres.bgalhardo.internal` DNS — works,
   but brittle if that VM's IP ever changes.

@@ -9,7 +9,7 @@
   by a sidecar `unsealer` container reading `VAULT_UNSEAL_KEY`
 - **Depends on:** None
 - **Dependents:** Authentik, Postgres, K8s, all services
-- **Backup:** ⚠️ None. No snapshot mechanism exists at all — see todos.md
+- **Backup:** ⚠️ None. No snapshot mechanism exists at all — see plans/todos.md
 - **Compose:** Yes — `infra/olympus/services/vault/`, static file (Ansible
   retired 2026-08-21). Listener config in `vault.hcl` (same dir)
 - **K8s integration:** kubernetes auth method, `cert_manager` and
@@ -18,9 +18,7 @@
   Vault is NOT in-cluster, so `auth/kubernetes/config` needs an explicit
   `token_reviewer_jwt` from the `vault-auth` SA, and `vault write` replaces
   the whole config object — any hand-edit that omits it silently breaks
-  every login. That happened 2025-12-12 → 2026-08-21, breaking
-  cert-manager's `vault` Issuer and every VaultSecretsOperator secret
-  cluster-wide; fixed by re-running the script (see network.md).
+  every login (outage history in network.md).
   The script also creates the `vault-ca` Secret in `vault-secrets-operator`
   from `infra/ca/root-ca.crt`. It can't be a `VaultStaticSecret`: VSO needs
   that CA before it can reach Vault at all. Until it exists the
@@ -35,7 +33,7 @@
 - **Dependents:** Authentik, K8s services needing DB
 - **Backup:** Local only — `pg_backup` sidecar runs `backup.sh` daily,
   real daily/weekly/monthly retention, but nothing ships it off this VM.
-  See todos.md.
+  See plans/todos.md.
 - **Compose:** Yes — `infra/olympus/services/postgres/`, static file
 
 ### Authentik
@@ -58,26 +56,22 @@
 - **Compose:** Yes — `infra/olympus/services/omni/`, was always a hand-deployed
   static file, never templated by Ansible
 
-### ~~tftp-server~~ — retired 2026-09-08
-Apollo VM `tftp` (`192.168.1.172`, vmid 202). Served `undionly.kpxe` for
-PXE boot; nothing used it once `netboot` was retired (2026-08-21).
-`infra/olympus/services/tftp-server/` + the tfvars block removed; VM
-deletion pending (still in the drifted tfstate).
-
-## Inside K8s (elysium, Talos v1.14.0 / k8s v1.37.0 — 3 nodes)
+## Inside K8s (elysium, Talos v1.14.0 / k8s v1.37.0 — 4 nodes)
 
 `talos-r5o-rk4` control-plane, `talos-562-ij1` (label `homelab/node=apollo`,
-`power=always-on`), `talos-7bu-8ma` (`homelab/node=hades`, `power=managed`).
+`power=always-on`), `talos-7bu-8ma` (`homelab/node=hades`, `power=managed`), `talos-pcf-vwh`
+(VM 1103 `elysium-hades-gpu`, `homelab/gpu=nvidia`, on Hades, power-managed;
+off → node NotReady, `ollama-gpu` and its DaemonSet pods Pending — expected).
 Reconciled by Flux in three tiers — see `kubernetes/flux/README.md`.
 Verified 2026-09-16 with the scoped kubeconfig.
 
 Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
-`flux-system`, `immich`, `local-path-storage`, `metallb-system`,
+`flux-system`, `gpu-operator` (GPU Operator + node-feature-discovery),
+`immich`, `local-path-storage`, `metallb-system`, `monitoring`,
 `nginx-gateway`, `system`, `vault-secrets-operator` (+ `kube-*`).
 
 ### system namespace
 - `homepage`, `pgadmin`, `redis`, `cloudflare-ddns`
-- `couchdb` (Obsidian LiveSync) removed 2026-10-05 — never used
 - Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
 ### immich — running
@@ -85,27 +79,42 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 on the `postgres` VM and is covered by its `pg_backup` sidecar.
 
 ### ai — running
-`ollama`, `litellm`, `openwebui`. All three were broken for days by unrelated
-faults found 2026-09-15: ollama by the local-path selector bug (38h Pending),
-openwebui by an unencoded `@` in its Postgres password inside `DATABASE_URL`
-(531 restarts, a misleading symptom that looked like an openwebui bug).
+`ollama` (CPU), `ollama-gpu` (GPU node, Pending while it's off), `litellm`
+(gateway, falls back from `qwen-gpu` to CPU `llama-mini`), `openwebui`.
 
 ### automation — RBAC only
 `automation/claude` ServiceAccount + `claude-readonly` ClusterRole, the scoped
 read-only identity for assistants. See CLAUDE.md.
 
+### home — migrating (2026-10-18)
+`kubernetes/30-apps/home/`, pinned to Apollo.
+- `homeassistant` — `home.bgalhardo.com` on the `external` Gateway. `/config`
+  on local-path PVC `homeassistant-config`; recorder history on the `postgres`
+  VM (`homeassistant` DB). Ships at `replicas: 0` until the restore from
+  `hades:/odin/backups/home-assistant/` is done.
+- `mosquitto` — LoadBalancer **192.168.1.202** (fixed), anonymous, persistence
+  on PVC `mosquitto-data`. Clients outside the cluster: the Shellys (native
+  MQTT, plus the `ble2mqtt` script on a Shelly relaying Govee/BLU sensors).
+- **Not brought back yet:** the MQTT discovery configs. Shelly/Govee entities
+  stay unavailable until those are published — see `plans/todos.md`.
+
+Not migrated from hal9000 (manifests only in git history, `17e511d^:kubernetes/home/`):
+ps5-mqtt, hass-mqtt-device-healthcheck, esphome, node-red, whisper/piper/
+openwakeword, babybuddy, kiosk-server.
+
 ### Parked, not deployed
-`kubernetes/30-apps/_parked/`: `home` (Home Assistant), `mediacenter` (plex,
-sonarr, radarr, sabnzbd, overseerr), `nvidia`, `gaming`. All declare
-`local-path` for `/config` — they grow the unbacked-PVC surface when unparked.
+`kubernetes/30-apps/_parked/`: `gaming`. `mediacenter` (plex, sonarr, radarr,
+sabnzbd, overseerr) is only in git history, `17e511d^`.
 
 ## Outside K8s (athena — Pi4, 192.168.1.196)
 
 The athena logging/metrics stack, deliberately off the cluster so it survives a
 k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
 
-- `loki` (3100), `prometheus` (9090), `grafana` (3000, HTTPS), `alloy`
-  (syslog receiver, 1514), `vault-agent`
+- `loki` (3100), `prometheus` (9090, also the remote-write target for
+  elysium), `grafana` (3000, HTTPS), `alloy` (syslog receivers: 1515
+  RFC3164 for hermes, 1516 Talos, 1517 raw for the UDM), `node_exporter`,
+  `blackbox_exporter`, cAdvisor, `vault-agent`
 - **Vault Agent sidecar** — AppRole auth, renders the Grafana admin creds and
   issues the node's TLS leaf. First implementation of the pattern; the
   reference for every other VM.
@@ -113,8 +122,7 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
   are provisioned from files, so the Vault admin password applies on every
   boot rather than only at first init. Dashboards are exported back to files
   with `grafana/export-dashboards.sh`.
-- Phase 1 complete 2026-09-14; Phase 2 (shipping logs from every host) not
-  started. See `argus.md`.
+- Build status: `plans/argus.md`.
 
 ## Outside K8s (Hermes, Independent)
 
@@ -207,9 +215,8 @@ Hermes DNS/LB (independent, P0 - service discovery)
   ├─→ dnsmasq (all services need DNS)
   └─→ HAProxy (proxmox.*, postgres.* entries)
 
-Hades NFS (SPOF - all K8s services depend)
-  ├─→ K8s (Immich, HA, Plex storage)
-  └─→ Immich, Plex, Home Assistant
+Hades virtiofs (SPOF - media/photos, elysium-hades only)
+  └─→ Immich
 
 Apollo LXC Corosync (voting node)
   └─→ Proxmox cluster quorum (2-node)
@@ -219,6 +226,6 @@ Apollo LXC Corosync (voting node)
 
 ⚠️ **Vault** — All services depend; requires backup
 ⚠️ **Postgres** — Authentik depends; requires backup
-⚠️ **Hades NFS** — K8s storage; only NFS provider
+⚠️ **Hades** — virtiofs media/photos; pods using them run only there
 ⚠️ **Apollo** — K8s control plane single-node (not HA)
 ⚠️ **Hermes DNS** — No backup (future: Pi4 backup dnsmasq)

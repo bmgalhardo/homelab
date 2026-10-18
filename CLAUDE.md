@@ -30,12 +30,12 @@ Network: `192.168.1.0/24`
 - `services.md` — What runs where, dependencies
 - `storage.md` — NFS, backups, snapshots
 - `deployment.md` — How to deploy (static compose per VM, no Ansible)
-- `backup-strategy.md` — 3-2-1 plan, RTO/RPO
-- `todos.md` — Actions, blockers, priorities
-- `argus.md` — Centralized logging + daily report agent (design & progress)
-- `ai-poc.md` — GPU node + MLOps POC (what the 750 Ti can run, build order)
+- `plans/backup-strategy.md` — 3-2-1 plan, RTO/RPO
+- `plans/todos.md` — Actions, blockers, priorities
+- `plans/argus.md` — Centralized logging + daily report agent (design & progress)
+- `plans/ai-poc.md` — GPU node + MLOps POC (what the 750 Ti can run, build order)
 
-See `.claude/context/todos.md` for full roadmap.
+See `.claude/context/plans/todos.md` for full roadmap.
 
 ## Access for assistants/automation
 

@@ -37,7 +37,7 @@ against the running cluster.
 `CLAUDE.md` and `.claude/context/` are maintained as persistent operating
 context: hardware, network, services, storage and deployment docs kept
 current so an unfamiliar corner of the infra can be picked up without
-re-deriving it from scratch. `todos.md` tracks the open roadmap and known
+re-deriving it from scratch. `plans/todos.md` tracks the open roadmap and known
 blockers.
 
 ## Repo layout

@@ -112,7 +112,7 @@ subjects:
 # Long-lived token so the kubeconfig keeps working unattended.
 #
 # It never expires, which is the same "nothing rotates" pattern as everything
-# else in todos.md — rotate by deleting this Secret and regenerating the
+# else in plans/todos.md — rotate by deleting this Secret and regenerating the
 # kubeconfig. For a short-lived alternative:
 #   kubectl -n automation create token claude --duration=8h
 apiVersion: v1

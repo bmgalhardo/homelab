@@ -93,7 +93,7 @@ workaround — it demonstrates graceful degradation.
    `nvidia-operator-validator` Completed, node advertises `nvidia.com/gpu: 1`.
 2. ✅ **Serve** — `ollama-gpu` Running, `qwen-gpu` answers via LiteLLM, fallback
    verified by stopping the GPU VM mid-session.
-3. ✅ **Observe** (2026-09-28) — k8s + GPU + LiteLLM metrics on athena (plan: `argus.md` →
+3. ✅ **Observe** (2026-09-28) — k8s + GPU + LiteLLM metrics on athena (plan: `plans/argus.md` →
    Phase 2a). Grafana dashboard: GPU util/mem/temp/power, tokens/s, TTFT,
    request rate, fallbacks.
 4. **Benchmark** — GenAI-Perf / AIPerf as a k8s Job against the LiteLLM

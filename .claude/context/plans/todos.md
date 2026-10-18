@@ -8,7 +8,7 @@
   2026-09-16: PVCs bind, `ollama` running after 40h Pending, `couchdb` and
   the rest provisioning normally. Kept here because the failure mode — a
   silent 38h outage with no error anywhere in k8s — is the reference example
-  for the Argus fact probes (`argus.md`).
+  for the Argus fact probes (`plans/argus.md`).
 - **Symptom:** every `local-path` PVC Pending forever. Zero local-path PVs
   have ever existed on elysium.
   - `ai/ollama-models` — Pending since 2026-09-13T22:58 (~38h before it was
@@ -48,7 +48,7 @@
   no logs, no events of its own, and no failed reconcile. **Flux reported the
   Kustomization healthy, correctly** — the resources were applied as
   declared. Only the Talos layer knew, in one field. Captured as a worked
-  example in `argus.md` and added there as a fact probe.
+  example in `plans/argus.md` and added there as a fact probe.
 - **Unblocked 2026-09-26:** `.claude/secrets/omni.env` (Omni service account)
   restored — headless `omnictl` and `talosctl` (via `omnictl talosconfig -c
   elysium`) verified working. The Argus Talos probe can use it. Role is
@@ -104,8 +104,9 @@
   immich DB is on the postgres VM (has `pg_backup`), and redis/pgadmin/
   homepage/cloudflare-ddns are stateless. The only live local-path volume is
   ollama models, which are regenerable.
-- **Grows when `_parked/` is unparked:** plex (20Gi), sonarr, radarr,
-  sabnzbd, overseerr and home-assistant all put `/config` on local-path.
+- **Home Assistant is now on it** (`homeassistant-config`, `mosquitto-data`).
+  Grows again when mediacenter returns: plex (20Gi), sonarr, radarr,
+  sabnzbd, overseerr all put `/config` on local-path.
 - **Two different designs, because of node locality:**
   - **Apollo-pinned apps (home-assistant)** — virtiofs volumes
     mount on `elysium-hades` ONLY, and a local-path PVC can only be mounted
@@ -138,7 +139,7 @@
   power-managed, so a job failing because the target is asleep is expected,
   not an incident. The backup job should exit 0 with a log line when the
   target is unreachable; Argus then alerts on *staleness* of the newest
-  backup. This is already a planned Argus fact probe (`argus.md`).
+  backup. This is already a planned Argus fact probe (`plans/argus.md`).
 
 
 ### Nothing in This Stack Auto-Renews ⛔
@@ -246,7 +247,7 @@
 - **Status (2026-09-08):** `athena` node online (`.196`), stack written
   (`infra/athena/`), not yet deployed. Vault Agent sidecar built here as
   the reusable pattern. Phase 1 = deploy + verify.
-- **Full design, decisions and phase checklist:** `.claude/context/argus.md`
+- **Full design, decisions and phase checklist:** `.claude/context/plans/argus.md`
 - **Benefit:** Directly addresses the "nothing in this stack auto-renews"
   P0 above — it can't fix renewals, but it stops them failing silently
 
@@ -391,9 +392,21 @@
   event/log streaming from nodes to Omni.
 - **Backups taken** (`hades:/odin/backups/`): home-assistant, plex, sabnzbd.
   mongo (7GB, unknown app) backed up but **not** being restored.
-- **Remaining before cutover:** restore data + per-app manifest edits
-  (`kubernetes/30-apps/README.md`), un-park `home/` and `mediacenter/`, then
-  destroy the stopped hal9000 VMs + `git rm -r infra/hal9000`.
+- **Remaining before cutover:** restore Home Assistant (manifests in
+  `kubernetes/30-apps/home/`), bring back mediacenter (manifests only in git
+  history, `17e511d^`), then destroy the stopped hal9000 VMs +
+  `git rm -r infra/hal9000`.
+- **Home automation follow-ups (after the HA restore):**
+  - MQTT discovery configs for the Shelly/Govee devices. Their only copy is
+    `/code/app/devices.yml` inside `bgalhardo/hass-mqtt-device-healthcheck:0.0.1`
+    (source repo not found). Options: mount it from git into that image as a
+    CronJob, or generate HA YAML `mqtt:` entities with matching `unique_id`s.
+  - Repoint every Shelly's MQTT server from `.237` to `192.168.1.202`.
+  - Pull the `ble2mqtt` Shelly script into git (`/rpc/Script.GetCode`).
+  - Move the recorder `db_url` password out of `configuration.yaml` into
+    `secrets.yaml` (ideally Vault-rendered).
+  - PSN `npsso` token is inline in git history (`ps5-mqtt.yml`) — revoke if
+    ps5-mqtt returns, use `secretKeyRef`.
   Vault re-auth and Flux bootstrap are **done**.
 
 #### Disk layout — rebuilt 2026-09-13/14 after a DiskPressure incident

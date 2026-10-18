@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: home
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data
+  namespace: home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: home
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.202
+spec:
+  type: LoadBalancer
+  selector:
+    app: mosquitto
+  ports:
+  - name: mqtt
+    port: 1883
+    protocol: TCP
+    targetPort: 1883
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: home
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0.22
+        imagePullPolicy: IfNotPresent
+        command:
+        - mosquitto
+        args:
+        - -c
+        - /mosquitto/config/mosquitto.conf
+        ports:
+        - name: mqtt
+          containerPort: 1883
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - |
+              mosquitto_sub -C 1 -W 3 -t '$SYS/#'
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - mountPath: /mosquitto/config
+          name: config
+        - mountPath: /mosquitto/data
+          name: data
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1883
+        runAsGroup: 1883
+        fsGroup: 1883
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: config
+        configMap:
+          name: mosquitto-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: mosquitto-data

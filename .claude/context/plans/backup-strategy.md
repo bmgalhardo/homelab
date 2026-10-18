@@ -10,7 +10,7 @@
 ## Current State
 
 Confirmed 2026-08-21 by reading the live compose files directly (see
-todos.md P1 for detail) — the table below corrects an earlier draft
+plans/todos.md P1 for detail) — the table below corrects an earlier draft
 that had Vault backups running and Postgres backups on Hades; neither
 was true.
 

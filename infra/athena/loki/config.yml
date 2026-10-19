@@ -47,12 +47,13 @@ compactor:
   delete_request_store: filesystem
 
 limits_config:
-  retention_period: 2160h          # 90d — see argus.md "Open Questions" (storage is cheap, could go longer)
+  retention_period: 2160h          # 90d — see .claude/context/plans/argus.md "Open Questions" (storage is cheap, could go longer)
   ingestion_rate_mb: 8
   ingestion_burst_size_mb: 16
   reject_old_samples: true
   reject_old_samples_max_age: 168h
   max_query_series: 5000
+  max_entries_limit_per_query: 20000
   volume_enabled: true             # enables /loki/api/v1/index/volume for the agent's reduce stage
 
 query_range:

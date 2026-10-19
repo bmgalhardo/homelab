@@ -33,7 +33,7 @@ template_config {
   exit_on_retry_failure         = false
 }
 
-# ── Secrets: KV v2 at kv/athena -> Grafana env file, UniFi API key ──────────
+# ── Secrets: KV v2 at kv/athena -> Grafana env, UniFi API key, argus env ────
 template {
   source      = "/vault-agent/templates/grafana-env.tpl"
   destination = "/secrets/grafana.env"
@@ -46,6 +46,20 @@ template {
   destination = "/secrets/unifi_api_key"
   perms       = "0640"
   command     = "sh -c 'touch /certs/.reload'"
+}
+
+# 0644: Prometheus runs as nobody
+template {
+  source      = "/vault-agent/templates/homeassistant-token.tpl"
+  destination = "/secrets/homeassistant_token"
+  perms       = "0644"
+  command     = "sh -c 'touch /certs/.reload'"
+}
+
+template {
+  source      = "/vault-agent/templates/argus-env.tpl"
+  destination = "/secrets/argus.env"
+  perms       = "0640"
 }
 
 # ── Cert: pki_infra leaf for athena.bgalhardo.internal ──────────────────────

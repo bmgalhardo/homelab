@@ -58,6 +58,14 @@ scrape_configs:
       - targets: ["cadvisor:8080"]
         labels: { instance: athena }
 
+  - job_name: homeassistant
+    scheme: https
+    metrics_path: /api/prometheus
+    authorization:
+      credentials_file: /etc/prometheus/homeassistant_token
+    static_configs:
+      - targets: ["home.bgalhardo.com"]
+
   - job_name: blackbox
     static_configs:
       - targets: ["blackbox:9115"]

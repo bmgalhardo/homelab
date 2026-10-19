@@ -242,7 +242,20 @@ spec:
 
           loki.source.kubernetes "pods" {
             targets    = discovery.relabel.pod_logs.output
+            forward_to = [loki.process.pod_logs.receiver]
+          }
+
+          loki.process "pod_logs" {
             forward_to = [loki.write.athena.receiver]
+            stage.drop {
+              older_than = "24h"
+            }
+            stage.drop {
+              expression = "failed to get DMI entry"
+            }
+            stage.drop {
+              expression = "Unhandled Error.*/containerLogs/"
+            }
           }
 
           loki.source.kubernetes_events "cluster" {

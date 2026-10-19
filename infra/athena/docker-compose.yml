@@ -49,6 +49,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./data/prometheus:/prometheus
+      - ./secrets/homeassistant_token:/etc/prometheus/homeassistant_token:ro   # rendered by vault-agent
     extra_hosts:
       - "host.docker.internal:host-gateway"   # node-exporter runs on the host network
   grafana:

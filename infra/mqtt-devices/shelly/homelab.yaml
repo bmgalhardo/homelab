@@ -1,0 +1,16 @@
+host: 192.168.3.234
+id: shellypmminig3-ecda3bc6a5b4
+config:
+  Sys:
+    device:
+      name: Homelab Monitor
+  Mqtt:
+    enable: true
+    server: 192.168.1.202
+    topic_prefix: devices/shelly_homelab
+    status_ntf: true
+    rpc_ntf: false
+    enable_rpc: false
+    enable_control: false
+scripts:
+  ble2ha: shelly_scripts/ble2ha.js

@@ -6,8 +6,8 @@ deployment continues in `kubernetes/flux/README.md`.
 
 | Node | Proxmox host | vCPU / RAM / disk | Role |
 |------|-------------|-------------------|------|
-| `elysium-cp` | apollo | 2 / 4G / 20G | control plane (single) |
-| `elysium-apollo` | apollo | 2 / 4G / 40G | always-on: Home Assistant, `system` ns, add-ons |
+| `elysium-cp` | apollo | 2 / 3G / 20G | control plane (single) |
+| `elysium-apollo` | apollo | 2 / 5G / 40G | always-on: Home Assistant, `system` ns, add-ons |
 | `elysium-hades` | hades | 4 / 8G / 40G | media: Plex, Immich, *arr, sabnzbd — flaps with Hades power |
 | `elysium-hades-gpu` | hades | 4 / 8G / 40G | GTX 750 Ti passthrough — off by default, see [GPU node](#gpu-node) |
 

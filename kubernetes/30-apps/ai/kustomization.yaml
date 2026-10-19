@@ -10,7 +10,7 @@ resources:
   - openwebui.yml
 
 patches:
-  - target: { kind: Deployment, name: ollama|openwebui }
+  - target: { kind: Deployment, name: ollama|openwebui|litellm }
     patch: |
       - op: add
         path: /spec/template/spec/nodeSelector
@@ -20,11 +20,6 @@ patches:
         value:
           - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute }
           - { key: node.kubernetes.io/not-ready,  operator: Exists, effect: NoExecute }
-  - target: { kind: Deployment, name: litellm }
-    patch: |
-      - op: add
-        path: /spec/template/spec/nodeSelector
-        value: { homelab/node: apollo }
   - target: { kind: Deployment, name: ollama-gpu }
     patch: |
       - op: add

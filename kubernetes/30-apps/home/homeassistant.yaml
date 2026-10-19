@@ -82,6 +82,11 @@ spec:
         ports:
         - name: http
           containerPort: 8123
+        resources:
+          requests:
+            memory: 1Gi
+          limits:
+            memory: 1536Mi
         volumeMounts:
         - mountPath: /config
           name: config

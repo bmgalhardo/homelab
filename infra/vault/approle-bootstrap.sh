@@ -69,7 +69,8 @@ build_policy | vault policy write "$ROLE" -
 vault write "auth/approle/role/${ROLE}" \
   token_policies="$ROLE" \
   token_ttl=1h \
-  token_max_ttl=4h \
+  token_max_ttl=0 \
+  token_period=1h \
   secret_id_ttl=0 \
   secret_id_num_uses=0 \
   token_num_uses=0 >/dev/null

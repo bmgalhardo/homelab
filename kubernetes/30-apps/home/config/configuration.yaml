@@ -1,0 +1,15 @@
+default_config:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+automation: !include automations.yaml
+
+tts:
+  - platform: google_translate
+
+recorder:
+  db_url: !env_var HA_RECORDER_DB_URL
+
+prometheus:
+  namespace: hass

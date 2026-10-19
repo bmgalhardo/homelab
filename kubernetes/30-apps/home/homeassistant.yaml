@@ -74,13 +74,43 @@ spec:
         env:
         - name: TZ
           value: Europe/Lisbon
+        - name: HA_RECORDER_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: homeassistant-secrets
+              key: recorder_db_url
         ports:
         - name: http
           containerPort: 8123
         volumeMounts:
         - mountPath: /config
           name: config
+        - mountPath: /config/configuration.yaml
+          name: configuration
+          subPath: configuration.yaml
+        - mountPath: /config/packages
+          name: packages
       volumes:
       - name: config
         persistentVolumeClaim:
           claimName: homeassistant-config
+      - name: configuration
+        configMap:
+          name: homeassistant-configuration
+      - name: packages
+        configMap:
+          name: homeassistant-packages
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: homeassistant-secrets
+  namespace: home
+spec:
+  type: kv-v2
+  mount: kv
+  path: apps/homeassistant
+  destination:
+    name: homeassistant-secrets
+    create: true
+  refreshAfter: 30s

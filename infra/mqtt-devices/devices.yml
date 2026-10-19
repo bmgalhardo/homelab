@@ -1,0 +1,228 @@
+components:
+  temperature: &temperature
+    name: Temperature
+    platform: sensor
+    device_class: temperature
+    unit_of_measurement: °C
+    icon: mdi:thermometer
+    suggested_display_precision: 1
+    value_template: "{{ value_json.temperature }}"
+  humidity: &humidity
+    name: Humidity
+    platform: sensor
+    device_class: humidity
+    unit_of_measurement: "%"
+    icon: mdi:water-percent
+    suggested_display_precision: 0
+    value_template: "{{ value_json.humidity }}"
+  voltage: &voltage
+    name: Voltage
+    platform: sensor
+    device_class: voltage
+    unit_of_measurement: V
+    icon: mdi:sine-wave
+    suggested_display_precision: 1
+    value_template: "{{ value_json.voltage }}"
+  current: &current
+    name: Current
+    platform: sensor
+    device_class: current
+    unit_of_measurement: A
+    icon: mdi:current-ac
+    suggested_display_precision: 3
+    value_template: "{{ value_json.current }}"
+  frequency: &frequency
+    name: Frequency
+    platform: sensor
+    device_class: frequency
+    unit_of_measurement: Hz
+    icon: mdi:sine-wave
+    suggested_display_precision: 1
+    value_template: "{{ value_json.freq }}"
+  active_power: &active_power
+    name: Active Power
+    platform: sensor
+    device_class: power
+    unit_of_measurement: W
+    icon: mdi:flash
+    suggested_display_precision: 1
+    value_template: "{{ value_json.apower }}"
+  active_energy: &active_energy
+    name: Active Energy
+    platform: sensor
+    device_class: energy
+    state_class: total
+    unit_of_measurement: Wh
+    icon: mdi:lightning-bolt
+    suggested_display_precision: 0
+    value_template: "{{ value_json.aenergy.total }}"
+    entity_category: diagnostic
+  battery: &battery
+    name: Battery
+    platform: sensor
+    device_class: battery
+    unit_of_measurement: "%"
+    icon: mdi:battery-30
+    suggested_display_precision: 0
+    value_template: "{{ value_json.battery }}"
+    entity_category: diagnostic
+  rssi: &rssi
+    name: Signal Strength
+    platform: sensor
+    device_class: signal_strength
+    unit_of_measurement: dBm
+    icon: mdi:signal
+    suggested_display_precision: 0
+    value_template: "{{ value_json.rssi }}"
+    entity_category: diagnostic
+  binary_state: &binary_state
+    name: State
+    platform: binary_sensor
+    device_class: door
+    icon: mdi:door
+    value_template: "{{ value_json.state }}"
+  button: &button
+    platform: event
+    device_class: button
+    icon: mdi:button-pointer
+    event_types:
+    - single-press
+    - double-press
+    - triple-press
+    - long-press
+    - pressing
+  button_1: &button_1
+    <<: *button
+    name: Button 1
+    value_template: "{\"event_type\": \"{{ value_json.button_1 }}\" }"
+  button_2: &button_2
+    <<: *button
+    name: Button 2
+    value_template: "{\"event_type\": \"{{ value_json.button_2 }}\" }"
+  button_3: &button_3
+    <<: *button
+    name: Button 3
+    value_template: "{\"event_type\": \"{{ value_json.button_3 }}\" }"
+  button_4: &button_4
+    <<: *button
+    name: Button 4
+    value_template: "{\"event_type\": \"{{ value_json.button_4 }}\" }"
+govee: &govee
+  manufacturer: Govee
+  model: H5075
+  origin: ble2mqtt
+  components:
+    - *temperature
+    - *humidity
+    - *battery
+    - *rssi
+devices:
+  - <<: *govee
+    id: govee_01
+    name: Sensor Living Room
+    mac_addr: A4:C1:38:EC:C6:28
+  - <<: *govee
+    id: govee_02
+    name: Sensor Babyroom
+    mac_addr: A4:C1:38:00:5D:34
+  - <<: *govee
+    id: govee_03
+    name: Sensor Bedroom
+    mac_addr: A4:C1:38:4C:B8:0C
+  - <<: *govee
+    id: govee_04
+    name: Sensor Kitchen
+    mac_addr: A4:C1:38:95:43:B3
+  - id: shelly_dw
+    manufacturer: Shelly
+    model: SBDW-002C
+    name: Entrance
+    origin: ble2mqtt
+    mac_addr: 38:39:8f:a6:87:c8
+    components:
+      - *binary_state
+      - *rssi
+      - *battery
+  - id: shelly_4_button
+    manufacturer: Shelly
+    model: SBBT-004CEU
+    name: Shelly Switch
+    origin: ble2mqtt
+    mac_addr: 7c:c6:b6:b9:0d:af
+    components:
+      - *rssi
+      - *battery
+      - *button_1
+      - *button_2
+      - *button_3
+      - *button_4
+  - id: shelly_homelab
+    manufacturer: Shelly
+    model: MiniPMG3
+    name: Homelab Monitor
+    origin: native_mqtt
+    state_topic: devices/shelly_homelab/status/pm1:0
+    components:
+      - *voltage
+      - *current
+      - *active_power
+      - *active_energy
+      - *frequency
+  - id: shelly_em
+    manufacturer: Shelly
+    model: 3EM-63 Gen3
+    name: Home Monitor
+    origin: native_mqtt
+    state_topic: devices/shelly_em/status/em:0
+    components:
+      - <<: *voltage
+        name: Voltage L1
+        value_template: "{{ value_json.a_voltage }}"
+      - <<: *voltage
+        name: Voltage L2
+        value_template: "{{ value_json.b_voltage }}"
+      - <<: *voltage
+        name: Voltage L3
+        value_template: "{{ value_json.c_voltage }}"
+      - <<: *current
+        name: Current L1
+        value_template: "{{ value_json.a_current }}"
+      - <<: *current
+        name: Current L2
+        value_template: "{{ value_json.b_current }}"
+      - <<: *current
+        name: Current L3
+        value_template: "{{ value_json.c_current }}"
+      - <<: *active_power
+        name: Active Power L1
+        value_template: "{{ value_json.a_act_power }}"
+      - <<: *active_power
+        name: Active Power L2
+        value_template: "{{ value_json.b_act_power }}"
+      - <<: *active_power
+        name: Active Power L3
+        value_template: "{{ value_json.c_act_power }}"
+      - <<: *frequency
+        name: Frequency L1
+        value_template: "{{ value_json.a_freq }}"
+      - <<: *frequency
+        name: Frequency L2
+        value_template: "{{ value_json.b_freq }}"
+      - <<: *frequency
+        name: Frequency L3
+        value_template: "{{ value_json.c_freq }}"
+      - <<: *active_energy
+        state_topic: devices/shelly_em/status/emdata:0
+        value_template: "{{ value_json.total_act }}"
+      - <<: *active_energy
+        name: Active Energy L1
+        state_topic: devices/shelly_em/status/emdata:0
+        value_template: "{{ value_json.a_total_act_energy }}"
+      - <<: *active_energy
+        name: Active Energy L2
+        state_topic: devices/shelly_em/status/emdata:0
+        value_template: "{{ value_json.b_total_act_energy }}"
+      - <<: *active_energy
+        name: Active Energy L3
+        state_topic: devices/shelly_em/status/emdata:0
+        value_template: "{{ value_json.c_total_act_energy }}"

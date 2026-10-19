@@ -6,6 +6,14 @@ resources:
   - homeassistant.yaml
   - mosquitto.yaml
 
+configMapGenerator:
+  - name: homeassistant-configuration
+    files:
+      - config/configuration.yaml
+  - name: homeassistant-packages
+    files:
+      - config/packages/mqtt_devices.yaml
+
 patches:
   - target: { kind: Deployment }
     patch: |

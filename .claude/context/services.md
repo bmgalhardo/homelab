@@ -94,9 +94,15 @@ read-only identity for assistants. See CLAUDE.md.
   `hades:/odin/backups/home-assistant/` is done.
 - `mosquitto` — LoadBalancer **192.168.1.202** (fixed), anonymous, persistence
   on PVC `mosquitto-data`. Clients outside the cluster: the Shellys (native
-  MQTT, plus the `ble2mqtt` script on a Shelly relaying Govee/BLU sensors).
-- **Not brought back yet:** the MQTT discovery configs. Shelly/Govee entities
-  stay unavailable until those are published — see `plans/todos.md`.
+  MQTT, plus the `ble2ha.js` script on a Shelly relaying Govee/BLU sensors —
+  source in `infra/mqtt-devices/shelly_scripts/`).
+- Config: `configuration.yaml` and `packages/` come from git
+  (`kubernetes/30-apps/home/config/`, ConfigMaps — a change rolls the pod).
+  Integrations, dashboards, registries stay UI-managed in `.storage` on the PVC.
+  Recorder URL from Vault `kv/apps/homeassistant` → `recorder_db_url`.
+- MQTT device entities are YAML (`packages/mqtt_devices.yaml`), generated from
+  `infra/mqtt-devices/devices.yml` — not MQTT discovery, nothing retained on
+  the broker. Replaces hass-mqtt-device-healthcheck (2026-10-19).
 
 Not migrated from hal9000 (manifests only in git history, `17e511d^:kubernetes/home/`):
 ps5-mqtt, hass-mqtt-device-healthcheck, esphome, node-red, whisper/piper/

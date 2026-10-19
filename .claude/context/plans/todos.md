@@ -397,14 +397,16 @@
   history, `17e511d^`), then destroy the stopped hal9000 VMs +
   `git rm -r infra/hal9000`.
 - **Home automation follow-ups (after the HA restore):**
-  - MQTT discovery configs for the Shelly/Govee devices. Their only copy is
-    `/code/app/devices.yml` inside `bgalhardo/hass-mqtt-device-healthcheck:0.0.1`
-    (source repo not found). Options: mount it from git into that image as a
-    CronJob, or generate HA YAML `mqtt:` entities with matching `unique_id`s.
-  - Repoint every Shelly's MQTT server from `.237` to `192.168.1.202`.
-  - Pull the `ble2mqtt` Shelly script into git (`/rpc/Script.GetCode`).
-  - Move the recorder `db_url` password out of `configuration.yaml` into
-    `secrets.yaml` (ideally Vault-rendered).
+  - Upload the fixed `ble2ha.js` (button numbering) and `ha_switch.js`
+    (local fallback) from `infra/mqtt-devices/shelly_scripts/` to their
+    Shellys. Archive github.com/bmgalhardo/hass-mqtt-device-healthcheck.
+  - Delete the two leftover automations (`test`, `New automation`) — loaded
+    again now that `automations.yaml` is included.
+  - Repoint every Shelly's MQTT server from `.203` (old broker) to
+    `192.168.1.202`. Mini PM G3 (`192.168.3.234`, `shelly_homelab`) found; the
+    3EM-63 and whichever Shelly runs `ble2ha.js` didn't answer on 192.168.1-4.x.
+  - Declarative Shelly config (per-device RPC config + scripts pushed by an
+    apply script) — parked 2026-10-19.
   - PSN `npsso` token is inline in git history (`ps5-mqtt.yml`) — revoke if
     ps5-mqtt returns, use `secretKeyRef`.
   Vault re-auth and Flux bootstrap are **done**.

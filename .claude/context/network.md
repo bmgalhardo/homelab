@@ -10,7 +10,7 @@
 | hades.bgalhardo.internal | 192.168.1.198 (MAC `f0:2f:74:30:76:71`, enp10s0) | Ryzen PC | Proxmox host + NAS |
 | hermes.bgalhardo.internal | 192.168.1.199 | Pi B+ | DNS/LB |
 | qdevice | **192.168.1.89** (set up 2026-09-07) | Apollo LXC (Debian) | Corosync qnetd — cluster quorum vote (TCP 5403) |
-| cerberus | **192.168.1.175** (LXC 105, live 2026-10-06) | Apollo LXC (Debian) | Protect kiosk on Apollo HDMI |
+| cerberus | **192.168.1.175** (LXC 105, on/off by hand) | Apollo LXC (Debian) | Protect kiosk on Apollo HDMI |
 | daedalus | **192.168.1.170** | Apollo VM 101 | Remote agents (Claude Code) |
 | hephaestus | **192.168.1.176** (LXC 106, 2026-10-07) | Hades LXC | Headless Blender worker |
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |

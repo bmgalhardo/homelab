@@ -396,20 +396,29 @@
   `kubernetes/30-apps/home/`), bring back mediacenter (manifests only in git
   history, `17e511d^`), then destroy the stopped hal9000 VMs +
   `git rm -r infra/hal9000`.
-- **Home automation follow-ups (after the HA restore):**
-  - Upload the fixed `ble2ha.js` (button numbering) and `ha_switch.js`
-    (local fallback) from `infra/mqtt-devices/shelly_scripts/` to their
-    Shellys. Archive github.com/bmgalhardo/hass-mqtt-device-healthcheck.
-  - Delete the two leftover automations (`test`, `New automation`) — loaded
-    again now that `automations.yaml` is included.
-  - Repoint every Shelly's MQTT server from `.203` (old broker) to
-    `192.168.1.202`. Mini PM G3 (`192.168.3.234`, `shelly_homelab`) found; the
-    3EM-63 and whichever Shelly runs `ble2ha.js` didn't answer on 192.168.1-4.x.
-  - Declarative Shelly config (per-device RPC config + scripts pushed by an
-    apply script) — parked 2026-10-19.
-  - PSN `npsso` token is inline in git history (`ps5-mqtt.yml`) — revoke if
-    ps5-mqtt returns, use `secretKeyRef`.
   Vault re-auth and Flux bootstrap are **done**.
+- **Home automation follow-ups** (HA + mosquitto migrated 2026-10-19):
+  - BLE sensors are relayed by `ble2ha.js`, now on the Mini PM (the only
+    Shelly online; 3EM-63 retired, removed from `devices.yml` 2026-10-19).
+    `ha_switch.js` needs a relay + input — the Mini PM has neither; kept in
+    git for the Shelly it was written for.
+  - HA tokens (Prometheus, Claude) are long-lived tokens on the user's own
+    admin account. Later: dedicated users, Claude/Prometheus moved to the
+    hidden `system-read-only` group (websocket `config/auth/update`
+    `group_ids`), plus a `claude-writer` admin kept inactive until needed.
+  - Backups of HA `/config`: designed (`plans/backup-strategy.md` → Home
+    Assistant), not set up. Grafana staleness alert after the first automatic
+    backup: `sensor.backup_last_successful_automatic_backup` is unavailable
+    until then, so only `hass_entity_available`/`hass_last_updated_time_seconds`
+    exist for it; confirm the timestamp-value metric name once it has a value.
+- **Terraform drift on `elysium-hades`** (seen 2026-10-19): plan wants an
+  in-place update with `vm_state "running" -> null` plus refreshed IP/SSH
+  fields. Apollo VMs were applied with `-target` to avoid it. Investigate with
+  more data (e.g. whether the VM was changed by hand, and what the provider does
+  with `vm_state = null` on a running VM) before a full apply.
+- **Postgres password rotation:** no mechanism yet for rotating the app
+  passwords on the `postgres` VM (HA's `homeassistant` role included). Wanted:
+  one way to rotate all of them and update Vault in the same step.
 
 #### Disk layout — rebuilt 2026-09-13/14 after a DiskPressure incident
 Two disks per worker now, and this is the shape to keep:

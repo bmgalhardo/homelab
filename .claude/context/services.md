@@ -94,8 +94,9 @@ read-only identity for assistants. See CLAUDE.md.
   `hades:/odin/backups/home-assistant/` is done.
 - `mosquitto` — LoadBalancer **192.168.1.202** (fixed), anonymous, persistence
   on PVC `mosquitto-data`. Clients outside the cluster: the Shellys (native
-  MQTT, plus the `ble2ha.js` script on a Shelly relaying Govee/BLU sensors —
-  source in `infra/mqtt-devices/shelly_scripts/`).
+  MQTT, plus the `ble2ha.js` script on the Mini PM relaying Govee/BLU
+  sensors). Shelly settings + scripts are in git (`infra/mqtt-devices/shelly/`,
+  pushed with `apply_shelly.py`).
 - Config: `configuration.yaml` and `packages/` come from git
   (`kubernetes/30-apps/home/config/`, ConfigMaps — a change rolls the pod).
   Integrations, dashboards, registries stay UI-managed in `.storage` on the PVC.
@@ -175,6 +176,7 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
   `stream.html` side by side. iGPU shared via `dev0`/`dev1`, no passthrough.
 - **Config:** `infra/olympus/services/cerberus/` — RTSPS tokens in `.env`
 - **Depends on:** Apollo, UDM Pro (Protect)
+- **Power:** started and stopped by hand as needed, no `onboot`; stopped is normal.
 - **Status:** Live 2026-10-06, LXC 105, cam1 only (cam2 not online yet —
   commented out in `go2rtc.yaml` and the kiosk URL). Unprivileged works;
   monitor is on HDMI‑A‑2. Log noise that is harmless: dbus, ALSA, GCM, one

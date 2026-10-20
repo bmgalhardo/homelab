@@ -27,8 +27,8 @@
   - LXC: `qdevice` (192.168.1.89) — corosync-qnetd for cluster quorum.
     Debian, not Alpine as earlier planned. Set up 2026-09-07 (see
     services.md). Needs `--onboot 1`.
-  - LXC: `cerberus` — Protect kiosk on Apollo's HDMI (LXC 105, live
-    2026-10-06; see services.md)
+  - LXC: `cerberus` — Protect kiosk on Apollo's HDMI (LXC 105, on/off
+    by hand, no onboot; see services.md)
   - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
   - VM 101 `daedalus` (remote agents)
   - K8s workloads: see services.md

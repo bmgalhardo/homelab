@@ -54,6 +54,13 @@ cannot read Secrets, exec into pods, or mutate anything. Identity declared in
 Ask before doing anything the scoped identity cannot do — don't reach for the
 admin context to work around a Forbidden.
 
+**Home Assistant:** REST/websocket API at `https://home.bgalhardo.com` with
+`.claude/secrets/ha-claude.token`. The token is admin; use it read-only unless
+the user asks for a change. HA logic goes in git packages, not through the API.
+
+**Proxmox / hosts:** SSH with the user's key (`~/.ssh/bastion`, root by IP).
+Read-only unless the user says otherwise.
+
 **Do not commit or push.** Leave changes in the working tree — the user
 reviews and commits. This holds even when the change is needed for a GitOps
 reconcile; say so and let the user push.

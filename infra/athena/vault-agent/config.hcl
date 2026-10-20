@@ -51,7 +51,7 @@ template {
 # 0644: Prometheus runs as nobody
 template {
   source      = "/vault-agent/templates/homeassistant-token.tpl"
-  destination = "/secrets/homeassistant_token"
+  destination = "/secrets/prometheus/homeassistant_token"
   perms       = "0644"
   command     = "sh -c 'touch /certs/.reload'"
 }

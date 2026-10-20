@@ -21,7 +21,7 @@ sidecar.
 `boot/cmdline.txt` → `/boot/cmdline.txt` on the node (one line). `cgroup_enable=memory`
 overrides the firmware's `cgroup_disable=memory`; without it every `mem_limit` is ignored.
 Containers created before the change keep running unlimited until `docker compose up -d --force-recreate`.
-| vault-agent | — | AppRole → renders `secrets/{grafana.env,unifi_api_key,homeassistant_token}` + issues `certs/athena.{crt,key}` |
+| vault-agent | — | AppRole → renders `secrets/{grafana.env,unifi_api_key,prometheus/homeassistant_token}` + issues `certs/athena.{crt,key}` |
 
 ## First deploy
 
@@ -58,11 +58,11 @@ scp -r infra/athena/* root@athena:/root/athena/
 ssh root@athena '
   cd /root/athena &&
   cp .env.example .env &&
-  mkdir -p data/loki data/prometheus data/grafana data/alloy secrets certs &&
+  mkdir -p data/loki data/prometheus data/grafana data/alloy secrets/prometheus certs &&
   chown -R 10001:10001 data/loki &&
   chown -R 65534:65534 data/prometheus &&
   chown -R 472:472     data/grafana &&
-  touch secrets/grafana.env secrets/unifi_api_key secrets/homeassistant_token
+  touch secrets/grafana.env secrets/unifi_api_key
 '
 # paste the AppRole material printed by the bootstrap:
 ssh root@athena '

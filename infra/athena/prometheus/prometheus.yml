@@ -62,7 +62,7 @@ scrape_configs:
     scheme: https
     metrics_path: /api/prometheus
     authorization:
-      credentials_file: /etc/prometheus/homeassistant_token
+      credentials_file: /etc/prometheus/secrets/homeassistant_token
     static_configs:
       - targets: ["home.bgalhardo.com"]
 

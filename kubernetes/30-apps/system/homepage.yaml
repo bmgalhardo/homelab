@@ -150,6 +150,11 @@ data:
           icon: loki.png
           href: http://athena.bgalhardo.internal:3100
           siteMonitor: http://athena.bgalhardo.internal:3100/ready
+    - Games:
+      - Games:
+          icon: mdi-gamepad-variant
+          href: https://games.bgalhardo.internal
+          siteMonitor: http://games.system:8080
     - AI:
       - Open WebUI:
           icon: open-webui.png

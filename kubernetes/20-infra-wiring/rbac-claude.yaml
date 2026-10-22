@@ -16,7 +16,7 @@
 # Note that `create pods` alone would be a full escalation: a pod can mount any
 # secret in its namespace and print it. Read-only is what keeps this honest.
 #
-# Caveats this CANNOT solve (see CLAUDE.md):
+# Caveats this CANNOT solve (see AGENTS.md):
 #   - pod logs and pod env vars still leak credentials that apps put there
 #   - shell access to the workstation reads any file the user can read
 apiVersion: v1

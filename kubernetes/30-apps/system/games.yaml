@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: games
+  namespace: system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: games
+  template:
+    metadata:
+      labels:
+        app: games
+    spec:
+      containers:
+      - name: nginx
+        image: nginxinc/nginx-unprivileged:1.27.4-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d/default.conf
+          name: config
+          subPath: default.conf
+        - mountPath: /srv
+          name: site
+      volumes:
+      - name: config
+        configMap:
+          name: games
+      - name: site
+        persistentVolumeClaim:
+          claimName: games
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: games
+  namespace: system
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      root /srv;
+      client_max_body_size 0;
+      client_body_temp_path /srv/.tmp;
+      dav_methods PUT DELETE MKCOL MOVE;
+      create_full_put_path on;
+      dav_access user:rw group:rw all:r;
+      add_header Cache-Control "no-cache" always;
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: games
+  namespace: system
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: games
+  namespace: system
+spec:
+  selector:
+    app: games
+  ports:
+    - port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: games
+  namespace: system
+spec:
+  hostnames:
+  - games.bgalhardo.internal
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: internal
+    sectionName: https
+    namespace: system
+  rules:
+  - backendRefs:
+    - name: games
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: gateway.nginx.org/v1alpha1
+kind: ClientSettingsPolicy
+metadata:
+  name: games
+  namespace: system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: games
+  body:
+    maxSize: 200m

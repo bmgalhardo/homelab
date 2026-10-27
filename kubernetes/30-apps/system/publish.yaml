@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: games
+  name: publish
   namespace: system
 spec:
   replicas: 1
@@ -9,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: games
+      app: publish
   template:
     metadata:
       labels:
-        app: games
+        app: publish
     spec:
       containers:
       - name: nginx
@@ -30,15 +30,15 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: games
+          name: publish
       - name: site
         persistentVolumeClaim:
-          claimName: games
+          claimName: publish
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: games
+  name: publish
   namespace: system
 data:
   default.conf: |
@@ -56,7 +56,7 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: games
+  name: publish
   namespace: system
 spec:
   storageClassName: local-path
@@ -69,22 +69,22 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: games
+  name: publish
   namespace: system
 spec:
   selector:
-    app: games
+    app: publish
   ports:
     - port: 8080
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: games
+  name: publish
   namespace: system
 spec:
   hostnames:
-  - games.bgalhardo.internal
+  - projects.bgalhardo.internal
   parentRefs:
   - group: gateway.networking.k8s.io
     kind: Gateway
@@ -93,7 +93,7 @@ spec:
     namespace: system
   rules:
   - backendRefs:
-    - name: games
+    - name: publish
       port: 8080
     matches:
     - path:
@@ -103,12 +103,12 @@ spec:
 apiVersion: gateway.nginx.org/v1alpha1
 kind: ClientSettingsPolicy
 metadata:
-  name: games
+  name: publish
   namespace: system
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: games
+    name: publish
   body:
     maxSize: 200m

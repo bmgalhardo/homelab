@@ -23,7 +23,7 @@
 | mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
-| games.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `system` | Game builds, docs, review boards |
+| projects.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `system` | Project builds, docs, review mocks |
 | prometheus / grafana | athena `:9090` / `:3000` | athena | Metrics, dashboards |
 
 ## DNS (dnsmasq on Hermes) — resolution only; **DHCP is the UDM Pro**

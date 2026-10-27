@@ -72,11 +72,11 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 
 ### system namespace
 - `homepage`, `pgadmin`, `redis`, `cloudflare-ddns`
-- `games` — nginx with WebDAV writes, `games.bgalhardo.internal`. Serves the
-  latest build, docs and review board of each game; the agents on daedalus
-  upload with `tools/publish/publish.py` from the game-development repo.
+- `publish` — nginx with WebDAV writes, `projects.bgalhardo.internal`. Serves the
+  latest build, docs and review mocks of each project; the agents on daedalus
+  upload with `tools/publish/publish.py` from the workflow repo.
   No auth by choice: LAN/VPN only, and everything on it is rebuildable.
-  Content on local-path PVC `games`.
+  Content on local-path PVC `publish`.
 - Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
 ### immich — running

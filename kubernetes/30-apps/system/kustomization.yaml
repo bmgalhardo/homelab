@@ -7,7 +7,7 @@ resources:
   - homepage.yaml
   - pgadmin.yaml
   - redis.yaml
-  - games.yaml
+  - publish.yaml
 
 # always-on tier -> pin to the Apollo worker
 patches:

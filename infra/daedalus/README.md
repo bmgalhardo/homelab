@@ -8,8 +8,8 @@ Scripts that run on daedalus (Apollo VM 101).
 
 ## Setup
 
-1. Token `daedalus@pve!power` (see `.claude/context/network.md`): copy
-   `.claude/secrets/proxmox-power.env.example` to `proxmox-power.env` and
+1. Token `daedalus@pve!power` (see `.agents/context/network.md`): copy
+   `.agents/secrets/proxmox-power.env.example` to `proxmox-power.env` and
    fill in the secret.
 2. Wake-on-LAN on hades: enable it in the BIOS, then on hades
    `ethtool -s <nic> wol g`, persisted with `post-up ethtool -s <nic> wol g` in

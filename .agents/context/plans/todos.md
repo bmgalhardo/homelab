@@ -49,7 +49,7 @@
   Kustomization healthy, correctly** — the resources were applied as
   declared. Only the Talos layer knew, in one field. Captured as a worked
   example in `plans/argus.md` and added there as a fact probe.
-- **Unblocked 2026-09-26:** `.claude/secrets/omni.env` (Omni service account)
+- **Unblocked 2026-09-26:** `.agents/secrets/omni.env` (Omni service account)
   restored — headless `omnictl` and `talosctl` (via `omnictl talosconfig -c
   elysium`) verified working. The Argus Talos probe can use it. Role is
   **Reader**: it cannot create media presets or sync the cluster template.
@@ -247,7 +247,7 @@
 - **Status (2026-09-08):** `athena` node online (`.196`), stack written
   (`infra/athena/`), not yet deployed. Vault Agent sidecar built here as
   the reusable pattern. Phase 1 = deploy + verify.
-- **Full design, decisions and phase checklist:** `.claude/context/plans/argus.md`
+- **Full design, decisions and phase checklist:** `.agents/context/plans/argus.md`
 - **Benefit:** Directly addresses the "nothing in this stack auto-renews"
   P0 above — it can't fix renewals, but it stops them failing silently
 
@@ -317,7 +317,7 @@
   `system` + `immich` + `ai` deployed. Old hal9000 VMs still **stopped**, not
   destroyed.
 - **Access:** `kubectl` via `~/.kube/config` (Omni OIDC, context
-  `omni-elysium`). `.claude/secrets/omni.env` (restored 2026-09-26) gives headless
+  `omni-elysium`). `.agents/secrets/omni.env` (restored 2026-09-26) gives headless
   `omnictl`; `talosctl`'s Omni-issued key **expires often** —
   re-issue with `omnictl talosconfig -c elysium` before any talosctl work.
   `kubectl` needs the `kubectl-oidc_login` plugin: it must be **int128/kubelogin**
@@ -325,7 +325,7 @@
   (wrong flags → `unknown flag: --oidc-issuer-url`).
 - **Assistant/automation access:** scoped read-only ServiceAccount in
   `kubernetes/20-infra-wiring/rbac-claude.yaml`, kubeconfig via
-  `infra/elysium/make-claude-kubeconfig.sh`. See CLAUDE.md.
+  `infra/elysium/make-claude-kubeconfig.sh`. See AGENTS.md.
 - **Superseded 2026-09-11 status:** cluster synced and up (`omnictl cluster
   template sync`), all 3 machines labeled + matched via
   `infra/elysium/omni/machineclasses.yaml`. Old hal9000 VMs are

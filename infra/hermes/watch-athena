@@ -1,0 +1,39 @@
+#!/bin/sh
+# Ping athena every minute (cron); Telegram after THRESHOLD misses, again on recovery.
+set -u
+
+TARGET=192.168.1.196
+THRESHOLD=5
+STATE=/run/watch-athena
+. /etc/watch-athena.env # TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+send() {
+	text=$(printf '%s' "$1" | sed 's/%/%25/g; s/ /%20/g; s/&/%26/g; s/+/%2B/g')
+	wget -q -T 15 -O /dev/null \
+		--post-data "chat_id=$TELEGRAM_CHAT_ID&text=$text" \
+		"https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" && return
+	logger -t watch-athena "telegram send failed"
+	return 1
+}
+
+misses=$(cat "$STATE/misses" 2>/dev/null || echo 0)
+
+if ping -c 3 -W 2 -q "$TARGET" >/dev/null 2>&1; then
+	if [ -f "$STATE/alerted" ]; then
+		send "hermes: athena is back after ${misses} min unreachable"
+		logger -t watch-athena "athena back after ${misses} min"
+	fi
+	rm -rf "$STATE"
+	exit 0
+fi
+
+mkdir -p "$STATE"
+misses=$((misses + 1))
+echo "$misses" >"$STATE/misses"
+
+if [ "$misses" -ge "$THRESHOLD" ] && [ ! -f "$STATE/alerted" ]; then
+	if send "hermes: athena ($TARGET) unreachable for ${misses} min - monitoring and argus are down"; then
+		logger -t watch-athena "athena unreachable for ${misses} min, alerted"
+		touch "$STATE/alerted"
+	fi
+fi

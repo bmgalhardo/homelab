@@ -20,6 +20,7 @@ was true.
 | Vault | None | — | — | ❌ No backup mechanism exists at all |
 | Immich | Manual | On-demand | Hades NFS | ❌ Not automated |
 | Backup PC | Manual | Manual | External drive | ❌ Manual only |
+| Home Assistant | HA automatic backups → SFTP on Hades | Daily | `hades:/odin/k8s-backups/homeassistant` | 🟡 Designed 2026-10-19, not set up |
 
 ## Implementation Plan
 
@@ -104,6 +105,29 @@ Retention: 30 days
 Monthly sync (true offsite)
 ```
 
+### Home Assistant (k8s, Apollo-pinned)
+
+What needs a backup is only `/config/.storage` (integrations, devices,
+entities, users, dashboards) plus `custom_components/` and `automations.yaml`
+— ~10-20MB. Config is in git; recorder history is on the `postgres` VM
+(covered by `pg_backup`); mosquitto holds nothing that matters.
+
+- **Mechanism:** HA's built-in automatic backups (consistent, one-click
+  restore at onboarding). Daily, keep 7.
+- **Off-node:** HA's `sftp_storage` backup agent → chrooted SFTP-only user
+  `homeassistant` on Hades, dataset `odin/k8s-backups` (200G quota). Setup:
+  `infra/olympus/hosts/README.md` → "k8s backup target". Reusable per client.
+- **Encryption key:** HA encrypts backups; the key lives in Vault
+  `kv/apps/homeassistant` → `backup_encryption_key`. No key, no restore.
+- **Hades is power-managed:** a run while Hades is off fails; expected.
+  Alert on **staleness** of `sensor.backup_last_successful_automatic_backup`
+  (via the athena Prometheus scrape), not on a failed run.
+- **Gaps:** `odin` itself has no snapshots/replication (P0 in todos), so this
+  is copy 2 of 3 until that's fixed.
+- **Restore:** fresh HA (empty PVC) → onboarding "Restore from backup" →
+  upload the `.tar` from Hades + the key. Then the config ConfigMaps take
+  over `configuration.yaml`/`packages/` as usual.
+
 ## Disaster Recovery Scenarios
 
 | Scenario | RTO | RPO | Recovery |
@@ -161,6 +185,7 @@ Monthly sync (true offsite)
 | Postgres | 7 days | 30 days | Monthly rotation |
 | Vault | 7 days | 30 days | Monthly rotation |
 | Immich | 7 days (ZFS) | 30 days | Monthly rotation |
+| Home Assistant | — | 7 days (Hades SFTP) | — |
 
 ## Testing Restore Procedures
 
@@ -173,6 +198,7 @@ Monthly sync (true offsite)
 - [ ] Restore Vault from backup PC backup
 - [ ] Restore Immich photos from ZFS snapshot
 - [ ] Restore Immich photos from backup PC backup
+- [ ] Restore Home Assistant from the Hades SFTP backup into an empty PVC
 - [ ] Document time required for each restore
 
 ## Backup Monitoring

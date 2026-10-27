@@ -73,8 +73,8 @@
 ### Athena (monitoring node — online 2026-09-08)
 
 - **Device:** Raspberry Pi 4, **4GB**, arm64 (eth0 MAC `2C:CF:67:64:2C:1D`)
-- **OS/disk:** Alpine 3.24, kernel 6.18-rpi, on a **120GB KingSpec SATA
-  SSD** (`/dev/sda`, `SHFS37A120G`) — persistent `sys` install, boots
+- **OS/disk:** Alpine 3.24, kernel 6.18-rpi, on a **120GB Kingston SATA
+  SSD** (`/dev/sda`, `SHFS37A120G`, HyperX Fury) — persistent `sys` install, boots
   from the SSD, no SD card in play
 - **USB boot is fragile.** SSD on a USB3/UAS adapter (`14b0:0206`). On
   2026-10-01 a reboot hung in the bootloader (`MSD cmd timeout … FAT read
@@ -84,13 +84,24 @@
   (USB-MSD → SD → restart, retries on its own). Applied by self-update —
   no SD card: `pieeprom.upd` (built with `rpi-eeprom-config`) + `pieeprom.sig`
   (sha256 + `ts:`) in `/boot`, reboot, delete both. `vcgencmd` via
-  `raspberrypi-utils`; Alpine has no `rpi-eeprom-update`. If it recurs:
-  USB 2.0 port, then a powered adapter
+  `raspberrypi-utils`; Alpine has no `rpi-eeprom-update`.
+- **Recurred 2026-10-25** after a mains outage (~19:08; apollo/hermes back
+  19:11). Bootloader read the MBR and FAT header (`Trying partition: 0 type:
+  32 lba: 2048 'mkfs.fat' 'NO NAME'`) then stalled — down ~19h, unnoticed
+  (all monitoring lives on athena). 1st cold cycle hung again, 2nd booted
+  with no repair, so not FS corruption (fsck only cleared the FAT dirty
+  bit; ext4 journal replay; syslog tail lost as NULs). The `f` in
+  `BOOT_ORDER` can't help: a stall is not a failure, so no retry.
+  Likely: bootloader USB-MSD vs this adapter/SSD, worse after unsafe
+  power-off (inference, unproven). **Plan:** boot from SD (SanDisk, `/boot`
+  copy, mounted `ro`), root stays on the SSD by UUID, `BOOT_ORDER=0xf41`;
+  sync the SSD's `sda1` after kernel upgrades so the USB fallback isn't stale.
+  Detection: `watch-athena` on hermes (Telegram after 5 missed pings)
 - **Kernel cmdline:** `infra/athena/boot/cmdline.txt` (`cgroup_enable=memory`)
 - **IP:** `192.168.1.196` (DHCP → pin in UniFi)
 - **Role:** Monitoring stack — Loki + Prometheus + Grafana + Alloy + Vault
   Agent + (later) the argus agent. Independent of the Proxmox cluster on
-  purpose. See `.claude/context/plans/argus.md`.
+  purpose. See `.agents/context/plans/argus.md`.
 - **Power:** ~5W
 
 ## Spare Hardware

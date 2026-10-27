@@ -23,7 +23,10 @@ infra/**/vault-agent/ca.crt
 infra/**/vault-agent/.vault-token
 infra/**/vault-agent/pidfile
 
-# local credentials for Claude Code's own use (not a VM secret)
+# local credentials shared by Claude Code and Codex (not a VM secret)
+.agents/secrets/*
+!.agents/secrets/*.example
+!.agents/secrets/.gitkeep
 .claude/secrets/*
 !.claude/secrets/*.example
 !.claude/secrets/.gitkeep

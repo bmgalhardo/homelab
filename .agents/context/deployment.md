@@ -73,7 +73,7 @@ ssh root@192.168.1.196        # athena
 
 A new workstation has no SSH access until its key is authorized. k8s
 (scoped kubeconfig) and the Proxmox API (`claude-readonly` token) need no
-SSH — see CLAUDE.md and network.md.
+SSH — see AGENTS.md and network.md.
 
 ### Deploy / Update a Service
 
@@ -145,7 +145,7 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   `terraform.tfstate*` are gitignored. **State is drifted — see
   `plans/todos.md` "Full VM Provisioning" before running it.**
 - `infra/elysium/terraform/` — Talos k8s cluster VMs. Same pattern.
-- **A new workstation needs more than `.claude/secrets/`** to run Terraform:
+- **A new workstation needs more than `.agents/secrets/`** to run Terraform:
   `terraform.tfvars` (copy `terraform.tfvars.example`; a Proxmox token with
   VM-create rights, not `claude-readonly`) and the matching
   `terraform.tfstate`, per stack. Copy both from the workstation that last
@@ -158,7 +158,7 @@ enabled with a trivial password, in addition to SSH keys. Flagged in
 
 ## Certificate Management
 
-See `.claude/context/network.md` — Vault PKI (`pki_infra`), issued
+See `.agents/context/network.md` — Vault PKI (`pki_infra`), issued
 per-service, no auto-renewal yet.
 
 ## Known Issues (as of 2026-08-21 migration)

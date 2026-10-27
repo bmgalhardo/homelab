@@ -168,3 +168,25 @@ devices:
       - *active_power
       - *active_energy
       - *frequency
+  - id: shelly_hades
+    manufacturer: Shelly
+    model: S3PL-30110EU
+    name: Hades Plug
+    mac_addr: 08:92:72:49:4F:98
+    origin: native_mqtt
+    state_topic: devices/shelly_hades/status/switch:0
+    components:
+      - name: Outlet
+        platform: switch
+        device_class: outlet
+        command_topic: devices/shelly_hades/command/switch:0
+        payload_on: "on"
+        payload_off: "off"
+        state_on: "true"
+        state_off: "false"
+        value_template: "{{ value_json.output | lower }}"
+      - *voltage
+      - *current
+      - *active_power
+      - *active_energy
+      - *frequency

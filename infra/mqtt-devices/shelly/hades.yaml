@@ -1,0 +1,16 @@
+host: 192.168.3.113
+id: shellyplugmg3-089272494f98
+config:
+  Sys:
+    device:
+      name: Hades Plug
+  Mqtt:
+    enable: true
+    server: 192.168.1.202
+    topic_prefix: devices/shelly_hades
+    status_ntf: true
+    rpc_ntf: false
+    enable_rpc: false
+    enable_control: true
+  Switch:0:
+    initial_state: restore_last

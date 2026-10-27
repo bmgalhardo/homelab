@@ -55,11 +55,13 @@ def drift(want: dict, have: dict, path: str = "") -> list[str]:
 def sync_config(dev: Shelly, sections: dict, apply: bool) -> bool:
     restart = False
     for section, want in sections.items():
-        changes = drift(want, dev.call(f"{section}.GetConfig"))
+        name, _, cid = section.partition(":")
+        ids = {"id": int(cid)} if cid else {}
+        changes = drift(want, dev.call(f"{name}.GetConfig", **ids))
         for change in changes:
             print(f"  {section}.{change}")
         if changes and apply:
-            restart |= dev.call(f"{section}.SetConfig", config=want).get("restart_required", False)
+            restart |= dev.call(f"{name}.SetConfig", config=want, **ids).get("restart_required", False)
     return restart
 
 

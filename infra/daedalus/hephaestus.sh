@@ -5,13 +5,13 @@
 #   ./hephaestus.sh down     # graceful shutdown (hades stays on)
 #   ./hephaestus.sh status
 #
-# Config: $ENV_FILE (default .claude/secrets/proxmox-power.env, see the
+# Config: $ENV_FILE (default .agents/secrets/proxmox-power.env, see the
 # .example next to it). Hades itself is not powered off by this script.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ENV_FILE="${ENV_FILE:-$REPO_ROOT/.claude/secrets/proxmox-power.env}"
+ENV_FILE="${ENV_FILE:-$REPO_ROOT/.agents/secrets/proxmox-power.env}"
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 

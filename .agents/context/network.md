@@ -23,6 +23,7 @@
 | mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
+| games.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `system` | Game builds, docs, review boards |
 | prometheus / grafana | athena `:9090` / `:3000` | athena | Metrics, dashboards |
 
 ## DNS (dnsmasq on Hermes) — resolution only; **DHCP is the UDM Pro**
@@ -137,7 +138,7 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 - **Version confirmed 2026-08-21:** PVE 9.2.3, both nodes (`apollo`,
   `hades`) online
 - **`claude@pve!claude-readonly` token — working as of 2026-08-25.**
-  Secret lives in `.claude/secrets/proxmox.env` (gitignored, not this
+  Secret lives in `.agents/secrets/proxmox.env` (gitignored, not this
   file — see repo root `.gitignore`).
   **Token-scoped ACLs don't work on this cluster** (privsep=1 tokens resolved
   to no permissions through PVE 9.2.11): use `--privsep 0` and grant the role
@@ -145,7 +146,7 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 - **`daedalus@pve!power` token** — start/stop VMs for daedalus. Role
   `VMPower` (`VM.PowerMgmt VM.Audit Sys.Audit Mapping.Use`) on the user,
   privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Secret
-  in `.claude/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
+  in `.agents/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
   hades is woken by WoL from daedalus, never shut down by it.
 - **SSH access to the Proxmox hosts themselves** — no jump host since
   2026-09-26 (`manager` deleted 2026-09-14, hermes no longer holds keys).

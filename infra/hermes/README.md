@@ -2,12 +2,13 @@
 
 Raspberry Pi **1** Model B+ (ARMv6, 512 MB, single core), Alpine **diskless**
 (`lbu`, boot media `mmcblk0p1`). Deliberately independent of the Proxmox
-cluster — DNS survives a cluster outage. See `.claude/context/network.md`.
+cluster — DNS survives a cluster outage. See `.agents/context/network.md`.
 
 - **IP:** `192.168.1.199` static
 - **Runs:** `dnsmasq` (DNS only — DHCP is the UDM Pro), `haproxy` (TLS-SNI
   router, metrics on `:8405/metrics`), `node-exporter` (`:9100`), plus
-  `sshd` / `ntpd` / `crond`.
+  `sshd` / `ntpd` / `crond`, and `watch-athena` (cron, every minute: Telegram
+  alert when athena misses 5 pings in a row, and again when it's back).
   Logs (syslog + HAProxy) ship to athena `:1515`
 - **Packages:** `world` (7 explicit — ARMv6 needs busybox-native or
   built-from-source; no Docker, no Alloy)
@@ -20,6 +21,9 @@ cluster — DNS survives a cluster outage. See `.claude/context/network.md`.
 | `world` | `/etc/apk/world` |
 | `repositories` | `/etc/apk/repositories` — community enabled for `prometheus-node-exporter` |
 | `syslog` | `/etc/conf.d/syslog` — busybox syslogd keeps local + forwards to athena:1515 |
+| `crontab` | `/etc/crontabs/root` |
+| `watch-athena` | `/usr/local/bin/watch-athena` (mode 755, `lbu include`d) |
+| — | `/etc/watch-athena.env` (mode 600, not in git) — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (same as argus) |
 
 
 ## Deploy a change
@@ -35,6 +39,20 @@ ssh root@192.168.1.199 '
   rc-service haproxy restart &&
   rc-service syslog restart &&
   lbu commit                                   # <-- REQUIRED or a reboot reverts it
+'
+```
+
+First install of `watch-athena`:
+
+```sh
+scp infra/hermes/watch-athena root@192.168.1.199:/usr/local/bin/watch-athena
+scp infra/hermes/crontab      root@192.168.1.199:/etc/crontabs/root
+grep -E '^TELEGRAM_(BOT_TOKEN|CHAT_ID)=' argus/.env |
+  ssh root@192.168.1.199 'umask 077; cat > /etc/watch-athena.env'
+ssh root@192.168.1.199 '
+  chmod 755 /usr/local/bin/watch-athena &&
+  lbu include /usr/local/bin/watch-athena &&
+  lbu commit
 '
 ```
 
@@ -66,7 +84,8 @@ rc-service haproxy restart && lbu commit
 5. `rc-update add dnsmasq default; rc-update add haproxy default;
    rc-update add sshd default; rc-update add ntpd default;
    rc-update add crond default; rc-update add node-exporter default`
-6. Start them, then `lbu commit`.
+6. Install `watch-athena` (above).
+7. Start them, then `lbu commit`.
 
 ## Backup
 

@@ -47,7 +47,7 @@ compactor:
   delete_request_store: filesystem
 
 limits_config:
-  retention_period: 2160h          # 90d — see .claude/context/plans/argus.md "Open Questions" (storage is cheap, could go longer)
+  retention_period: 2160h          # 90d — see .agents/context/plans/argus.md "Open Questions" (storage is cheap, could go longer)
   ingestion_rate_mb: 8
   ingestion_burst_size_mb: 16
   reject_old_samples: true

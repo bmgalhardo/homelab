@@ -56,7 +56,7 @@ file mtimes, disk %, pod readiness. That's where the real incidents live.
 | Scope | All infra + all k8s apps; **metrics in scope** | Proxmox, VMs, Hermes, UDM, app-level (Immich, HA, Plex, …). Prometheus is in the athena stack; k8s + GPU + AI metrics are Phase 2a |
 | Secrets + certs on `athena` | **Vault Agent sidecar** (AppRole) — first implementation, template for every other VM/node | Olympus VMs have no Vault auth today (plaintext `.env`). `infra/athena/vault-agent/` is the reference; unblocks the P3 "rotate all secrets" item. See `deployment.md` |
 | Judgment LLM | Claude API | See LLM Split below |
-| Code location | This repo | `.claude/context/*.md` is the agent's ground truth for "what normal looks like" |
+| Code location | This repo | `.agents/context/*.md` is the agent's ground truth for "what normal looks like" |
 | Buy a GPU for local judgment | **No — deferred 2026-09-07** | ~€26/yr of API vs €400-700 capex + ~€200/yr power. Revisit only if a GPU is bought for the whole AI/media stack; see analysis below. The existing 750 Ti goes to the AI POC (2026-09-26, `ai-poc.md`), not to Argus |
 | k8s `monitoring/loki` + `grafana` manifests | Delete once the athena stack serves | Agreed 2026-09-07. Keep `alloy/` — it becomes the k8s shipper |
 | Per-guest RAM as an Argus signal | Fact probe via **PVE RRD**, not a metrics exporter | `/nodes/*/{qemu,lxc}/*/rrddata` returns day/week/month history for free; only k8s pod-level usage needs the metrics API |
@@ -77,7 +77,7 @@ Four stages. Only 2b (Haiku triage) and 3 (judgment) use an LLM.
     └─ 2b triage (Haiku): merge near-dupes, label boring/notable/unsure
                           ↓  ~50-300 candidates → a few dozen
 [3] JUDGE    (one Opus/Sonnet call)
-    ├─ in:  candidates + digest of .claude/context/*.md + open incidents
+    ├─ in:  candidates + digest of .agents/context/*.md + open incidents
     └─ out: schema-validated JSON (pydantic)
                           ↓
 [4] EMIT
@@ -136,7 +136,7 @@ to solve. So:
 **The report is a diff against yesterday, not a summary of today.** A quiet
 day is one line: `✅ 04:00 — nothing new. 3 open (see logbook).`
 
-Feeding the model `.claude/context/*.md` matters: Hades being unreachable at
+Feeding the model `.agents/context/*.md` matters: Hades being unreachable at
 04:00 is power management, not an incident, and only the context files know
 that.
 
@@ -186,7 +186,7 @@ and `alloy/config.alloy` only accepts RFC5424 on 1514.
 | Vault health / seal | change | blackbox on `/v1/sys/health` (503 = sealed), continuous | none | Unauthenticated over 443 (8200 is closed) |
 | Vault PKI leaf inventory | **drop** | — | — | `pki_infra/certs` accumulates superseded leaves (athena reissues every ~60 days) → noise; TLS probes cover what is served. Keep a one-off intermediate CA expiry check |
 | k8s workload health | extend | k8s API | **new `automation/argus` SA**, same ClusterRole as `claude` | Pod readiness/restarts, PVC phase, **Flux Kustomization/HelmRelease Ready, cert-manager Certificate Ready, VSO `SecretSynced`, Node conditions, Gateway/HTTPRoute Accepted** — RBAC verified for all. Key VSO on `SecretSynced`, not `Ready`. Separate SA: independent revocation, and it lives on a box running an LLM over untrusted logs |
-| Talos volume health | keep | `talosctl get volumestatus` via Omni | Omni SA, **Reader** role (`.claude/secrets/omni.env`, restored + verified 09-16) | The only layer that reports a cause (`spec.errorMessage`) |
+| Talos volume health | keep | `talosctl get volumestatus` via Omni | Omni SA, **Reader** role (`.agents/secrets/omni.env`, restored + verified 09-16) | The only layer that reports a cause (`spec.errorMessage`) |
 | Omni SA key expiry | **add** | PGP subkey expiry inside the key — no API call | none | Current key expires **2027-09-15** (1y). plans/todos.md incident #2, on a schedule |
 | Pod/container memory | change | kubelet cAdvisor + kube-state-metrics via in-cluster Alloy → `remote_write` | in-cluster | metrics-server is **not installed** (`metrics.k8s.io` empty 09-16). Also avoids the Talos kubelet-serving-cert setup metrics-server needs |
 | Cluster quorum | change | Proxmox API `/cluster/status` (quorate) + `/cluster/config/qdevice` (State, last vote) | `claude@pve!claude-readonly` | Verified — removes the `pvecm status` SSH need |

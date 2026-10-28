@@ -62,6 +62,10 @@
 `power=always-on`), `talos-7bu-8ma` (`homelab/node=hades`, `power=managed`), `talos-pcf-vwh`
 (VM 1103 `elysium-hades-gpu`, `homelab/gpu=nvidia`, on Hades, power-managed;
 off → node NotReady, `ollama-gpu` and its DaemonSet pods Pending — expected).
+The `ai` and `immich` namespaces are pinned to Hades (`homelab/node: hades`
+in their kustomizations): Hades off → those pods Pending and their probes
+failing (503) — expected, not an outage. Hades doesn't power back on by
+itself after a mains outage.
 Reconciled by Flux in three tiers — see `kubernetes/flux/README.md`.
 Verified 2026-09-16 with the scoped kubeconfig.
 

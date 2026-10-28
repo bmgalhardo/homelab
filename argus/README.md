@@ -27,24 +27,25 @@ docker compose run --rm argus --dry-run
 
 ## athena
 
-CI (`.github/workflows/argus.yml`) builds `ghcr.io/bmgalhardo/argus` for
-amd64 + arm64 on every push to `main` that touches `argus/`, tagged with the
-`pyproject.toml` version and the commit SHA. Bump the version with every code
-change (`uv version --bump patch`) and set the same tag in
-`docker-compose.yml`; CI refuses to republish an existing version.
+The image is built on athena. Bump the version with every code change
+(`uv version --bump patch`) and set the same tag in `docker-compose.yml`.
 `docker-compose.yml` mounts `../.agents/context` and `../infra/ca`, so mirror
-the repo layout under `/root`. From the repo root:
+the repo layout under `/root`. From the repo root (`argus/.env` only on the
+first install; athena keeps its own):
 
 ```sh
 ssh root@192.168.1.196 'mkdir -p /root/argus /root/.agents /root/infra/ca'
-scp argus/docker-compose.yml argus/.env root@192.168.1.196:/root/argus/
+tar -C argus --exclude=.env --exclude=.venv --exclude=__pycache__ \
+    --exclude=.pytest_cache --exclude=.ruff_cache -cf - . |
+  ssh root@192.168.1.196 'rm -rf /root/argus/src && tar -C /root/argus -xf -'
+scp argus/.env root@192.168.1.196:/root/argus/
 scp -r .agents/context root@192.168.1.196:/root/.agents/
 scp infra/ca/root-ca.crt root@192.168.1.196:/root/infra/ca/
-ssh root@192.168.1.196 'cd /root/argus && docker compose run --rm argus --dry-run'
+ssh root@192.168.1.196 'cd /root/argus && docker compose build && docker compose run --rm argus --dry-run'
 ```
 
-Re-run the context `scp` after editing the docs. To upgrade, copy the
-`docker-compose.yml` with the new tag; the next run pulls it.
+Re-run the context `scp` after editing the docs. To upgrade, repeat the
+copy and `docker compose build`.
 
 Schedule it in root's crontab (`crontab -e`):
 

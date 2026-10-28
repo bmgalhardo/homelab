@@ -1,7 +1,7 @@
 services:
   argus:
     build: .
-    image: ghcr.io/bmgalhardo/argus:0.2.0
+    image: ghcr.io/bmgalhardo/argus:0.2.1
     env_file:
       - path: .env
       - path: ../athena/secrets/argus.env
@@ -10,6 +10,6 @@ services:
       CONTEXT_DIR: /context
       CA_FILE: /ca/root-ca.crt
     volumes:
-      - ../.claude/context:/context:ro
+      - ../.agents/context:/context:ro
       - ../infra/ca/root-ca.crt:/ca/root-ca.crt:ro
       - /etc/localtime:/etc/localtime:ro

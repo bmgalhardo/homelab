@@ -32,13 +32,13 @@ amd64 + arm64 on every push to `main` that touches `argus/`, tagged with the
 `pyproject.toml` version and the commit SHA. Bump the version with every code
 change (`uv version --bump patch`) and set the same tag in
 `docker-compose.yml`; CI refuses to republish an existing version.
-`docker-compose.yml` mounts `../.claude/context` and `../infra/ca`, so mirror
+`docker-compose.yml` mounts `../.agents/context` and `../infra/ca`, so mirror
 the repo layout under `/root`. From the repo root:
 
 ```sh
-ssh root@192.168.1.196 'mkdir -p /root/argus /root/.claude /root/infra/ca'
+ssh root@192.168.1.196 'mkdir -p /root/argus /root/.agents /root/infra/ca'
 scp argus/docker-compose.yml argus/.env root@192.168.1.196:/root/argus/
-scp -r .claude/context root@192.168.1.196:/root/.claude/
+scp -r .agents/context root@192.168.1.196:/root/.agents/
 scp infra/ca/root-ca.crt root@192.168.1.196:/root/infra/ca/
 ssh root@192.168.1.196 'cd /root/argus && docker compose run --rm argus --dry-run'
 ```

@@ -21,7 +21,7 @@ KEYFILE="${KEYFILE:-$HOME/.ssh/id_ed25519.pub}"
 MODE="${1:-apply}"
 
 # ── the fleet ───────────────────────────────────────────────────────────────
-# Kept in sync with .claude/context/network.md. root-login Linux hosts only.
+# Kept in sync with .agents/context/network.md. root-login Linux hosts only.
 #
 # Deliberately absent:
 #   192.168.1.180  k8s control plane — Talos runs no sshd (connection

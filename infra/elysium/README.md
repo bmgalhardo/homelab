@@ -86,7 +86,7 @@ scp elysium-nvidia*.iso root@hades.bgalhardo.internal:/var/lib/vz/template/iso/
 ### 3. Build the VMs
 Needs `terraform/terraform.tfvars` with a Proxmox token that can create VMs
 (copy `terraform.tfvars.example`) and the `terraform.tfstate` — both
-gitignored, neither in `.claude/secrets/`. The read-only `claude-readonly`
+gitignored, neither in `.agents/secrets/`. The read-only `claude-readonly`
 token cannot apply.
 ```sh
 cd infra/elysium/terraform

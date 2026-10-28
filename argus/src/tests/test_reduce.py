@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from app.models import LogCluster, LogLine
-from app.reduce import cluster_logs, normalize, select
+from app.reduce import clip, cluster_logs, normalize, select
 
 T0 = datetime(2026, 10, 2, 4, 0, tzinfo=UTC)
 
@@ -14,6 +14,20 @@ def test_normalize_strips_volatile_tokens():
     a = normalize("E1002 08:58:28.530252 1 x.go:71] dial 10.0.0.5:443 id=3f2a9c1e7b timeout")
     b = normalize("E1002 09:12:01.000001 1 x.go:71] dial 10.0.0.9:443 id=aa11bb22cc timeout")
     assert a == b
+
+
+def test_clip_keeps_the_tail_of_long_lines():
+    avc = (
+        'type=AVC msg=audit(1792893600.043:1357): avc:  denied  { write } for  pid=2009 '
+        'comm="libuv-worker" name="backups" dev="virtiofs" ino=43048 '
+        "scontext=system_u:system_r:pod_t:s0 tcontext=system_u:object_r:vmblock_fs_t:s0 "
+        "tclass=dir permissive=1"
+    )
+    clipped = clip(avc, 200)
+    assert len(clipped) == 200
+    assert clipped.startswith("type=AVC")
+    assert clipped.endswith("permissive=1")
+    assert clip("short") == "short"
 
 
 def test_cluster_logs_groups_by_stream_and_fingerprint():

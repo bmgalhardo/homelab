@@ -30,6 +30,14 @@ def normalize(line: str) -> str:
     return " ".join(line.split())[:400]
 
 
+def clip(line: str, limit: int = 300) -> str:
+    """Keep both ends: audit and kernel lines put the verdict at the tail."""
+    if len(line) <= limit:
+        return line
+    tail = limit // 3
+    return f"{line[: limit - tail - 3]} … {line[-tail:]}"
+
+
 def stream_key(labels: dict[str, str]) -> str:
     return " ".join(f"{k}={labels[k]}" for k in STREAM_LABELS if labels.get(k))
 
@@ -46,7 +54,7 @@ def cluster_logs(lines: list[LogLine]) -> list[LogCluster]:
             count=len(members),
             first_seen=min(m.timestamp for m in members),
             last_seen=max(m.timestamp for m in members),
-            sample=max(members, key=lambda m: m.timestamp).line[:200],
+            sample=clip(max(members, key=lambda m: m.timestamp).line),
         )
         for (stream, normalized), members in groups.items()
     ]

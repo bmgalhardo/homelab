@@ -91,7 +91,7 @@ def unjudged_report(
             status="new",
             since=today,
             title=f"{c.count}× {c.stream}",
-            detail=c.sample[:200],
+            detail=c.sample,
             evidence=["loki"],
         )
         for c in clusters[:5]

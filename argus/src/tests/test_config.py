@@ -26,11 +26,11 @@ def test_log_level_defaults_to_info(required_env):
 
 
 def test_relative_paths_resolve_against_argus_dir(required_env, monkeypatch):
-    monkeypatch.setenv("CONTEXT_DIR", "../.claude/context")
+    monkeypatch.setenv("CONTEXT_DIR", "../.agents/context")
     monkeypatch.setenv("CA_FILE", "/ca/root-ca.crt")
     settings = Settings(_env_file=None)
 
-    assert settings.context_dir == ARGUS_DIR / "../.claude/context"
+    assert settings.context_dir == ARGUS_DIR / "../.agents/context"
     assert settings.ca_file == Path("/ca/root-ca.crt")
 
 

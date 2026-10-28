@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a scoped, read-only kubeconfig for Claude Code (or any automation),
+# Builds a scoped, read-only kubeconfig for Claude Code, Codex, or other automation,
 # so it never uses the human cluster-admin context.
 #
 # The identity itself is declared in kubernetes/20-infra-wiring/rbac-claude.yaml
@@ -8,14 +8,14 @@
 # Run as a subprocess, never `source` it: set -e in a sourced script kills your
 # shell. Requires an admin kubeconfig (yours) to read the token Secret once.
 #
-# Output is gitignored (.claude/secrets/*).
+# Output is gitignored (.agents/secrets/*).
 
 set -euo pipefail
 
 NS=automation
 SA=claude
 SECRET=claude-token
-OUT="$(git rev-parse --show-toplevel)/.claude/secrets/kube-claude.yaml"
+OUT="$(git rev-parse --show-toplevel)/.agents/secrets/kube-claude.yaml"
 SERVER="${SERVER:-https://192.168.1.180:6443}"   # the control-plane VIP
 
 command -v kubectl >/dev/null || { echo "kubectl not found" >&2; exit 1; }

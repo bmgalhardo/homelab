@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 PGHOST=postgres
 PGUSER=postgres
@@ -17,10 +17,18 @@ mkdir -p $DAILY_DIR $WEEKLY_DIR $MONTHLY_DIR
 
 echo "[INFO] Starting full PostgreSQL instance backup"
 
+for _ in $(seq 60); do
+  pg_isready -q -h $PGHOST -U $PGUSER && break
+  sleep 10
+done
+
 # Daily full backup (all databases)
 DAILY_FILE=$DAILY_DIR/all_pg_daily_${TODAY}.sql.gz
-pg_dumpall -h $PGHOST -U $PGUSER | gzip > $DAILY_FILE
-echo "[INFO] Daily backup created: $DAILY_FILE"
+TMP_FILE=$DAILY_FILE.partial
+trap 'rm -f "$TMP_FILE"; echo "[ERROR] Backup failed, nothing rotated" >&2' ERR
+pg_dumpall -h $PGHOST -U $PGUSER | gzip > $TMP_FILE
+mv $TMP_FILE $DAILY_FILE
+echo "[INFO] Daily backup created: $DAILY_FILE ($(du -h $DAILY_FILE | cut -f1))"
 
 # Weekly backup (Sunday)
 if [ "$(date +%u)" -eq 7 ]; then

@@ -6,7 +6,7 @@ Two classes, and the distinction matters for backups:
 
 | class | backing | used for | survives node loss? |
 |-------|---------|----------|---------------------|
-| **virtiofs** (static PVs) | Hades disks, `elysium-hades` **only** | media + photos: `series`, `movies`, `downloads`, `photos`, `immich-cache` | yes — lives on Hades |
+| **virtiofs** (static PVs) | host disks, node-bound: Hades → `elysium-hades`, Apollo → `elysium-apollo` | Hades: `series`, `movies`, `downloads`. Apollo: `immich` | yes — lives on the host |
 | **local-path** | per-node data disk (`scsi1`), Talos user volume at `/var/mnt/local-path` | every other PVC | **no — treat as volatile** |
 
 - **NFS is retired.** Hades' NFS server was turned off at the rebuild;
@@ -14,8 +14,8 @@ Two classes, and the distinction matters for backups:
   (`kubernetes/20-infra-wiring/virtiofs-pvs.yaml`).
 - **`series` runs full by design.** Hades `/mnt/series` (`sdc`, XFS) at
   ~100% is accepted, not actionable — the owner won't act on it.
-- **virtiofs is node-bound.** Those volumes exist only on `elysium-hades`, so
-  any pod using them pins there. A pod on Apollo cannot mount them — which is
+- **virtiofs is node-bound.** Each share exists only on its host's worker, so
+  any pod using it pins there. A pod on Apollo cannot mount them — which is
   why an Apollo local-path PVC cannot be backed up to Hades storage by any
   single pod. See plans/todos.md.
 - **local-path is a plain node-local directory.** No replication. Node lost =
@@ -65,20 +65,21 @@ plans/todos.md.
 |---------|--------|-----------|--------|
 | Postgres | Daily dump | 2AM | ✅ Running (local disk only, not offsite) |
 | Vault | None | — | ❌ No backup mechanism exists at all — see plans/todos.md |
-| Immich | Manual | On-demand | ❌ Not automated |
+| Immich library | Hades `photos-mirror` pulls apollo `/mnt/immich` → `/odin/photos` | boot + 03:00 | ✅ 2026-11-03 (needs Hades up) |
+| `odin/photos` | sanoid snapshots 7d/4w/6m | sanoid.timer | ✅ 2026-11-03 |
 | Backup PC sync | Manual | Manual | ❌ Not automated |
 
 ## Known Issues
 
-⚠️ **`odin` has effectively one copy** — one snapshot (2025-12-03), no
-   sanoid/syncoid, no replication cron. `odin/backups` (40G, incl. personal
+⚠️ **`odin` has effectively one copy** — `odin/photos` has sanoid snapshots
+   since 2026-11-03, but no syncoid/replication off the box. `odin/backups` (40G, incl. personal
    archives) has *never* been snapshotted. The mirror is redundancy, not
    backup. **P0 in plans/todos.md** — verified on-host 2026-09-15.
 ⚠️ **local-path PVCs are unbacked** — llama.cpp models, Home Assistant `/config`,
    mosquitto data
-⚠️ **No automated Immich backup** — Manual until rsync setup
 ⚠️ **Backup PC power strategy** — Always-on vs WoL (pending decision)
-⚠️ **ZFS snapshots** — confirmed NOT running (checked 2026-09-15)
+⚠️ **ZFS snapshots** — `odin/photos` via sanoid since 2026-11-03;
+   `odin/backups` still none
 ⚠️ **External drive offsite** — No true offsite (pending location)
 
 Targets and plan: `plans/backup-strategy.md`.

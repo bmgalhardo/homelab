@@ -62,8 +62,9 @@
 `power=always-on`), `talos-7bu-8ma` (`homelab/node=hades`, `power=managed`), `talos-pcf-vwh`
 (VM 1103 `elysium-hades-gpu`, `homelab/gpu=nvidia`, on Hades, power-managed;
 off → node NotReady, `ollama-gpu` and its DaemonSet pods Pending — expected).
-The `ai` and `immich` namespaces are pinned to Hades (`homelab/node: hades`
-in their kustomizations): Hades off → those pods Pending and their probes
+The `ai` namespace and `immich-ml` are pinned to Hades (`homelab/node: hades`
+in their kustomizations); `immich-server` is pinned to Apollo. Hades off →
+the Hades pods Pending (Immich keeps serving, smart search/faces pause) and their probes
 failing (503) — expected, not an outage. Hades doesn't power back on by
 itself after a mains outage.
 Reconciled by Flux in three tiers — see `kubernetes/flux/README.md`.
@@ -84,8 +85,11 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 - Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
 ### immich — running
-`immich-server` + `immich-ml`. Photos/cache on virtiofs (Hades); the DB lives
-on the `postgres` VM and is covered by its `pg_backup` sidecar.
+`immich-server` on Apollo, library + thumbs/encoded-video on virtiofs `immich`
+(Apollo host `/mnt/immich`, LV `pve/immich`). `immich-ml` on Hades, model
+cache on `local-path`. Hades `photos-mirror` pulls the library into
+`/odin/photos` (see storage.md). The DB lives on the `postgres` VM and is
+covered by its `pg_backup` sidecar (local disk only).
 
 ### ai — running
 `llama-cpp` (CPU, chat + embed containers), `llama-cpp-gpu` (GPU node,

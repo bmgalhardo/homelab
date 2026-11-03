@@ -212,7 +212,7 @@
   only copy.
 
 
-### Immich → Apollo (planned 2026-11-02, manifests written 2026-11-03)
+### Immich → Apollo (done 2026-11-03)
 - **Why:** Hades is power-managed, so Immich is down whenever Hades is off.
 - **Sizes (measured 2026-11-03):** `/odin/photos` 94G, `/odin/immich-cache`
   21G. Apollo `local-lvm` thin pool ~595 GiB free, +258G once the hal9000 VMs

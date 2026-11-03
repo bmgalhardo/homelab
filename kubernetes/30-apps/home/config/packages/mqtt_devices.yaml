@@ -408,6 +408,67 @@ mqtt:
     device:
       identifiers:
       - shelly_hades
+  - name: Voltage
+    unique_id: shelly_apollo_voltage
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.voltage }}'
+    device_class: voltage
+    icon: mdi:sine-wave
+    state_class: measurement
+    unit_of_measurement: V
+    suggested_display_precision: 1
+    device:
+      identifiers:
+      - shelly_apollo
+  - name: Current
+    unique_id: shelly_apollo_current
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.current }}'
+    device_class: current
+    icon: mdi:current-ac
+    state_class: measurement
+    unit_of_measurement: A
+    suggested_display_precision: 3
+    device:
+      identifiers:
+      - shelly_apollo
+  - name: Active Power
+    unique_id: shelly_apollo_active-power
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.apower }}'
+    device_class: power
+    icon: mdi:flash
+    state_class: measurement
+    unit_of_measurement: W
+    suggested_display_precision: 1
+    device:
+      identifiers:
+      - shelly_apollo
+  - name: Active Energy
+    unique_id: shelly_apollo_active-energy
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.aenergy.total }}'
+    device_class: energy
+    icon: mdi:lightning-bolt
+    entity_category: diagnostic
+    state_class: total
+    unit_of_measurement: Wh
+    suggested_display_precision: 0
+    device:
+      identifiers:
+      - shelly_apollo
+  - name: Frequency
+    unique_id: shelly_apollo_frequency
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.freq }}'
+    device_class: frequency
+    icon: mdi:sine-wave
+    state_class: measurement
+    unit_of_measurement: Hz
+    suggested_display_precision: 1
+    device:
+      identifiers:
+      - shelly_apollo
   binary_sensor:
   - name: State
     unique_id: shelly_dw_state
@@ -505,3 +566,22 @@ mqtt:
       connections:
       - - mac
         - 08:92:72:49:4F:98
+  - name: Outlet
+    unique_id: shelly_apollo_outlet
+    state_topic: devices/shelly_apollo/status/switch:0
+    value_template: '{{ value_json.output | lower }}'
+    device_class: outlet
+    command_topic: devices/shelly_apollo/command/switch:0
+    payload_on: 'on'
+    payload_off: 'off'
+    state_on: 'true'
+    state_off: 'false'
+    device:
+      identifiers:
+      - shelly_apollo
+      name: Apollo Plug
+      manufacturer: Shelly
+      model: S3PL-30110EU
+      connections:
+      - - mac
+        - 08:92:72:4A:BF:44

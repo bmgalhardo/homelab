@@ -4,7 +4,8 @@
 #   series    <- PVE dir-mapping `series`    -> /mnt/series/Series   (sdc, XFS)
 #   movies    <- PVE dir-mapping `movies`    -> /mnt/movies/Movies   (sdd, XFS)
 #   downloads <- PVE dir-mapping `downloads` -> /mnt/movies/Downloads (sdd XFS)
-#   photos    <- PVE dir-mapping `photos`    -> /odin/photos         (ZFS)
+# and from Apollo, pinned to the apollo node (patches/virtiofs-apollo.yaml):
+#   immich <- PVE dir-mapping `immich` -> /mnt/immich (thin LV, XFS)
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -50,28 +51,14 @@ spec:
 ---
 apiVersion: v1
 kind: PersistentVolume
-metadata: { name: immich-cache }
+metadata: { name: immich }
 spec:
-  capacity: { storage: 500Gi }
+  capacity: { storage: 250Gi }
   accessModes: [ReadWriteMany]
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
-  local: { path: /var/mnt/immich-cache }
+  local: { path: /var/mnt/immich }
   nodeAffinity:
     required:
       nodeSelectorTerms:
-        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]
----
-apiVersion: v1
-kind: PersistentVolume
-metadata: { name: photos }
-spec:
-  capacity: { storage: 7Ti }
-  accessModes: [ReadWriteMany]
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: ""
-  local: { path: /var/mnt/photos }
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions: [{ key: homelab/node, operator: In, values: [hades] }]
+        - matchExpressions: [{ key: homelab/node, operator: In, values: [apollo] }]

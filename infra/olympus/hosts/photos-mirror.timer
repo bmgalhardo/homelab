@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync Immich library between apollo and hades (boot + daily)
+
+[Timer]
+OnBootSec=10min
+OnCalendar=*-*-* 03:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

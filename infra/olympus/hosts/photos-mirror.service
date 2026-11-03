@@ -1,0 +1,11 @@
+[Unit]
+Description=Sync Immich library between apollo and /odin/photos
+Wants=network-online.target
+After=network-online.target zfs-mount.service
+RequiresMountsFor=/odin/photos
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/photos-mirror
+Nice=10
+IOSchedulingClass=idle

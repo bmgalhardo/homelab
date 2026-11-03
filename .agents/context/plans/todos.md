@@ -212,6 +212,53 @@
   only copy.
 
 
+### Immich → Apollo (planned 2026-11-02, manifests written 2026-11-03)
+- **Why:** Hades is power-managed, so Immich is down whenever Hades is off.
+- **Sizes (measured 2026-11-03):** `/odin/photos` 94G, `/odin/immich-cache`
+  21G. Apollo `local-lvm` thin pool ~595 GiB free, +258G once the hal9000 VMs
+  (1000, 1004) are destroyed.
+- **RAM is not a blocker after all:** `immich-server` peaked at 526 MiB
+  working set over 30 days (Prometheus); the 4Gi request was padding.
+  Requests cut to 768Mi/500m (limit 3Gi). elysium-apollo has ~2.4Gi
+  unrequested, so no VM resize. `daedalus` is not to be shrunk — it is the
+  user's main work VM.
+- **Plan (option 3 — host virtiofs, same pattern as Hades):**
+  1. Apollo host: thin LV → XFS at `/mnt/immich` (LV `pve/immich`); PVE dir mapping
+     `immich` (node=apollo); virtiofs device on VM 1101.
+  2. Talos: `ExternalVolumeConfig` patch for elysium-apollo.
+  3. k8s: `immich` static PV pinned to `homelab/node: apollo`, new
+     `library` PVC on it. Thumbs/encoded-video live on the same LV under
+     `immich-cache/` (not `local-path`: the host can't rsync into a Talos
+     volume, and regenerating 21G of thumbs/transcodes is slow on Apollo).
+     `immich-ml` stays on Hades with its model cache on a `local-path` PVC.
+  4. `immich-server` → Apollo; `immich-ml` stays on Hades (upload/browse
+     always up; smart search + face/CLIP jobs only while Hades is up).
+  5. Cutover: scale to 0, final copy Hades → Apollo, push. Copies are
+     streamed through the workstation (two SSH sessions) — reach each host
+     directly from here rather than hopping through another host. Initial copy started 2026-11-03, marker
+     `/root/immich-copy-start.marker` on Hades for the delta.
+  6. After cutover: drop `photos` + `immich-cache` from the Hades worker
+     (Talos patch + PVs already removed in git; then Omni sync, `qm set 1102
+     --delete virtiofs3,virtiofs4`, stop+start 1102). `/odin/immich-cache`
+     can be deleted once the cutover is verified.
+  7. Backup: Hades runs `photos-mirror` (it is power-managed, so it
+     initiates) on boot + daily — see `infra/olympus/hosts/README.md`.
+     Enable only after cutover: before it, `/odin/photos/immich` is still
+     the live copy and a `--delete` pull would drop new uploads.
+- **Folder ownership (decided 2026-11-03):**
+  | folder | source of truth | Immich | snapshots + atlas |
+  |---|---|---|---|
+  | `archive_private` | hades | no | yes |
+  | `archive_public` | hades, pushed to apollo | `/external`, read-only | yes |
+  | `backup` (unsorted, → private/public/deleted) | hades | no | yes |
+  | `immich`, `immich-cache` | apollo, pulled to `/odin/photos` | yes | yes |
+  `/odin/immich-cache/{thumbs,encoded-video}` moves into
+  `/odin/photos/immich-cache/` so one dataset covers it; `ml-cache` is
+  dropped (immich-ml uses a `local-path` PVC).
+- **Rejected:** plain `local-path` PVC (photos on one NVMe, unbacked, and an
+  Apollo PVC can't be backed up to Hades from inside k8s); dedicated `scsi2`
+  (works, but backup only via vzdump).
+
 ### 3-2-1 Backup Strategy
 - **Task:** Implement 3-copy backup resilience
 - **Why:** Currently no automated *offsite* backup; manual process fragile

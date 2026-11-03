@@ -67,6 +67,43 @@ ssh hades "sh /tmp/k8s-backup-client.sh $C /tmp/$C-backup.pub && rm /tmp/k8s-bac
 echo pwd | sftp -i ~/$C-backup -b - $C@192.168.1.198               # expect /homeassistant
 ```
 
+## Photos mirror (apollo ↔ hades)
+
+Apollo `/mnt/immich` is the live Immich library. Hades, on boot and daily,
+pulls `immich/` and `immich-cache/` into `/odin/photos/` and pushes
+`archive_public/` (source of truth on hades) to apollo. `sanoid` snapshots
+`odin/photos`. Apollo side is user `photos-backup` with two `rrsync` keys:
+`pull` read-only on `/mnt/immich`, `push` write-only scope
+`/mnt/immich/archive_public`.
+
+| repo | on host |
+|------|---------|
+| `photos-mirror.sh` | hades `/usr/local/bin/photos-mirror` |
+| `photos-mirror.{service,timer}` | hades `/etc/systemd/system/` |
+| `sanoid.conf` | hades `/etc/sanoid/sanoid.conf` |
+
+```sh
+A="ssh root@192.168.1.197"; H="ssh root@192.168.1.198"
+$H 'install -d -m 700 /etc/photos-mirror && for k in pull push; do
+  ssh-keygen -q -t ed25519 -N "" -C photos-mirror-$k@hades -f /etc/photos-mirror/$k; done'
+PULL=$($H cat /etc/photos-mirror/pull.pub); PUSH=$($H cat /etc/photos-mirror/push.pub)
+$A "id photos-backup >/dev/null 2>&1 || useradd --system --home-dir /var/lib/photos-backup --create-home --shell /bin/sh photos-backup
+  install -d -o photos-backup -m 700 /var/lib/photos-backup/.ssh
+  chown -R photos-backup /mnt/immich/archive_public
+  printf '%s\n' 'command=\"/usr/bin/rrsync -ro /mnt/immich\",restrict $PULL' \
+    'command=\"/usr/bin/rrsync /mnt/immich/archive_public\",restrict $PUSH' \
+    > /var/lib/photos-backup/.ssh/authorized_keys
+  chown photos-backup /var/lib/photos-backup/.ssh/authorized_keys; chmod 600 /var/lib/photos-backup/.ssh/authorized_keys"
+echo "192.168.1.197 $($A cat /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f1-2)" |
+  $H 'cat > /etc/photos-mirror/known_hosts'
+scp photos-mirror.sh root@192.168.1.198:/usr/local/bin/photos-mirror
+scp photos-mirror.service photos-mirror.timer root@192.168.1.198:/etc/systemd/system/
+$H 'apt-get install -y sanoid && install -d /etc/sanoid'
+scp sanoid.conf root@192.168.1.198:/etc/sanoid/sanoid.conf
+$H 'systemctl daemon-reload && systemctl enable --now sanoid.timer photos-mirror.timer &&
+  systemctl start photos-mirror && journalctl -u photos-mirror -n 5 --no-pager'
+```
+
 ## CPU governor (apollo)
 
 ```sh

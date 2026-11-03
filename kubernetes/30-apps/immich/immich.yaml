@@ -65,16 +65,16 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: photos
+  name: library
   namespace: immich
 spec:
-  volumeName: photos
+  volumeName: immich
   storageClassName: ""
   accessModes:
     - ReadWriteMany
   resources:
     requests:
-      storage: 7Ti
+      storage: 250Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -135,11 +135,11 @@ spec:
           name: data
           subPath: immich
         - mountPath: /data/thumbs
-          name: immich-cache
-          subPath: thumbs
+          name: data
+          subPath: immich-cache/thumbs
         - mountPath: /data/encoded-video
-          name: immich-cache
-          subPath: encoded-video
+          name: data
+          subPath: immich-cache/encoded-video
         - mountPath: /external
           name: data
           subPath: archive_public
@@ -147,18 +147,15 @@ spec:
           name: ca
         resources:
           requests:
-            memory: "4Gi"
-            cpu: "2"
+            memory: "768Mi"
+            cpu: "500m"
           limits:
-            memory: "8Gi"
-            cpu: "4"
+            memory: "3Gi"
+            cpu: "2"
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: photos
-      - name: immich-cache
-        persistentVolumeClaim:
-          claimName: immich-cache
+          claimName: library
       - name: ca
         secret:
           secretName: immich-ca
@@ -169,16 +166,15 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: immich-cache
+  name: immich-ml-cache
   namespace: immich
 spec:
-  volumeName: immich-cache
-  storageClassName: ""
+  storageClassName: local-path
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 500Gi
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -201,12 +197,11 @@ spec:
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - mountPath: /cache
-          name: immich-cache
-          subPath: ml-cache
+          name: ml-cache
       volumes:
-      - name: immich-cache
+      - name: ml-cache
         persistentVolumeClaim:
-          claimName: immich-cache
+          claimName: immich-ml-cache
 ---
 ---
 apiVersion: secrets.hashicorp.com/v1beta1

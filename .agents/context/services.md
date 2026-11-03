@@ -88,8 +88,9 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 on the `postgres` VM and is covered by its `pg_backup` sidecar.
 
 ### ai — running
-`ollama` (CPU), `ollama-gpu` (GPU node, Pending while it's off), `litellm`
-(gateway, falls back from `qwen-gpu` to CPU `llama-mini`), `openwebui`.
+`llama-cpp` (CPU, chat + embed containers), `llama-cpp-gpu` (GPU node,
+Pending while it's off), `litellm` (gateway, falls back from `qwen-gpu` to CPU
+`llama-mini`), `openwebui`. Replaced Ollama 2026-11-02 — see plans/ai-poc.md.
 
 ### automation — RBAC only
 `automation/claude` ServiceAccount + `claude-readonly` ClusterRole, the scoped

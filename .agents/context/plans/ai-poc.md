@@ -54,6 +54,22 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
   still labels it `qwen-gpu`; the backend shows in LiteLLM's
   `x-litellm-model-api-base` / `x-litellm-attempted-fallbacks` headers.
 
+### Ollama → llama.cpp (2026-11-02, uncommitted)
+
+- Why: direct control of server flags. Ollama hid `n-gpu-layers` behind a
+  conservative fit estimate (19/29 layers with ~900 MiB VRAM free) and had no
+  `/metrics`.
+- `llama-cpp` (CPU, hades): `chat` = Llama-3.2-1B-Instruct Q8_0 (same quant as
+  Ollama's `llama3.2:1b`), `embed` = nomic-embed-text-v1.5 F16. `llama-cpp-gpu`:
+  Qwen2.5-1.5B-Instruct Q4_K_M, `--n-gpu-layers 99`, ctx 8192. Models pulled
+  from HF via `--hf-repo` into the PVC (`LLAMA_CACHE=/models`).
+- Image `server-cuda-b12019` is the CUDA 12 build; CUDA 13 (`server-cuda13`)
+  drops CC 5.0 just like Ollama's CUDA 13 runner did.
+- LiteLLM now uses `openai/<alias>` against each server's `/v1`; model names
+  (`llama-mini`, `nomic-embed-text`, `qwen-gpu`) and the fallback unchanged.
+- To verify on first run: full offload fits 2 GB at 8192 ctx; `--metrics`
+  endpoints not yet scraped by athena.
+
 ### Earlier (2026-09-26)
 
 - `elysium-hades-gpu` (vmid 1103) defined — Terraform, Omni machine class +
@@ -66,8 +82,8 @@ VM 102 `personal` via the `nvidia_750ti` PCI mapping.
   `litellm` (gateway), `openwebui`. Added `ollama-gpu` (GPU node,
   `qwen2.5:1.5b`) and LiteLLM model `qwen-gpu` with fallback to `llama-mini`.
 - 2026-10-01: LiteLLM v1.103.0 (TypeSafe Jev passthrough at `/typesafe`),
-  pinned to apollo (stateless; DB is the postgres VM) so the gateway outlives
-  hades. Anthropic, named only: `claude-fable-5-1` / `claude-opus-5-5` /
+  on hades for now with the rest of `ai` (stateless; DB is the postgres VM —
+  could move to apollo to outlive hades). Anthropic, named only: `claude-fable-5-1` / `claude-opus-5-5` /
   `claude-sonnet-5-5` / `claude-haiku-4-5` (wildcard rejected: a second,
   unguarded name per model, and every model open to every key). Pricing and
   param support come from the cost map LiteLLM fetches from GitHub `main` at

@@ -1,0 +1,9 @@
+# Immich library from the Apollo host via virtiofs. PVE Directory Mapping
+# (node=apollo): immich -> /mnt/immich (thin LV, XFS).
+apiVersion: v1alpha1
+kind: ExternalVolumeConfig
+name: immich
+filesystemType: virtiofs
+mount:
+  virtiofs:
+    tag: immich

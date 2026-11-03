@@ -74,7 +74,7 @@ plans/todos.md.
    sanoid/syncoid, no replication cron. `odin/backups` (40G, incl. personal
    archives) has *never* been snapshotted. The mirror is redundancy, not
    backup. **P0 in plans/todos.md** — verified on-host 2026-09-15.
-⚠️ **local-path PVCs are unbacked** — ollama, Home Assistant `/config`,
+⚠️ **local-path PVCs are unbacked** — llama.cpp models, Home Assistant `/config`,
    mosquitto data
 ⚠️ **No automated Immich backup** — Manual until rsync setup
 ⚠️ **Backup PC power strategy** — Always-on vs WoL (pending decision)

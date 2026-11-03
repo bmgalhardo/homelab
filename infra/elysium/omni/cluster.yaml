@@ -40,6 +40,8 @@ machineClass:
 patches:
   - name: local-path
     file: patches/local-path.yaml
+  - name: virtiofs
+    file: patches/virtiofs-apollo.yaml
   - name: labels-apollo
     file: patches/labels-apollo.yaml
   - name: logging-apollo

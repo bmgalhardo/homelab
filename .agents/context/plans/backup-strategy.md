@@ -18,7 +18,7 @@ was true.
 |---------|--------|-----------|----------|--------|
 | Postgres | `pg_backup` sidecar, daily/weekly/monthly retention | 2AM | Local disk on the postgres VM only (`/backups/`) — not shipped anywhere | ⚠️ Running, but not offsite |
 | Vault | None | — | — | ❌ No backup mechanism exists at all |
-| Immich | Manual | On-demand | Hades NFS | ❌ Not automated |
+| Immich | `photos-mirror` (hades pulls apollo `/mnt/immich`) + sanoid on `odin/photos` | Daily 03:00 (when hades is on) | `hades:/odin/photos` | 🟡 2 copies, no offsite (atlas on hold) |
 | Backup PC | Manual | Manual | External drive | ❌ Manual only |
 | Home Assistant | HA automatic backups → SFTP on Hades | Daily | `hades:/odin/k8s-backups/homeassistant` | 🟡 Designed 2026-10-19, not set up |
 
@@ -83,27 +83,15 @@ Same as Postgres:
 
 ### Immich Photos
 
-**Copy 1: Live on NFS (Hades /mnt/photos)**
-```
-Original production data
-```
+Layout and ownership: `plans/todos.md` → "Immich → Apollo".
 
-**Copy 2: ZFS Snapshot (Hades)**
-```
-Daily 1AM snapshot
-Retention: 7 days (instant restore via zfs rollback)
-```
-
-**Copy 3: Backup PC (rsync)**
-```
-Daily 4AM rsync to backup PC
-Retention: 30 days
-```
-
-**Copy 4 (Ideal): External Drive**
-```
-Monthly sync (true offsite)
-```
+- **Copy 1:** live library on apollo, LV `pve/immich` at `/mnt/immich`.
+- **Copy 2:** `hades:/odin/photos/{immich,immich-cache}`, pulled daily by
+  `photos-mirror` (`infra/olympus/hosts/`). sanoid snapshots `odin/photos`:
+  7 daily, 4 weekly, 6 monthly.
+- **Copy 3:** atlas (backup PC), on hold. `archive_private`, `archive_public`
+  and `backup` exist only on hades + snapshots until then.
+- The Immich DB is on the postgres VM (`pg_backup`); a restore needs both.
 
 ### Home Assistant (k8s, Apollo-pinned)
 
@@ -201,12 +189,27 @@ entities, users, dashboards) plus `custom_components/` and `automations.yaml`
 - [ ] Restore Home Assistant from the Hades SFTP backup into an empty PVC
 - [ ] Document time required for each restore
 
-## Backup Monitoring
+## Backup Monitoring (via Argus)
 
-- **Alert if:** Backup PC unreachable for 24h
-- **Alert if:** Backup size anomaly (0 bytes, etc.)
-- **Manual check:** Monthly backup verification
-- **Log rotation:** Backup logs → 90-day retention
+Every job here can legitimately miss a run (hades and atlas are
+power-managed), so Argus alerts on **staleness of the newest good copy**,
+never on a single failed run. Probes belong in `plans/argus.md` → facts table.
+
+| Backup | Signal | Stale after | Source |
+|--------|--------|-------------|--------|
+| Postgres dumps | mtime + size of newest `/backups/daily/*` (0 bytes = fail) | 36h | SSH forced command (already in argus.md) |
+| `odin` snapshots | age of newest sanoid snapshot per dataset | 48h | SSH forced command (already in argus.md) |
+| Photos mirror | last `photos mirror ok` line from `photos-mirror.service` | 3 days | Loki (hades journald via Alloy) |
+| Photos mirror skipped | `apollo unreachable ... skipping` while apollo is up | 2 runs | Loki |
+| Home Assistant | `sensor.backup_last_successful_automatic_backup` | 36h | Prometheus (HA scrape) |
+| Vault snapshots | newest raft snapshot mtime | 36h | once the snapshot job exists |
+| Atlas copies | newest file per dataset on atlas | 8 days | once atlas exists |
+
+- [ ] Add the photos-mirror and HA rows to the argus.md facts table
+- [ ] Make backup jobs log one fixed success line, so Loki queries stay trivial
+- [ ] Size anomaly: alert when a dump shrinks >50% day-over-day (an empty
+      `pg_dumpall` was found by hand on 2026-11-03)
+- [ ] Monthly restore test reminder in the daily report
 
 ## Cost Analysis
 

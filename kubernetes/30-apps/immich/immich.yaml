@@ -122,6 +122,12 @@ spec:
         ports:
         - name: http
           containerPort: 2283
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /api/server/ping
+            port: http
+          periodSeconds: 10
         livenessProbe:
           failureThreshold: 3
           httpGet:

@@ -1,45 +1,32 @@
 services:
-  redis:
-    image: docker.io/library/redis:alpine
-    command: --save 60 1 --loglevel warning
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-      start_period: 20s
-      interval: 30s
-      retries: 5
-      timeout: 3s
-    volumes:
-      - redis:/data
   server:
-    image: ghcr.io/goauthentik/server:2025.6.2
+    image: ghcr.io/goauthentik/server:2026.8.5
     restart: unless-stopped
     command: server
     environment:
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-      AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_POSTGRESQL__HOST: 192.168.1.177
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS: 127.0.0.0/8,::1/128,192.168.1.199/32
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
     env_file:
       - .env
     ports:
       - "80:9000"
       - "443:9443"
-    depends_on:
-      redis:
-        condition: service_healthy
+    volumes:
+      - ./data:/data
   worker:
-    image: ghcr.io/goauthentik/server:2025.6.2
+    image: ghcr.io/goauthentik/server:2026.8.5
     restart: unless-stopped
     command: worker
     environment:
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-      AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_POSTGRESQL__HOST: 192.168.1.177
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS: 127.0.0.0/8,::1/128,192.168.1.199/32
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
     # `user: root` and the docker socket volume are optional.
     # See more for the docker socket integration here:
@@ -49,13 +36,7 @@ services:
     # (1000:1000 by default)
     user: root
     volumes:
+      - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - .env
-    depends_on:
-      redis:
-        condition: service_healthy
-
-volumes:
-  redis:
-    driver: local

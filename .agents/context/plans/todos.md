@@ -299,42 +299,47 @@
   P0 above — it can't fix renewals, but it stops them failing silently
 
 ### Full VM Provisioning: Terraform + Bundled Compose ⚠️
-- **Task:** Two parts.
-  1. **Fix or formally retire the Olympus Terraform.** State has drifted
-     ~9 months out of sync with the live cluster and cannot be safely
-     `apply`d as-is.
-  2. **Standardize the VM contract:** Terraform provisions the VM, then a
-     single `docker-compose.yml` per VM bundles *everything that VM needs*
-     — the service itself + Vault Agent (secret injection) + backup script
-     + log shipping (Alloy, or syslog forward for Argus). Create the VM,
-     drop in the compose file, done. The 200-series `postgres` VM (with
-     its `pg_backup` sidecar) is the closest existing pattern — extend it
-     to cover secrets and logging too.
-- **Why (drift evidence, gathered 2026-09-08):**
-  - No `terraform` binary on the workstation; no remote backend — state is
-    one gitignored file, last written **2025-12-12** (hal9000 state:
-    2025-07-06)
-  - `infra/terraform.tfvars` still uses `root@pam!terraform` → 401/revoked
-    (network.md). Needs a **user-scoped** write token — token-scoped ACLs
-    are non-functional on this PVE build (network.md)
-  - `vault` / `authentik` / `omni` were rebuilt by hand at vmid
-    **107 / 103 / 100**; state still says 204 / 205 / 206
-  - `netboot-webserver` (vmid 203) retired but still in state
-  - `tftp-server` (vmid 202) removed 2026-09-08 from tfvars + repo; still
-    in state (and the VM itself, until deleted)
-  - hal9000 `worker-1` is **8192 MB** live, 4096 in code + state
-- **Options:**
-  - A: **Reconcile** — install TF, mint a user-scoped write token, update
-    `terraform.tfvars`, `state rm` + re-import the 4 drifted resources,
-    wrestle `plan` to zero-diff on the 3 hand-built VMs, then it's usable
-  - B: **Retire** — accept deployment.md's "static per VM" reality, delete
-    `infra/olympus/terraform/`, document the Olympus VMs as hand-created,
-    keep only `infra/hal9000/terraform/`
-- **Connects to:** every future Olympus VM; and the hal9000 rebuild (P2) —
-  do the `worker-1` resize there. (athena ended up on a bare Pi4, not a VM,
-  so it no longer depends on this.)
-- **Status:** Not started. Documented 2026-09-08. User chose option A
-  (reconcile) initially; revisit given the full scope above.
+- **Goal (user, 2026-11-04):** every Olympus VM in Terraform, every VM's
+  compose in git, composes get secrets from Vault, every VM has a backup;
+  later, automatic provisioning. Option A (reconcile) chosen; retire is off
+  the table.
+- **Stages:**
+  1. **All VMs in Terraform.** Install TF, mint a user-scoped write token
+     (token-scoped ACLs are non-functional on this PVE build, network.md),
+     fix `infra/terraform.tfvars` (`root@pam!terraform` is revoked).
+     `state rm` the dead entries, import the hand-built VMs, `plan` to zero
+     diff. Inventory below.
+  2. **All composes in git, matching what is deployed.** vault, authentik,
+     omni, postgres have one; diff each against the VM before trusting it
+     (postgres's `vault-agent/` is reconstructed and never deployed).
+     daedalus has scripts only (`infra/daedalus/`).
+  3. **Composes read secrets from Vault** — the "Consolidate Vault Agent
+     adoption" item above is this stage. Removes the per-VM `.env` files.
+  4. **Backups where missing** — see `plans/backup-strategy.md`. Vault has
+     none (raft snapshot); daedalus has none beyond vzdump; authentik and
+     omni state is in postgres / their data dirs, check each.
+  5. **Log shipping** (Alloy → athena) in the same compose, for Argus.
+  6. **Later: automatic provisioning** — create VM + cloud-init drops the
+     compose, Vault Agent bootstraps from an AppRole, service comes up with
+     no manual step. Not designed yet.
+- **Inventory (2026-11-04):**
+
+  | VM | live vmid | in TF state as | notes |
+  |----|-----------|----------------|-------|
+  | postgres | 201 | 201 | only one still matching |
+  | vault | 107 | 204 | hand-rebuilt |
+  | authentik | 103 | 205 | hand-rebuilt; disk 16G live, 10G in tfvars |
+  | omni | 100 | 206 | hand-rebuilt |
+  | daedalus | 101 | — | never in TF |
+  | netboot-webserver / tftp-server | gone | 203 / 202 | `state rm` |
+
+  Not VMs: qdevice (LXC 104), cerberus (LXC 105), hephaestus (LXC on
+  hades) — decide whether TF owns LXCs too. elysium VMs are already in
+  `infra/elysium/terraform/`.
+- **Other drift:** no remote backend; state is one gitignored file, last
+  written 2025-12-12. hal9000 `worker-1` 8192 MB live vs 4096 in code
+  (hal9000 is retired; destroy rather than fix).
+- **Status:** Not started.
 
 ### Backup PC Power Strategy Decision ⚠️
 - **Task:** Choose backup PC operation mode

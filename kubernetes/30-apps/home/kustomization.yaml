@@ -13,6 +13,13 @@ configMapGenerator:
   - name: homeassistant-packages
     files:
       - config/packages/mqtt_devices.yaml
+      - config/packages/homelab_power.yaml
+  - name: homeassistant-dashboards
+    files:
+      - config/dashboards/homelab.yaml
+  - name: homeassistant-www
+    files:
+      - config/www/rack.svg
 
 patches:
   - target: { kind: Deployment }

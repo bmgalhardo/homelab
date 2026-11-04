@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 600" font-family="Helvetica, Arial, sans-serif">
+  <rect width="640" height="600" rx="16" fill="#14171c"/>
+
+  <path d="M220 10 V44" stroke="#f2b134" stroke-width="3" fill="none"/>
+  <rect x="196" y="14" width="48" height="22" rx="4" fill="#2a2f37" stroke="#f2b134"/>
+  <text x="220" y="29" fill="#f2b134" font-size="10" text-anchor="middle">PM</text>
+
+  <rect x="44" y="44" width="352" height="512" rx="6" fill="#0b0d10" stroke="#3a404a" stroke-width="2"/>
+  <rect x="52" y="52" width="10" height="496" fill="#2a2f37"/>
+  <rect x="378" y="52" width="10" height="496" fill="#2a2f37"/>
+
+  <g font-size="13" fill="#d7dce3">
+    <rect x="66" y="60" width="308" height="36" rx="3" fill="#2b3340"/>
+    <circle cx="80" cy="78" r="4" fill="#4aa3ff"/>
+    <g fill="#11151b"><rect x="230" y="68" width="10" height="8"/><rect x="243" y="68" width="10" height="8"/><rect x="256" y="68" width="10" height="8"/><rect x="269" y="68" width="10" height="8"/><rect x="282" y="68" width="10" height="8"/><rect x="295" y="68" width="10" height="8"/><rect x="308" y="68" width="10" height="8"/><rect x="321" y="68" width="10" height="8"/><rect x="230" y="80" width="10" height="8"/><rect x="243" y="80" width="10" height="8"/><rect x="256" y="80" width="10" height="8"/><rect x="269" y="80" width="10" height="8"/><rect x="282" y="80" width="10" height="8"/><rect x="295" y="80" width="10" height="8"/><rect x="308" y="80" width="10" height="8"/><rect x="321" y="80" width="10" height="8"/></g>
+    <text x="92" y="83">UDM Pro</text>
+
+    <rect x="66" y="100" width="308" height="36" rx="3" fill="#1d2129"/>
+    <g fill="#0b0d10"><rect x="150" y="112" width="12" height="12"/><rect x="168" y="112" width="12" height="12"/><rect x="186" y="112" width="12" height="12"/><rect x="204" y="112" width="12" height="12"/><rect x="222" y="112" width="12" height="12"/><rect x="240" y="112" width="12" height="12"/><rect x="258" y="112" width="12" height="12"/><rect x="276" y="112" width="12" height="12"/><rect x="294" y="112" width="12" height="12"/><rect x="312" y="112" width="12" height="12"/></g>
+    <text x="80" y="123" fill="#8a929e">Patch</text>
+
+    <rect x="66" y="140" width="308" height="36" rx="3" fill="#191c22"/>
+
+    <rect x="66" y="180" width="308" height="36" rx="3" fill="#1d2129"/>
+    <rect x="76" y="186" width="66" height="24" rx="2" fill="#1f6f43"/>
+    <rect x="148" y="186" width="66" height="24" rx="2" fill="#1f6f43"/>
+    <rect x="220" y="186" width="66" height="24" rx="2" fill="#262a31" stroke="#3a404a" stroke-dasharray="3 3"/>
+    <rect x="292" y="186" width="66" height="24" rx="2" fill="#262a31" stroke="#3a404a" stroke-dasharray="3 3"/>
+    <text x="109" y="202" font-size="11" text-anchor="middle">Hermes</text>
+    <text x="181" y="202" font-size="11" text-anchor="middle">Athena</text>
+
+    <rect x="66" y="220" width="308" height="36" rx="3" fill="#1d2129"/>
+    <rect x="80" y="225" width="120" height="26" rx="6" fill="#3a4250" stroke="#5b6574"/>
+    <circle cx="190" cy="238" r="3" fill="#5fd38d"/>
+    <text x="92" y="243">Apollo</text>
+
+    <rect x="66" y="260" width="308" height="36" rx="3" fill="#191c22"/>
+    <path d="M80 278 H360" stroke="#2a2f37" stroke-width="2" fill="none"/>
+
+    <rect x="66" y="300" width="308" height="156" rx="3" fill="#232831"/>
+    <g fill="#191c22"><rect x="84" y="316" width="190" height="6" rx="2"/><rect x="84" y="330" width="190" height="6" rx="2"/><rect x="84" y="344" width="190" height="6" rx="2"/><rect x="84" y="358" width="190" height="6" rx="2"/><rect x="84" y="372" width="190" height="6" rx="2"/><rect x="84" y="386" width="190" height="6" rx="2"/><rect x="84" y="400" width="190" height="6" rx="2"/></g>
+    <rect x="296" y="316" width="62" height="124" rx="3" fill="#191c22"/>
+    <circle cx="327" cy="340" r="9" fill="none" stroke="#5b6574" stroke-width="2"/>
+    <circle cx="327" cy="340" r="3" fill="#5fd38d"/>
+    <text x="84" y="436" font-size="15">Hades</text>
+
+    <rect x="66" y="460" width="308" height="76" rx="3" fill="#191c22"/>
+  </g>
+
+  <path d="M400 60 H410 V216 H400" stroke="#3a404a" stroke-width="1.5" fill="none"/>
+  <path d="M400 238 H420" stroke="#3a404a" stroke-width="1.5" fill="none"/>
+  <path d="M400 300 H410 V456 H400" stroke="#3a404a" stroke-width="1.5" fill="none"/>
+</svg>

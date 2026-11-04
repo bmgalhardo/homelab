@@ -1,0 +1,115 @@
+title: Homelab
+views:
+  - title: Power
+    path: power
+    icon: mdi:server
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Rack
+          - type: picture-elements
+            image: /local/homelab/rack.svg
+            grid_options:
+              columns: full
+            elements:
+              - type: state-label
+                entity: sensor.homelab_monitor_active_power
+                prefix: "Rack "
+                style: { left: 58%, top: 4.5%, color: "#f2b134", font-size: 17px, font-weight: 600 }
+              - type: state-label
+                entity: sensor.rack_rest_power
+                prefix: "Network & Pis "
+                style: { left: 81%, top: 23%, color: "#d7dce3", font-size: 14px }
+              - type: state-label
+                entity: sensor.apollo_plug_active_power
+                prefix: "Apollo "
+                style: { left: 81%, top: 39.7%, color: "#d7dce3", font-size: 14px }
+              - type: state-icon
+                entity: switch.apollo_plug_outlet
+                tap_action: { action: none }
+                hold_action: { action: none }
+                style: { left: 81%, top: 45%, "--mdc-icon-size": 18px }
+              - type: state-label
+                entity: sensor.hades_plug_active_power
+                prefix: "Hades "
+                style: { left: 81%, top: 63%, color: "#d7dce3", font-size: 14px }
+              - type: state-icon
+                entity: switch.hades_plug_outlet
+                tap_action: { action: none }
+                hold_action: { action: none }
+                style: { left: 81%, top: 68.5%, "--mdc-icon-size": 18px }
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Now
+          - type: tile
+            entity: sensor.homelab_monitor_active_power
+            name: Rack total
+            icon: mdi:server-network
+            color: amber
+            grid_options: { columns: full }
+          - type: tile
+            entity: sensor.apollo_plug_active_power
+            name: Apollo
+            icon: mdi:server
+            color: blue
+          - type: tile
+            entity: sensor.hades_plug_active_power
+            name: Hades
+            icon: mdi:server
+            color: purple
+          - type: tile
+            entity: sensor.rack_rest_power
+            name: Network & Pis
+            color: teal
+          - type: tile
+            entity: sensor.homelab_monitor_voltage
+            name: Voltage
+            color: grey
+          - type: tile
+            entity: switch.apollo_plug_outlet
+            name: Apollo outlet
+            tap_action: { action: none }
+            icon_tap_action: { action: none }
+          - type: tile
+            entity: switch.hades_plug_outlet
+            name: Hades outlet
+            tap_action: { action: none }
+            icon_tap_action: { action: none }
+
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: History
+          - type: history-graph
+            title: Power, last 24 h
+            hours_to_show: 24
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.homelab_monitor_active_power
+                name: Rack total
+              - entity: sensor.apollo_plug_active_power
+                name: Apollo
+              - entity: sensor.hades_plug_active_power
+                name: Hades
+              - entity: sensor.rack_rest_power
+                name: Network & Pis
+          - type: statistics-graph
+            title: Energy per day
+            chart_type: bar
+            period: day
+            days_to_show: 30
+            stat_types: [change]
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.apollo_plug_active_energy
+                name: Apollo
+              - entity: sensor.hades_plug_active_energy
+                name: Hades
+              - entity: sensor.homelab_monitor_active_energy
+                name: Rack total

@@ -95,6 +95,10 @@ spec:
           subPath: configuration.yaml
         - mountPath: /config/packages
           name: packages
+        - mountPath: /config/dashboards
+          name: dashboards
+        - mountPath: /config/www/homelab
+          name: www
       volumes:
       - name: config
         persistentVolumeClaim:
@@ -105,6 +109,12 @@ spec:
       - name: packages
         configMap:
           name: homeassistant-packages
+      - name: dashboards
+        configMap:
+          name: homeassistant-dashboards
+      - name: www
+        configMap:
+          name: homeassistant-www
 ---
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret

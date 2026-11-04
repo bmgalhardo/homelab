@@ -11,10 +11,16 @@
 | — | Hermes | Pi 1 B+ (ARMv6) | DNS/LB (Alpine) | 5W | No |
 | — | Athena | Pi 4 (4GB, arm64) + 120GB SSD | Monitoring: logging/metrics + argus agent | 5W | Yes |
 | 1U | Shelf | — | Mini PC mount | — | — |
-| — | Apollo | Beelink S12 Pro | Proxmox + K8s | TODO W | Yes |
+| — | Apollo | Beelink S12 Pro | Proxmox + K8s | ~12W (plug) | Yes |
 | 1U | Brush Panel | — | Cable mgmt | — | — |
-| 4U | Hades | Ryzen 5 PC + 750Ti GPU | Proxmox + NAS | TODO W | No |
+| 4U | Hades | Ryzen 5 PC + 750Ti GPU | Proxmox + NAS | ~32W on (plug) | No |
 | 2U | Cover | — | Aesthetics | — | — |
+
+**Power metering (2026-11):** Shelly Mini PM G3 on the rack feed (`Homelab
+Monitor`, ~130W total, ~3.6 kWh/day), Shelly Plug G3 on Apollo and on Hades.
+Native MQTT → HA (`infra/mqtt-devices/`) → athena Prometheus via HA's
+`/api/prometheus`. Dashboards: HA `Homelab` (`config/dashboards/homelab.yaml`),
+Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
 
 ## Compute Nodes
 

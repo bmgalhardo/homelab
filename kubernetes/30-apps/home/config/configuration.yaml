@@ -5,6 +5,15 @@ homeassistant:
 
 automation: !include automations.yaml
 
+lovelace:
+  dashboards:
+    dashboard-homelab:
+      mode: yaml
+      filename: dashboards/homelab.yaml
+      title: Homelab
+      icon: mdi:server
+      show_in_sidebar: true
+
 tts:
   - platform: google_translate
 

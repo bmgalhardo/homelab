@@ -1,0 +1,16 @@
+template:
+  - sensor:
+      - name: Rack Rest Power
+        unique_id: rack_rest_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        icon: mdi:router-network
+        availability: >
+          {{ has_value('sensor.homelab_monitor_active_power')
+             and has_value('sensor.apollo_plug_active_power')
+             and has_value('sensor.hades_plug_active_power') }}
+        state: >
+          {{ [states('sensor.homelab_monitor_active_power') | float
+              - states('sensor.apollo_plug_active_power') | float
+              - states('sensor.hades_plug_active_power') | float, 0] | max | round(1) }}

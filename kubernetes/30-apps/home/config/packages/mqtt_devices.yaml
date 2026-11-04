@@ -238,6 +238,12 @@ mqtt:
     device:
       identifiers:
       - shelly_dw
+      name: Entrance
+      manufacturer: Shelly
+      model: SBDW-002C
+      connections:
+      - - mac
+        - 38:39:8f:a6:87:c8
   - name: Battery
     unique_id: shelly_dw_battery
     state_topic: devices/shelly_dw/state
@@ -359,6 +365,12 @@ mqtt:
     device:
       identifiers:
       - shelly_hades
+      name: Hades Plug
+      manufacturer: Shelly
+      model: S3PL-30110EU
+      connections:
+      - - mac
+        - 08:92:72:49:4F:98
   - name: Current
     unique_id: shelly_hades_current
     state_topic: devices/shelly_hades/status/switch:0
@@ -420,6 +432,12 @@ mqtt:
     device:
       identifiers:
       - shelly_apollo
+      name: Apollo Plug
+      manufacturer: Shelly
+      model: S3PL-30110EU
+      connections:
+      - - mac
+        - 08:92:72:4A:BF:44
   - name: Current
     unique_id: shelly_apollo_current
     state_topic: devices/shelly_apollo/status/switch:0
@@ -501,6 +519,12 @@ mqtt:
     device:
       identifiers:
       - shelly_4_button
+      name: Shelly Switch
+      manufacturer: Shelly
+      model: SBBT-004CEU
+      connections:
+      - - mac
+        - 7c:c6:b6:b9:0d:af
   - name: Button 2
     unique_id: shelly_4_button_button-2
     state_topic: devices/shelly_4_button/state

@@ -4,7 +4,7 @@
 
 | Slot | Device | Model | Role | Power | Always-on |
 |------|--------|-------|------|-------|-----------|
-| 1U | UDM Pro | Unifi Dream Machine | Gateway/Switch/NVR | 20W | Yes |
+| 1U | UDM Pro | Unifi Dream Machine | Gateway/Switch/NVR (camera SSD) | ~35W | Yes |
 | 1U | Patch Panel | — | Cable mgmt | — | — |
 | 1U | Cover | — | Aesthetics | — | — |
 | 1U | Pi Rack | — | 4-slot holder | — | — |
@@ -17,7 +17,7 @@
 | 2U | Cover | — | Aesthetics | — | — |
 
 **Power metering (2026-11):** Shelly Mini PM G3 on the rack feed (`Homelab
-Monitor`, ~130W total, ~3.6 kWh/day), Shelly Plug G3 on Apollo and on Hades.
+Monitor`; baseline 58W with Hades off, i.e. UDM + SSD + Pis ≈ 45W), Shelly Plug G3 on Apollo and on Hades.
 Native MQTT → HA (`infra/mqtt-devices/`) → athena Prometheus via HA's
 `/api/prometheus`. Dashboards: HA `Homelab` (`config/dashboards/homelab.yaml`),
 Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
@@ -64,7 +64,11 @@ Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
 - **Device:** AMD Ryzen 5 PC
 - **Role:** Proxmox host + NAS (power-managed, can turn off)
 - **GPU:** GeForce 750 Ti (VM passthrough)
-- **Specs:** TODO (CPU cores, RAM, storage)
+- **Specs:** Ryzen 5 3600 (Zen 2, 6c/12t), ASUS PRIME B550M-A (WI-FI),
+  BIOS 3621 (2025-01-13). RAM: Corsair LPX `CMK16GX4M2B3200C16` (2×8GB
+  kit, 3200 XMP) + `CMK32GX4M2E3200C16` (2×16GB kit, one stick dead).
+  Since 2026-11-04: A1 empty, A2 16GB, B1 8GB, B2 8GB — 32GB, all single
+  rank, 2133 (JEDEC)
 - **Runs:**
   - Proxmox (2-node cluster with Apollo)
   - virtiofs shares (photos, media) into `elysium-hades`
@@ -72,6 +76,18 @@ Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
     (Ubuntu workstation, 750 Ti, on-demand)
   - LXC 106 `hephaestus` (Blender worker, `onboot 0`)
 - **Network:** Bridged to UDM (no bonding)
+- **Instability (memory subsystem — board, CPU IMC or DIMM, undetermined):** 2026-11-03 21:18 hard freeze — host and
+  guest logs stop the same minute, no kernel message reached Loki, plug flat
+  at ~32W (stuck, not off). Power cycle 11-04 12:35 hung at boot. An earlier
+  similar episode was cleared by pulling a DIMM. At the freeze it ran 3
+  mixed sticks (8+8+16, two kits). Tests 2026-11-04, alone in A2 at 2133:
+  16GB #1 dead (no POST in any slot, the earlier pulled one); 8GB #1, 8GB #2,
+  16GB #2 memtest PASS. 8GB #1 POSTs in A1, A2, B1, B2 (slots OK).
+  3-stick layout above (16GB per channel): memtest86+ 3 passes clean
+  2026-11-04. Soaking from then. If it freezes: DRAM 1.35V at 2133, then
+  2×8 in A2+B2, or replace the dead 16GB to pair 16GB #2.
+  D.O.C.P. (XMP) confirmed Disabled 2026-11-04; keep it off. BIOS current.
+  Back in service 2026-11-04 ~22:20 (1102 onboot restored, hephaestus up).
 - **Storage:**
   - XFS pool: TODO size (movies, videos)
   - ZFS pool: 8TB (2x 8TB HDDs) for photos + backups

@@ -1,0 +1,83 @@
+# Playtest telemetry: Godot web builds served from projects.bgalhardo.internal
+# POST their events to the same origin (/telemetry/push), which is forwarded
+# to Loki's push API on athena. Same-origin because a page served over HTTPS
+# can't post to plain-HTTP Loki (mixed content), and Loki sends no CORS
+# headers. Only push is exposed here; queries stay on athena:3100 (LAN).
+#
+# Loki on athena lives outside the cluster, so the backend is a selectorless
+# Service with a hand-written EndpointSlice. athena's IP comes from DHCP:
+# keep it pinned in UniFi (network.md), or this slice goes stale.
+#
+# The public play host reuses this Service: _parked/playtest/.
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-athena
+  namespace: system
+spec:
+  ports:
+    - name: http
+      port: 3100
+      targetPort: 3100
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: loki-athena
+  namespace: system
+  labels:
+    kubernetes.io/service-name: loki-athena
+addressType: IPv4
+ports:
+  - name: http
+    port: 3100
+    protocol: TCP
+endpoints:
+  - addresses:
+      - 192.168.1.196
+---
+# An Exact path match outranks publish's PathPrefix "/" on the same hostname,
+# so POST /telemetry/push lands here and everything else stays with publish.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: telemetry
+  namespace: system
+spec:
+  hostnames:
+  - projects.bgalhardo.internal
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: internal
+    sectionName: https
+    namespace: system
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /telemetry/push
+      method: POST
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /loki/api/v1/push
+    backendRefs:
+    - name: loki-athena
+      port: 3100
+---
+# A push is a batch of ~10 s of events: a few KB. Cap it well above that.
+apiVersion: gateway.nginx.org/v1alpha1
+kind: ClientSettingsPolicy
+metadata:
+  name: telemetry
+  namespace: system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: telemetry
+  body:
+    maxSize: 1m

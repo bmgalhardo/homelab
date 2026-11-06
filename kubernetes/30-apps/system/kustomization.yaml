@@ -8,6 +8,7 @@ resources:
   - pgadmin.yaml
   - redis.yaml
   - publish.yaml
+  - telemetry.yaml
 
 # always-on tier -> pin to the Apollo worker
 patches:

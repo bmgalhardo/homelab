@@ -112,7 +112,7 @@ Git host for the user's personal projects: repos, Git LFS for game assets, the
 container registry for private project images, Forgejo Actions. The homelab
 repo and Flux stay on GitHub, so the cluster never depends on it.
 Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=disable`
-— the live server refuses TLS although the repo compose sets `ssl=on`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS only (SSH disabled).
+— the live server refuses TLS although the repo compose sets `ssl=on`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS at `git.bgalhardo.internal`; git over SSH through Forgejo's built-in server at `git-ssh.bgalhardo.internal:22` (MetalLB .204 → pod 2222).
 Sign-in required to view. SSO through Authentik (OIDC, application slug
 `forgejo`): accounts are created only on first Authentik login
 (`ALLOW_ONLY_EXTERNAL_REGISTRATION`, username = Authentik username); an existing

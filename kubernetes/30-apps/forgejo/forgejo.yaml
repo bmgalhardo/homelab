@@ -104,6 +104,8 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
+        - name: ssh
+          containerPort: 2222
         env:
         - name: FORGEJO__server__DOMAIN
           value: git.bgalhardo.internal
@@ -112,7 +114,15 @@ spec:
         - name: FORGEJO__server__HTTP_PORT
           value: "3000"
         - name: FORGEJO__server__DISABLE_SSH
+          value: "false"
+        - name: FORGEJO__server__START_SSH_SERVER
           value: "true"
+        - name: FORGEJO__server__SSH_DOMAIN
+          value: git-ssh.bgalhardo.internal
+        - name: FORGEJO__server__SSH_PORT
+          value: "22"
+        - name: FORGEJO__server__SSH_LISTEN_PORT
+          value: "2222"
         - name: FORGEJO__server__LFS_START_SERVER
           value: "true"
         - name: FORGEJO__server__LFS_JWT_SECRET
@@ -234,6 +244,23 @@ spec:
     app: forgejo
   ports:
     - port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-ssh
+  namespace: forgejo
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.204
+spec:
+  type: LoadBalancer
+  selector:
+    app: forgejo
+  ports:
+  - name: ssh
+    port: 22
+    protocol: TCP
+    targetPort: ssh
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

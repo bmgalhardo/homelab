@@ -22,6 +22,7 @@
 | home.bgalhardo.com | Gateway `external` → 192.168.1.201 | k8s `home` | Home Assistant |
 | mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
 | ibgateway.bgalhardo.internal | **192.168.1.203** (MetalLB, pinned by annotation) `:4002` | k8s `trading` | IB Gateway, paper API |
+| git-ssh.bgalhardo.internal | **192.168.1.204** (MetalLB, pinned by annotation) `:22` → pod `:2222` | k8s `forgejo` | Forgejo built-in SSH (git clone/push) |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
 | projects.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `system` | Project builds, docs, review mocks |

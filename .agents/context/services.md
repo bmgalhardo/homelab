@@ -105,7 +105,7 @@ to the pod's socat port 4004. No auth on the API: LAN/VPN only, and the account
 holds no real money. Credentials from Vault `kv/apps/ib-gateway` →
 `username`, `password`. Client: the `algo-trading` project.
 
-### forgejo — written 2026-11-14, not deployed
+### forgejo — live 2026-11-17
 Forgejo 17 (`codeberg.org/forgejo/forgejo:17.0.1-rootless`), pinned to Apollo,
 at `git.bgalhardo.internal` (internal gateway, wildcard DNS and certificate).
 Git host for the user's personal projects: repos, Git LFS for game assets, the
@@ -113,9 +113,17 @@ container registry for private project images, Forgejo Actions. The homelab
 repo and Flux stay on GitHub, so the cluster never depends on it.
 Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=disable`
 — the live server refuses TLS although the repo compose sets `ssl=on`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS only (SSH disabled).
-Registration off, sign-in required to view. Body cap 10g on the route, for LFS
-and registry pushes. Secrets from Vault `kv/apps/forgejo` → `secret_key`,
-`internal_token`, `jwt_secret`, `lfs_jwt_secret`, `db_password`.
+Sign-in required to view. SSO through Authentik (OIDC, application slug
+`forgejo`): accounts are created only on first Authentik login
+(`ALLOW_ONLY_EXTERNAL_REGISTRATION`, username = Authentik username); an existing
+local account links by logging in once. The `configure-sso` init container runs
+`forgejo migrate` and adds or updates the `authentik` auth source on every
+start; it skips when `app.ini` doesn't exist yet (first boot of an empty volume).
+The pod trusts the internal root CA via `SSL_CERT_DIR` (`kv/infra/root-ca`).
+Body cap 10g on the route, for LFS and registry pushes. Secrets from Vault
+`kv/apps/forgejo` → `secret_key`, `internal_token`, `jwt_secret`,
+`lfs_jwt_secret`, `db_password`, `oidc_client_id`,
+`oidc_client_secret`.
 Backup: nightly `forgejo dump` CronJob to `backups/` on the same PVC, 3 days
 kept. Same disk, so not yet a backup: it needs a copy to `odin` and off-site
 (see plans/backup-strategy.md). No Actions runner yet.

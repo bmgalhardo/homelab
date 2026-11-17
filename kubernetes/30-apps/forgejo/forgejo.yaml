@@ -52,6 +52,47 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /mnt/data
+      - name: configure-sso
+        image: codeberg.org/forgejo/forgejo:17.0.1-rootless
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          [ -f /etc/gitea/app.ini ] || exit 0
+          forgejo migrate
+          args="--name authentik --provider openidConnect
+            --key $OIDC_CLIENT_ID --secret $OIDC_CLIENT_SECRET
+            --auto-discover-url https://authentik.bgalhardo.internal/application/o/forgejo/.well-known/openid-configuration
+            --scopes openid --scopes email --scopes profile --skip-local-2fa"
+          id=$(forgejo admin auth list --vertical-bars | grep -E '\|authentik\s+\|' | awk '{print $1}')
+          if [ -z "$id" ]; then
+            forgejo admin auth add-oauth $args
+          else
+            forgejo admin auth update-oauth --id "$id" $args
+          fi
+        env:
+        - name: GITEA_WORK_DIR
+          value: /var/lib/gitea
+        - name: GITEA_APP_INI
+          value: /etc/gitea/app.ini
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: oidc_client_id
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: oidc_client_secret
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/gitea
+          subPath: data
+        - name: data
+          mountPath: /etc/gitea
+          subPath: config
       containers:
       - name: forgejo
         image: codeberg.org/forgejo/forgejo:17.0.1-rootless
@@ -107,7 +148,17 @@ spec:
               name: forgejo-secrets
               key: jwt_secret
         - name: FORGEJO__service__DISABLE_REGISTRATION
+          value: "false"
+        - name: FORGEJO__service__ALLOW_ONLY_EXTERNAL_REGISTRATION
           value: "true"
+        - name: FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION
+          value: "true"
+        - name: FORGEJO__oauth2_client__USERNAME
+          value: nickname
+        - name: FORGEJO__oauth2_client__ACCOUNT_LINKING
+          value: login
+        - name: SSL_CERT_DIR
+          value: /certs
         - name: FORGEJO__service__REQUIRE_SIGNIN_VIEW
           value: "true"
         - name: FORGEJO__repository__DEFAULT_PRIVATE
@@ -140,10 +191,33 @@ spec:
         - name: data
           mountPath: /etc/gitea
           subPath: config
+        - name: ca
+          mountPath: /certs
+          readOnly: true
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: forgejo-data
+      - name: ca
+        secret:
+          secretName: forgejo-ca
+          items:
+          - key: ca
+            path: ca.crt
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: forgejo-ca
+  namespace: forgejo
+spec:
+  type: kv-v2
+  mount: kv
+  path: infra/root-ca
+  destination:
+    name: forgejo-ca
+    create: true
+  refreshAfter: 30s
 ---
 apiVersion: v1
 kind: Service

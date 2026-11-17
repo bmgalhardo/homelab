@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama-cpp
+  namespace: ai
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llama-cpp
+  template:
+    metadata:
+      labels:
+        app: llama-cpp
+    spec:
+      containers:
+      - name: chat
+        image: ghcr.io/ggml-org/llama.cpp:server-b12019
+        imagePullPolicy: IfNotPresent
+        args:
+        - --hf-repo
+        - bartowski/Llama-3.2-1B-Instruct-GGUF:Q8_0
+        - --alias
+        - llama3.2-1b
+        - --ctx-size
+        - "8192"
+        - --threads
+        - "2"
+        - --jinja
+        - --metrics
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8080"
+        env:
+        - name: LLAMA_CACHE
+          value: /models
+        ports:
+        - name: chat
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: chat
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1"
+            memory: 1536Mi
+          limits:
+            cpu: "2"
+            memory: 3Gi
+        volumeMounts:
+        - mountPath: /models
+          name: models
+      - name: embed
+        image: ghcr.io/ggml-org/llama.cpp:server-b12019
+        imagePullPolicy: IfNotPresent
+        args:
+        - --hf-repo
+        - nomic-ai/nomic-embed-text-v1.5-GGUF:F16
+        - --alias
+        - nomic-embed-text
+        - --embeddings
+        - --ctx-size
+        - "2048"
+        - --batch-size
+        - "2048"
+        - --ubatch-size
+        - "2048"
+        - --threads
+        - "1"
+        - --metrics
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8081"
+        env:
+        - name: LLAMA_CACHE
+          value: /models
+        ports:
+        - name: embed
+          containerPort: 8081
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: embed
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+        volumeMounts:
+        - mountPath: /models
+          name: models
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: llama-cpp-models
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llama-cpp-models
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-cpp
+  namespace: ai
+spec:
+  selector:
+    app: llama-cpp
+  ports:
+    - name: chat
+      port: 8080
+    - name: embed
+      port: 8081

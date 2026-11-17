@@ -155,6 +155,10 @@ data:
           icon: mdi-package-variant
           href: https://projects.bgalhardo.internal
           siteMonitor: http://publish.system:8080
+      - Forgejo:
+          icon: forgejo.png
+          href: https://git.bgalhardo.internal
+          siteMonitor: http://forgejo.forgejo:3000/api/healthz
     - AI:
       - Open WebUI:
           icon: open-webui.png

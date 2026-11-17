@@ -1,0 +1,193 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forgejo-data
+  namespace: forgejo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: forgejo-secrets
+  namespace: forgejo
+spec:
+  type: kv-v2
+  mount: kv
+  path: apps/forgejo
+  destination:
+    name: forgejo-secrets
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: forgejo
+  template:
+    metadata:
+      labels:
+        app: forgejo
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: prepare
+        image: codeberg.org/forgejo/forgejo:17.0.1-rootless
+        command: ["mkdir", "-p", "/mnt/data/data", "/mnt/data/config"]
+        volumeMounts:
+        - name: data
+          mountPath: /mnt/data
+      containers:
+      - name: forgejo
+        image: codeberg.org/forgejo/forgejo:17.0.1-rootless
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: FORGEJO__server__DOMAIN
+          value: git.bgalhardo.internal
+        - name: FORGEJO__server__ROOT_URL
+          value: https://git.bgalhardo.internal/
+        - name: FORGEJO__server__HTTP_PORT
+          value: "3000"
+        - name: FORGEJO__server__DISABLE_SSH
+          value: "true"
+        - name: FORGEJO__server__LFS_START_SERVER
+          value: "true"
+        - name: FORGEJO__server__LFS_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: lfs_jwt_secret
+        - name: FORGEJO__database__DB_TYPE
+          value: postgres
+        - name: FORGEJO__database__HOST
+          value: postgres.bgalhardo.internal:5432
+        - name: FORGEJO__database__NAME
+          value: forgejo
+        - name: FORGEJO__database__USER
+          value: forgejo
+        - name: FORGEJO__database__PASSWD
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: db_password
+        - name: FORGEJO__database__SSL_MODE
+          value: require
+        - name: FORGEJO__security__INSTALL_LOCK
+          value: "true"
+        - name: FORGEJO__security__SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: secret_key
+        - name: FORGEJO__security__INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: internal_token
+        - name: FORGEJO__oauth2__JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-secrets
+              key: jwt_secret
+        - name: FORGEJO__service__DISABLE_REGISTRATION
+          value: "true"
+        - name: FORGEJO__service__REQUIRE_SIGNIN_VIEW
+          value: "true"
+        - name: FORGEJO__repository__DEFAULT_PRIVATE
+          value: private
+        - name: FORGEJO__packages__ENABLED
+          value: "true"
+        - name: FORGEJO__actions__ENABLED
+          value: "true"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/gitea
+          subPath: data
+        - name: data
+          mountPath: /etc/gitea
+          subPath: config
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: forgejo-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  selector:
+    app: forgejo
+  ports:
+    - port: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  hostnames:
+  - git.bgalhardo.internal
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: internal
+    sectionName: https
+    namespace: system
+  rules:
+  - backendRefs:
+    - name: forgejo
+      port: 3000
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: gateway.nginx.org/v1alpha1
+kind: ClientSettingsPolicy
+metadata:
+  name: forgejo-client-settings
+  namespace: forgejo
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: forgejo
+  body:
+    maxSize: 10g

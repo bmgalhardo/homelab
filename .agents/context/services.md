@@ -30,7 +30,7 @@
 - **HA:** Standalone
 - **Depends on:** None (secrets now via plain `.env` on the VM, not
   Vault injection — Ansible's `vault_kv2_get` step was retired)
-- **Dependents:** Authentik, K8s services needing DB
+- **Dependents:** Authentik, Forgejo (k8s), K8s services needing DB
 - **Backup:** Local only — `pg_backup` sidecar runs `backup.sh` daily,
   real daily/weekly/monthly retention, but nothing ships it off this VM.
   See plans/todos.md.
@@ -95,6 +95,30 @@ covered by its `pg_backup` sidecar (local disk only).
 `llama-cpp` (CPU, chat + embed containers), `llama-cpp-gpu` (GPU node,
 Pending while it's off), `litellm` (gateway, falls back from `qwen-gpu` to CPU
 `llama-mini`), `openwebui`. Replaced Ollama 2026-11-02 — see plans/ai-poc.md.
+
+### trading — new 2026-11-09
+`ib-gateway` (`ghcr.io/gnzsnz/ib-gateway`, IB Gateway + IBC), pinned to Apollo.
+Paper account only (`TRADING_MODE=paper`); IBC logs in by itself, restarts
+daily at 23:45 and logs in again after IBKR's weekly reset. API on
+LoadBalancer **192.168.1.203:4002** (`ibgateway.bgalhardo.internal`), forwarded
+to the pod's socat port 4004. No auth on the API: LAN/VPN only, and the account
+holds no real money. Credentials from Vault `kv/apps/ib-gateway` →
+`username`, `password`. Client: the `algo-trading` project.
+
+### forgejo — written 2026-11-14, not deployed
+Forgejo 17 (`codeberg.org/forgejo/forgejo:17.0.1-rootless`), pinned to Apollo,
+at `git.bgalhardo.internal` (internal gateway, wildcard DNS and certificate).
+Git host for the user's personal projects: repos, Git LFS for game assets, the
+container registry for private project images, Forgejo Actions. The homelab
+repo and Flux stay on GitHub, so the cluster never depends on it.
+Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=require`
+(TLS, not verified against the CA)); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS only (SSH disabled).
+Registration off, sign-in required to view. Body cap 10g on the route, for LFS
+and registry pushes. Secrets from Vault `kv/apps/forgejo` → `secret_key`,
+`internal_token`, `jwt_secret`, `lfs_jwt_secret`, `db_password`.
+Backup: nightly `forgejo dump` CronJob to `backups/` on the same PVC, 3 days
+kept. Same disk, so not yet a backup: it needs a copy to `odin` and off-site
+(see plans/backup-strategy.md). No Actions runner yet.
 
 ### automation — RBAC only
 `automation/claude` ServiceAccount + `claude-readonly` ClusterRole, the scoped

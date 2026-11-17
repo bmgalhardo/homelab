@@ -21,6 +21,7 @@
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
 | home.bgalhardo.com | Gateway `external` → 192.168.1.201 | k8s `home` | Home Assistant |
 | mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
+| ibgateway.bgalhardo.internal | **192.168.1.203** (MetalLB, pinned by annotation) `:4002` | k8s `trading` | IB Gateway, paper API |
 | openwebui.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | Open WebUI |
 | litellm.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `ai` | LiteLLM proxy |
 | projects.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `system` | Project builds, docs, review mocks |
@@ -187,6 +188,15 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 
 - **Gateway:** UDM Pro (dual function: gateway + switch)
 - **Uplink:** UDM port 9 (`eth8`, WAN1) to ISP (bridge mode)
+- **WAN drops are known and expected:** a toddler switches the ISP router
+  off, so `eth8: Link is Down` recurs. Internal DNS (Hermes, `*.bgalhardo.internal`)
+  keeps working; only lookups and NTP that need the internet fail. Treat these as
+  side effects of the drop, not separate incidents: Talos `error serving dns
+  request` / `time query error`, CoreDNS SERVFAIL for external names, Flux
+  `lookup github.com`, `probe_dns_upstream` (cloudflare.com), UDM linkcheck
+  and AP `dns_timeout`. Report it as one info line, "WAN down N× (times)". It is
+  only a warning if `probe_dns` (the internal-name probe) fails during the drop
+  too, because that means Hermes itself is broken.
 - **Cluster nodes:** Direct to UDM (no bonding/LAGG)
 - **Utility node:** Hermes independent (can survive cluster outage)
 - **Storage access:** virtiofs from Hades into `elysium-hades` (no NFS)

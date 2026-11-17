@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama-cpp-gpu
+  namespace: ai
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llama-cpp-gpu
+  template:
+    metadata:
+      labels:
+        app: llama-cpp-gpu
+    spec:
+      runtimeClassName: nvidia
+      containers:
+      - name: chat
+        image: ghcr.io/ggml-org/llama.cpp:server-cuda-b12019
+        imagePullPolicy: IfNotPresent
+        args:
+        - --hf-repo
+        - bartowski/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M
+        - --alias
+        - qwen2.5-1.5b
+        - --ctx-size
+        - "8192"
+        - --n-gpu-layers
+        - "99"
+        - --threads
+        - "3"
+        - --jinja
+        - --metrics
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8080"
+        env:
+        - name: LLAMA_CACHE
+          value: /models
+        ports:
+        - name: chat
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: chat
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1"
+            memory: 1Gi
+          limits:
+            cpu: "3"
+            memory: 4Gi
+            nvidia.com/gpu: 1
+        volumeMounts:
+        - mountPath: /models
+          name: models
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: llama-cpp-gpu-models
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llama-cpp-gpu-models
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-cpp-gpu
+  namespace: ai
+spec:
+  selector:
+    app: llama-cpp-gpu
+  ports:
+    - name: chat
+      port: 8080

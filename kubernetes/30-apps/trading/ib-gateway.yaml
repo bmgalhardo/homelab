@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: ib-gateway
+  namespace: trading
+spec:
+  type: kv-v2
+  mount: kv
+  path: apps/ib-gateway
+  destination:
+    name: ib-gateway-credentials
+    create: true
+  refreshAfter: 30s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ib-gateway
+  namespace: trading
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.203
+spec:
+  type: LoadBalancer
+  selector:
+    app: ib-gateway
+  ports:
+  - name: api-paper
+    port: 4002
+    protocol: TCP
+    targetPort: api-paper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ib-gateway
+  namespace: trading
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ib-gateway
+  template:
+    metadata:
+      labels:
+        app: ib-gateway
+    spec:
+      containers:
+      - name: ib-gateway
+        image: ghcr.io/gnzsnz/ib-gateway:10.50.1f
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TRADING_MODE
+          value: paper
+        - name: READ_ONLY_API
+          value: "no"
+        - name: AUTO_RESTART_TIME
+          value: "11:45 PM"
+        - name: EXISTING_SESSION_DETECTED_ACTION
+          value: primary
+        - name: TZ
+          value: Europe/Lisbon
+        - name: TWS_USERID
+          valueFrom:
+            secretKeyRef:
+              name: ib-gateway-credentials
+              key: username
+        - name: TWS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ib-gateway-credentials
+              key: password
+        ports:
+        # socat forwards 4004 to the gateway's paper API, which only accepts localhost
+        - name: api-paper
+          containerPort: 4004
+        resources:
+          requests:
+            cpu: 100m
+            memory: 768Mi
+          limits:
+            memory: 1536Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          tcpSocket:
+            port: api-paper
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault

@@ -72,6 +72,8 @@ spec:
             forgejo admin auth update-oauth --id "$id" $args
           fi
         env:
+        - name: SSL_CERT_DIR
+          value: /certs
         - name: GITEA_WORK_DIR
           value: /var/lib/gitea
         - name: GITEA_APP_INI
@@ -93,6 +95,9 @@ spec:
         - name: data
           mountPath: /etc/gitea
           subPath: config
+        - name: ca
+          mountPath: /certs
+          readOnly: true
       containers:
       - name: forgejo
         image: codeberg.org/forgejo/forgejo:17.0.1-rootless

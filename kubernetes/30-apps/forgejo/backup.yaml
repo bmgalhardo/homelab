@@ -26,7 +26,7 @@ spec:
             - -c
             - >-
               mkdir -p /var/lib/gitea/backups &&
-              forgejo dump --config /etc/gitea/app.ini --type tar.gz
+              forgejo dump --config /var/lib/gitea/custom/conf/app.ini --type tar.gz
               --tempdir /var/lib/gitea/tmp
               --file /var/lib/gitea/backups/forgejo-dump-$(date +%Y%m%d).tar.gz &&
               find /var/lib/gitea/backups -name 'forgejo-dump-*.tar.gz' -mtime +3 -delete

@@ -59,7 +59,7 @@ spec:
         - -c
         - |
           set -e
-          [ -f /etc/gitea/app.ini ] || exit 0
+          [ -f /var/lib/gitea/custom/conf/app.ini ] || exit 0
           forgejo migrate
           args="--name authentik --provider openidConnect
             --key $OIDC_CLIENT_ID --secret $OIDC_CLIENT_SECRET
@@ -75,7 +75,7 @@ spec:
         - name: GITEA_WORK_DIR
           value: /var/lib/gitea
         - name: GITEA_APP_INI
-          value: /etc/gitea/app.ini
+          value: /var/lib/gitea/custom/conf/app.ini
         - name: OIDC_CLIENT_ID
           valueFrom:
             secretKeyRef:

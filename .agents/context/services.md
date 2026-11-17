@@ -118,7 +118,7 @@ Sign-in required to view. SSO through Authentik (OIDC, application slug
 (`ALLOW_ONLY_EXTERNAL_REGISTRATION`, username = Authentik username); an existing
 local account links by logging in once. The `configure-sso` init container runs
 `forgejo migrate` and adds or updates the `authentik` auth source on every
-start; it skips when `app.ini` doesn't exist yet (first boot of an empty volume).
+start; it skips when `custom/conf/app.ini` on the data volume doesn't exist yet (first boot of an empty volume).
 The pod trusts the internal root CA via `SSL_CERT_DIR` (`kv/infra/root-ca`).
 Body cap 10g on the route, for LFS and registry pushes. Secrets from Vault
 `kv/apps/forgejo` → `secret_key`, `internal_token`, `jwt_secret`,

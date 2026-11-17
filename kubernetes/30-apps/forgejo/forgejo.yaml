@@ -88,7 +88,7 @@ spec:
               name: forgejo-secrets
               key: db_password
         - name: FORGEJO__database__SSL_MODE
-          value: require
+          value: disable
         - name: FORGEJO__security__INSTALL_LOCK
           value: "true"
         - name: FORGEJO__security__SECRET_KEY

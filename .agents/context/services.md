@@ -111,8 +111,8 @@ at `git.bgalhardo.internal` (internal gateway, wildcard DNS and certificate).
 Git host for the user's personal projects: repos, Git LFS for game assets, the
 container registry for private project images, Forgejo Actions. The homelab
 repo and Flux stay on GitHub, so the cluster never depends on it.
-Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=require`
-(TLS, not verified against the CA)); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS only (SSH disabled).
+Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=disable`
+— the live server refuses TLS although the repo compose sets `ssl=on`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS only (SSH disabled).
 Registration off, sign-in required to view. Body cap 10g on the route, for LFS
 and registry pushes. Secrets from Vault `kv/apps/forgejo` → `secret_key`,
 `internal_token`, `jwt_secret`, `lfs_jwt_secret`, `db_password`.

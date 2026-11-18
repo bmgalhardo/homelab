@@ -30,7 +30,7 @@ infra/
 │       │   ├── docker-compose.yml
 │       │   ├── backup.sh
 │       │   ├── restore.sh
-│       │   ├── vault-agent/    ← TLS leaf only; not deployed yet (plans/todos.md)
+│       │   ├── vault-agent/    ← TLS leaf only
 │       │   └── .env.example
 │       └── omni/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
@@ -104,9 +104,7 @@ in git lists the variable names so it's clear what's needed:
 
 ### Vault Agent sidecar (new 2026-09-08, reference: `infra/athena/vault-agent/`)
 
-The plaintext-`.env` model above is the thing the P3 "rotate all secrets"
-item is blocked on. The `athena` stack is the first to replace it
-with a **Vault Agent sidecar**:
+The `athena` stack replaces the `.env` model with a **Vault Agent sidecar**:
 
 - **Auth:** AppRole (these are VMs, not k8s pods). `role_id` (not secret)
   + `secret_id` (non-expiring bootstrap cred, scoped to a one-path
@@ -142,8 +140,8 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   vault, authentik, postgres, omni. `configs.auto.tfvars.json` is the
   editable VM spec file (vmid, node, memory, cores, mac — not secret, safe
   in git). `terraform.tfvars` (real Proxmox credentials) and
-  `terraform.tfstate*` are gitignored. **State is drifted — see
-  `plans/todos.md` "Full VM Provisioning" before running it.**
+  `terraform.tfstate*` are gitignored. **Read
+  `overmind memory get homelab/todos.md` "Full VM Provisioning" before running it.**
 - `infra/elysium/terraform/` — Talos k8s cluster VMs. Same pattern.
 - **A new workstation needs more than `.agents/secrets/`** to run Terraform:
   `terraform.tfvars` (copy `terraform.tfvars.example`; a Proxmox token with
@@ -151,23 +149,8 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   `terraform.tfstate`, per stack. Copy both from the workstation that last
   applied.
 
-⚠️ **Known issue:** `infra/olympus/terraform/main.tf` sets
-`cipassword = "root"` via cloud-init — every VM gets password auth
-enabled with a trivial password, in addition to SSH keys. Flagged in
-`plans/todos.md`, not yet fixed.
-
 ## Certificate Management
 
 See `.agents/context/network.md` — Vault PKI (`pki_infra`), issued
-per-service, no auto-renewal yet.
+per service.
 
-## Known Issues (as of 2026-08-21 migration)
-
-- No backup automation for Vault at all; Postgres backs up locally but
-  doesn't ship offsite. See `plans/todos.md`.
-- `authentik`'s compose file points at Postgres by IP
-  (`192.168.1.177`), not by `postgres.bgalhardo.internal` DNS — works,
-  but brittle if that VM's IP ever changes.
-- `omni` has no Terraform/compose provenance trail in the old Ansible
-  setup — it was always deployed by hand. Its compose file is genuinely
-  static and secret-free as pulled.

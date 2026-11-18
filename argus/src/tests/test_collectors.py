@@ -28,4 +28,5 @@ def test_disabled_collectors_are_named():
     assert disabled_notes(enabled) == [
         "collector proxmox disabled (not configured)",
         "collector talos disabled (not configured)",
+        "collector homeassistant disabled (not configured)",
     ]

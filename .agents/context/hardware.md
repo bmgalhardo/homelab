@@ -51,7 +51,7 @@ Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
   arm64 and armv7 builds only — Grafana Alloy, for one, has no ARMv6 build.
   Anything needed on Hermes has to be busybox-native or built from source.
   For log shipping this is fine: dnsmasq and haproxy log to syslog, and
-  busybox `syslogd -R host:port` forwards remotely (see plans/argus.md).
+  busybox `syslogd -R host:port` forwards remotely (see `overmind memory get homelab/argus.md`).
 - **Runs:**
   - dnsmasq (DNS resolver for bgalhardo.internal)
   - HAProxy (L4 load balancer, SSL termination)
@@ -123,7 +123,7 @@ Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
 - **IP:** `192.168.1.196` (DHCP → pin in UniFi)
 - **Role:** Monitoring stack — Loki + Prometheus + Grafana + Alloy + Vault
   Agent + (later) the argus agent. Independent of the Proxmox cluster on
-  purpose. See `.agents/context/plans/argus.md`.
+  purpose. See `overmind memory get homelab/argus.md`.
 - **Power:** ~5W
 
 ## Spare Hardware

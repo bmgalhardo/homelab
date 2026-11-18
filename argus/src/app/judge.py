@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from datetime import datetime
-from pathlib import Path
 
 import anthropic
 
@@ -27,14 +26,14 @@ PRICES = {
 
 SYSTEM = """\
 You are Argus, the report agent for a small homelab. You get the last \
-{window} of facts (threshold breaches from Prometheus, Proxmox, Talos) and \
+{window} of facts (threshold breaches from Prometheus, Proxmox, Talos, Home Assistant) and \
 fingerprinted error log clusters from Loki, the previous report's findings, plus \
 the homelab's own documentation.
 
 Decide what the owner needs to know this morning. Rules:
 - Use the documentation to tell normal from abnormal. A node documented as \
-power-managed being offline is normal. A problem already listed as a known \
-open item is reported once, briefly, as info.
+power-managed being offline is normal. A problem listed in known-issues.md (or \
+otherwise documented as a known open item) is reported once, briefly, as info.
 - Correlate across sources: one root cause with five symptoms is one finding.
 - Severity: critical = data loss, outage or security exposure now or within a \
 day; warning = will become critical if ignored for a week; info = worth knowing.
@@ -59,7 +58,14 @@ since); one it had that this window no longer supports, or that stopped hours be
 the window ends, is resolved: info, one sentence saying when it stopped. Anything \
 else is new. A finding resolved in previous_report is not repeated unless it came back. \
 With no previous_report, everything is new.
+- battery_low and battery_not_reporting are always a finding, one per device with its \
+name and level: warning. A battery sensor that is not reporting usually means a dead \
+battery or a device out of range. Several on one night are one finding, listing each.
 - Collector errors mean part of the homelab was not checked; always mention them.
+- context_unreachable means a documentation source could not be fetched: value cached \
+means you judge with an older copy (cached_as_of on the doc), missing means without that \
+doc. Mention it once, as info. When its host is a homelab service, it is also evidence \
+that service is down: correlate it with the other facts.
 - collector_notes are printed under the report: do not turn them into findings.
 - Terse alert style. No preamble, no advice the owner did not ask for.
 - A quiet window has an empty findings list and the headline "nothing new".
@@ -75,6 +81,7 @@ def judge(
     since: datetime,
     until: datetime,
     previous: PreviousReport | None = None,
+    documentation: str = "<documentation>none available</documentation>",
 ) -> tuple[Report, Usage]:
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key.get_secret_value())
     shown = select(clusters, settings.max_log_clusters)
@@ -87,7 +94,7 @@ def judge(
         },
         "system": [
             {"type": "text", "text": SYSTEM.format(window=f"{settings.window_hours}h")},
-            {"type": "text", "text": _context(settings.context_dir, settings.context_exclude)},
+            {"type": "text", "text": documentation},
         ],
         "messages": [
             {
@@ -154,18 +161,6 @@ def usage(model: str, input_tokens: int, output_tokens: int, batch: bool = False
         cost_usd=cost,
         batch=batch,
     )
-
-
-def _context(context_dir: Path | None, exclude: set[str]) -> str:
-    if context_dir is None or not context_dir.is_dir():
-        log.warning("no context dir, judging without homelab documentation")
-        return "<documentation>none available</documentation>"
-    docs = "\n".join(
-        f'<doc name="{path.name}">\n{path.read_text()}\n</doc>'
-        for path in sorted(context_dir.glob("*.md"))
-        if path.name not in exclude
-    )
-    return f"<documentation>\n{docs}\n</documentation>"
 
 
 def _evidence(

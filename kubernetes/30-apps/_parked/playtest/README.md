@@ -16,7 +16,7 @@ is live: `system/telemetry.yaml`.
   8 MB/s, 16 MB burst) are shared with every homelab log. Junk pushed at
   that rate would crowd them out.
 - **Reachability.** Port 443 on the WAN must reach `192.168.1.201`, as it
-  does for `home.bgalhardo.com`. external-dns publishes the hostname from
+  does for the other `*.bgalhardo.com` routes. external-dns publishes the hostname from
   the route.
 
 ## Unpark

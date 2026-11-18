@@ -136,7 +136,7 @@ data:
     - Monitoring:
       - Home Assistant:
           icon: home-assistant.png
-          href: https://home.bgalhardo.com
+          href: https://home.bgalhardo.internal
           siteMonitor: http://homeassistant.home:8123
       - Grafana:
           icon: grafana.png

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     window_hours: int = 48
     context_dir: Path | None = None
     context_exclude: Annotated[set[str], NoDecode] = set()
+    context_urls: Annotated[list[str], NoDecode] = []
+    context_private_urls: Annotated[list[str], NoDecode] = []
+    context_token: SecretStr | None = None
+    context_cache_dir: Path | None = None
     max_log_clusters: int = 100
     ca_file: Path | None = None
 
@@ -42,6 +46,11 @@ class Settings(BaseSettings):
     omni_service_account_key: SecretStr | None = None
     omni_cluster: str = "elysium"
 
+    ha_url: str | None = None
+    ha_token: SecretStr | None = None
+    ha_battery_low: int = 20
+    ha_battery_exclude: str = ""
+
     @field_validator("context_exclude", mode="before")
     @classmethod
     def comma_separated(cls, value: str | set[str]) -> set[str]:
@@ -49,7 +58,14 @@ class Settings(BaseSettings):
             return {name.strip() for name in value.split(",") if name.strip()}
         return value
 
-    @field_validator("context_dir", "ca_file")
+    @field_validator("context_urls", "context_private_urls", mode="before")
+    @classmethod
+    def url_list(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, str):
+            return [url.strip() for url in value.split(",") if url.strip()]
+        return value
+
+    @field_validator("context_dir", "ca_file", "context_cache_dir")
     @classmethod
     def relative_to_argus(cls, path: Path | None) -> Path | None:
         return ARGUS_DIR / path if path and not path.is_absolute() else path

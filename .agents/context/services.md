@@ -9,7 +9,7 @@
   by a sidecar `unsealer` container reading `VAULT_UNSEAL_KEY`
 - **Depends on:** None
 - **Dependents:** Authentik, Postgres, K8s, all services
-- **Backup:** ⚠️ None. No snapshot mechanism exists at all — see plans/todos.md
+- **Backup:** see the backup plan
 - **Compose:** Yes — `infra/olympus/services/vault/`, static file (Ansible
   retired 2026-08-21). Listener config in `vault.hcl` (same dir)
 - **K8s integration:** kubernetes auth method, `cert_manager` and
@@ -18,7 +18,7 @@
   Vault is NOT in-cluster, so `auth/kubernetes/config` needs an explicit
   `token_reviewer_jwt` from the `vault-auth` SA, and `vault write` replaces
   the whole config object — any hand-edit that omits it silently breaks
-  every login (outage history in network.md).
+  every login.
   The script also creates the `vault-ca` Secret in `vault-secrets-operator`
   from `infra/ca/root-ca.crt`. It can't be a `VaultStaticSecret`: VSO needs
   that CA before it can reach Vault at all. Until it exists the
@@ -28,12 +28,10 @@
 - **Location:** Apollo VM (`postgres`, 192.168.1.177)
 - **Role:** Database backend for Authentik
 - **HA:** Standalone
-- **Depends on:** None (secrets now via plain `.env` on the VM, not
-  Vault injection — Ansible's `vault_kv2_get` step was retired)
+- **Depends on:** None (secrets from `.env` on the VM, see deployment.md)
 - **Dependents:** Authentik, Forgejo (k8s), K8s services needing DB
-- **Backup:** Local only — `pg_backup` sidecar runs `backup.sh` daily,
-  real daily/weekly/monthly retention, but nothing ships it off this VM.
-  See plans/todos.md.
+- **Backup:** `pg_backup` sidecar runs `backup.sh` daily, with
+  daily/weekly/monthly retention on the VM's disk.
 - **Compose:** Yes — `infra/olympus/services/postgres/`, static file
 
 ### Authentik
@@ -43,7 +41,7 @@
 - **Depends on:** Postgres (by IP, 192.168.1.177 — not DNS), Vault (PKI
   cert only, not secrets injection)
 - **Dependents:** Proxmox UI, K8s API (auth provider), Omni (SAML)
-- **Backup:** Database only (via Postgres backup, same gap as above)
+- **Backup:** Database, through the Postgres backup
 - **Compose:** Yes — `infra/olympus/services/authentik/`, static file
 
 ### Omni
@@ -52,7 +50,6 @@
 - **HA:** Standalone
 - **Depends on:** None (but manages K8s); auth via Authentik SAML
 - **Dependents:** K8s cluster (talos-control, talos-worker)
-- **Backup:** Unknown — not investigated
 - **Compose:** Yes — `infra/olympus/services/omni/`, was always a hand-deployed
   static file, never templated by Ansible
 
@@ -80,7 +77,7 @@ Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 - `publish` — nginx with WebDAV writes, `projects.bgalhardo.internal`. Serves the
   latest build, docs and review mocks of each project; the agents on daedalus
   upload with `tools/publish/publish.py` from the workflow repo.
-  No auth by choice: LAN/VPN only, and everything on it is rebuildable.
+  Reachable from LAN/VPN only; everything on it is rebuildable.
   Content on local-path PVC `publish`.
 - Both Gateway data planes (`internal` .200 / `external` .201, see network.md)
 
@@ -94,15 +91,14 @@ covered by its `pg_backup` sidecar (local disk only).
 ### ai — running
 `llama-cpp` (CPU, chat + embed containers), `llama-cpp-gpu` (GPU node,
 Pending while it's off), `litellm` (gateway, falls back from `qwen-gpu` to CPU
-`llama-mini`), `openwebui`. Replaced Ollama 2026-11-02 — see plans/ai-poc.md.
+`llama-mini`), `openwebui`. Replaced Ollama 2026-11-02 — see `overmind memory get homelab/ai-poc.md`.
 
 ### trading — new 2026-11-09
 `ib-gateway` (`ghcr.io/gnzsnz/ib-gateway`, IB Gateway + IBC), pinned to Apollo.
 Paper account only (`TRADING_MODE=paper`); IBC logs in by itself, restarts
 daily at 23:45 and logs in again after IBKR's weekly reset. API on
 LoadBalancer **192.168.1.203:4002** (`ibgateway.bgalhardo.internal`), forwarded
-to the pod's socat port 4004. No auth on the API: LAN/VPN only, and the account
-holds no real money. Credentials from Vault `kv/apps/ib-gateway` →
+to the pod's socat port 4004, reachable from LAN/VPN only. Credentials from Vault `kv/apps/ib-gateway` →
 `username`, `password`. Client: the `algo-trading` project.
 
 ### forgejo — live 2026-11-17
@@ -111,8 +107,7 @@ at `git.bgalhardo.internal` (internal gateway, wildcard DNS and certificate).
 Git host for the user's personal projects: repos, Git LFS for game assets, the
 container registry for private project images, Forgejo Actions. The homelab
 repo and Flux stay on GitHub, so the cluster never depends on it.
-Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`, `SSL_MODE=disable`
-— the live server refuses TLS although the repo compose sets `ssl=on`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS at `git.bgalhardo.internal`; git over SSH through Forgejo's built-in server at `git-ssh.bgalhardo.internal:22` (MetalLB .204 → pod 2222).
+Database `forgejo` on the Postgres VM (`postgres.bgalhardo.internal`); repos, LFS and packages on a local-path PVC (`forgejo-data`). HTTPS at `git.bgalhardo.internal`; git over SSH through Forgejo's built-in server at `git-ssh.bgalhardo.internal:22` (MetalLB .204 → pod 2222).
 Sign-in required to view. SSO through Authentik (OIDC, application slug
 `forgejo`): accounts are created only on first Authentik login
 (`ALLOW_ONLY_EXTERNAL_REGISTRATION`, username = Authentik username); an existing
@@ -124,9 +119,8 @@ Body cap 10g on the route, for LFS and registry pushes. Secrets from Vault
 `kv/apps/forgejo` → `secret_key`, `internal_token`, `jwt_secret`,
 `lfs_jwt_secret`, `db_password`, `oidc_client_id`,
 `oidc_client_secret`.
-Backup: nightly `forgejo dump` CronJob to `backups/` on the same PVC, 3 days
-kept. Same disk, so not yet a backup: it needs a copy to `odin` and off-site
-(see plans/backup-strategy.md). No Actions runner yet.
+Backup: nightly `forgejo dump` CronJob to `backups/` on the PVC, 3 days kept.
+No Actions runner yet.
 
 ### automation — RBAC only
 `automation/claude` ServiceAccount + `claude-readonly` ClusterRole, the scoped
@@ -134,11 +128,11 @@ read-only identity for assistants. See AGENTS.md.
 
 ### home — migrating (2026-10-18)
 `kubernetes/30-apps/home/`, pinned to Apollo.
-- `homeassistant` — `home.bgalhardo.com` on the `external` Gateway. `/config`
+- `homeassistant` — `home.bgalhardo.internal` on the `internal` Gateway (LAN/VPN). `/config`
   on local-path PVC `homeassistant-config`; recorder history on the `postgres`
   VM (`homeassistant` DB). Ships at `replicas: 0` until the restore from
   `hades:/odin/backups/home-assistant/` is done.
-- `mosquitto` — LoadBalancer **192.168.1.202** (fixed), anonymous, persistence
+- `mosquitto` — LoadBalancer **192.168.1.202** (fixed), persistence
   on PVC `mosquitto-data`. Clients outside the cluster: the Shellys (native
   MQTT, plus the `ble2ha.js` script on the Mini PM relaying Govee/BLU
   sensors). Shelly settings + scripts are in git (`infra/mqtt-devices/shelly/`,
@@ -175,7 +169,7 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
   are provisioned from files, so the Vault admin password applies on every
   boot rather than only at first init. Dashboards are exported back to files
   with `grafana/export-dashboards.sh`.
-- Build status: `plans/argus.md`.
+- Build status: `overmind memory get homelab/argus.md`.
 
 ## Outside K8s (Hermes, Independent)
 
@@ -259,27 +253,20 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
 ## Dependency Graph
 
 ```
-Vault (P0 - everything depends)
+Vault (everything depends)
   ├─→ Authentik (auth provider)
   ├─→ Postgres (Authentik DB)
   ├─→ Omni (K8s manager)
   └─→ K8s (cert-manager)
 
-Hermes DNS/LB (independent, P0 - service discovery)
+Hermes DNS/LB (independent, service discovery)
   ├─→ dnsmasq (all services need DNS)
   └─→ HAProxy (proxmox.*, postgres.* entries)
 
-Hades virtiofs (SPOF - media/photos, elysium-hades only)
+Hades virtiofs (media/photos, elysium-hades only)
   └─→ Immich
 
 Apollo LXC Corosync (voting node)
   └─→ Proxmox cluster quorum (2-node)
 ```
 
-## Single Points of Failure
-
-⚠️ **Vault** — All services depend; requires backup
-⚠️ **Postgres** — Authentik depends; requires backup
-⚠️ **Hades** — virtiofs media/photos; pods using them run only there
-⚠️ **Apollo** — K8s control plane single-node (not HA)
-⚠️ **Hermes DNS** — No backup (future: Pi4 backup dnsmasq)

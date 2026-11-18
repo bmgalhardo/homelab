@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from app import judge, reduce
+from app import context, judge, reduce
 from app.collect import build_collectors, collect_all, disabled_notes
 from app.config import Settings
 from app.emit import loki, telegram
@@ -27,6 +27,14 @@ def run(settings: Settings, dry_run: bool) -> int:
         len(collected.errors),
     )
 
+    try:
+        documentation, context_facts = context.load(settings)
+        collected.facts += context_facts
+    except Exception as exc:
+        log.exception("loading the documentation failed")
+        documentation = "<documentation>none available</documentation>"
+        collected.notes.append(f"documentation unavailable ({type(exc).__name__})")
+
     previous = None
     if settings.loki_url:
         try:
@@ -37,7 +45,9 @@ def run(settings: Settings, dry_run: bool) -> int:
 
     usage = None
     try:
-        report, usage = judge.judge(settings, collected, clusters, since, until, previous)
+        report, usage = judge.judge(
+            settings, collected, clusters, since, until, previous, documentation
+        )
     except Exception as exc:
         log.exception("judge failed")
         report = unjudged_report(collected, clusters, exc, f"{until:%Y-%m-%d}")

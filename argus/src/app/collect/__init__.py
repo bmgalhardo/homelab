@@ -7,7 +7,7 @@ from app.models import Collected, CollectorError, Source
 
 log = logging.getLogger(__name__)
 
-NAMES = ("loki", "prometheus", "proxmox", "talos")
+NAMES = ("loki", "prometheus", "proxmox", "talos", "homeassistant")
 
 
 class Collector(Protocol):
@@ -17,6 +17,7 @@ class Collector(Protocol):
 
 
 def build_collectors(settings: Settings) -> list[Collector]:
+    from app.collect.homeassistant import HomeAssistantCollector
     from app.collect.loki import LokiCollector
     from app.collect.prometheus import PrometheusCollector
     from app.collect.proxmox import ProxmoxCollector
@@ -31,6 +32,8 @@ def build_collectors(settings: Settings) -> list[Collector]:
         collectors.append(ProxmoxCollector(settings))
     if settings.omni_endpoint and settings.omni_service_account_key:
         collectors.append(TalosCollector(settings))
+    if settings.ha_url and settings.ha_token:
+        collectors.append(HomeAssistantCollector(settings))
     return collectors
 
 

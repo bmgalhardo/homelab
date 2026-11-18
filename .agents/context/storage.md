@@ -17,18 +17,15 @@ Two classes, and the distinction matters for backups:
 - **virtiofs is node-bound.** Each share exists only on its host's worker, so
   any pod using it pins there. A pod on Apollo cannot mount them — which is
   why an Apollo local-path PVC cannot be backed up to Hades storage by any
-  single pod. See plans/todos.md.
+  single pod.
 - **local-path is a plain node-local directory.** No replication. Node lost =
   data lost. Manifests come back from git via Flux; only *data* needs
   restoring.
 
-⚠️ **The disk selector broke this silently once** (2026-09-13 → 2026-09-15):
-`disk.transport == "scsi"` never matched, because the `virtio-scsi-single`
-controller makes Talos report transport **virtio** even though the disks
-appear as `/dev/sdX`. Every local-path PVC sat `Pending` for 38h with no error
-in k8s — `talosctl get volumestatus` was the only layer that reported a cause.
-Fixed in `infra/elysium/omni/patches/local-path.yaml`; full writeup in
-plans/todos.md.
+The local-path disk is selected in `infra/elysium/omni/patches/local-path.yaml`.
+Talos reports these disks' transport as **virtio** (the `virtio-scsi-single`
+controller), although they appear as `/dev/sdX`. `talosctl get volumestatus`
+shows the volume's state.
 
 ## Local Storage (Hades)
 
@@ -40,9 +37,7 @@ plans/todos.md.
 ### ZFS Pool
 - **Capacity:** 8TB (2x 8TB HDDs)
 - **Purpose:** Photos, backups (critical)
-- **Snapshots:** Daily (TODO - enable?)
-- **Retention:** 7 days
-- **Encryption:** TODO (enable?)
+- **Snapshots:** `odin/photos` via sanoid (7d/4w/6m)
 - **Redundancy:** RAID-1 (2 drives)
 
 ## VM Storage (Apollo + Hades)
@@ -57,29 +52,15 @@ plans/todos.md.
 - **Backing:** a second disk per worker (`scsi1`): elysium-apollo 60G,
   elysium-hades 100G, declared in `infra/elysium/terraform/`
 - **Separate from the system disk on purpose** — EPHEMERAL owns the system
-  disk; sharing one caused the DiskPressure incident
+  disk
 
-## Current Backup Status
+## Backups
 
-| Service | Backup | Frequency | Status |
-|---------|--------|-----------|--------|
-| Postgres | Daily dump | 2AM | ✅ Running (local disk only, not offsite) |
-| Vault | None | — | ❌ No backup mechanism exists at all — see plans/todos.md |
-| Immich library | Hades `photos-mirror` pulls apollo `/mnt/immich` → `/odin/photos` | boot + 03:00 | ✅ 2026-11-03 (needs Hades up) |
-| `odin/photos` | sanoid snapshots 7d/4w/6m | sanoid.timer | ✅ 2026-11-03 |
-| Backup PC sync | Manual | Manual | ❌ Not automated |
+| What | How | When |
+|------|-----|------|
+| Postgres | `pg_backup` daily dump on the VM | 02:00 |
+| Immich library | Hades `photos-mirror` pulls apollo `/mnt/immich` → `/odin/photos` | boot + 03:00 (needs Hades up) |
+| `odin/photos` | sanoid snapshots 7d/4w/6m | sanoid.timer |
+| Forgejo | `forgejo dump` CronJob to its PVC | 03:30 |
 
-## Known Issues
-
-⚠️ **`odin` has effectively one copy** — `odin/photos` has sanoid snapshots
-   since 2026-11-03, but no syncoid/replication off the box. `odin/backups` (40G, incl. personal
-   archives) has *never* been snapshotted. The mirror is redundancy, not
-   backup. **P0 in plans/todos.md** — verified on-host 2026-09-15.
-⚠️ **local-path PVCs are unbacked** — llama.cpp models, Home Assistant `/config`,
-   mosquitto data
-⚠️ **Backup PC power strategy** — Always-on vs WoL (pending decision)
-⚠️ **ZFS snapshots** — `odin/photos` via sanoid since 2026-11-03;
-   `odin/backups` still none
-⚠️ **External drive offsite** — No true offsite (pending location)
-
-Targets and plan: `plans/backup-strategy.md`.
+Targets and plan: `overmind memory get homelab/backup-strategy.md`.

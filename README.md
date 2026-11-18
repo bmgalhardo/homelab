@@ -42,16 +42,16 @@ in `AGENTS.md`. Local credentials stay gitignored in `.agents/secrets/`.
 `AGENTS.md` and `.agents/context/` are maintained as persistent operating
 context: hardware, network, services, storage and deployment docs kept
 current so an unfamiliar corner of the infra can be picked up without
-re-deriving it from scratch. `plans/todos.md` tracks the open roadmap and known
-blockers.
+re-deriving it from scratch. Plans and open items live outside this repo,
+in a private context store.
 
 ## Repo layout
 
 - `infra/olympus/terraform/`, `infra/hal9000/terraform/` — VM/cluster provisioning
 - `infra/olympus/services/` — static compose files for the VM tier
 - `kubernetes/` — manifests for the hal9000 cluster
-- `.agents/context/` — detailed, living infra docs (network, services,
-  storage, deployment, backup, todos)
+- `.agents/context/` — detailed, living infra docs (hardware, network,
+  services, storage, deployment)
 
 No secrets are committed — `.env` per VM stays on the VM (gitignored,
 `.env.example` tracked for the variable names); everything else lives in

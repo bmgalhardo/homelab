@@ -19,7 +19,7 @@
 | postgres.bgalhardo.internal | **192.168.1.177** (confirmed 2026-08-21) | Apollo VM | Database |
 | control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
-| home.bgalhardo.com | Gateway `external` → 192.168.1.201 | k8s `home` | Home Assistant |
+| home.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `home` | Home Assistant (LAN/VPN) |
 | mosquitto (MQTT :1883) | **192.168.1.202** (MetalLB, pinned by annotation) | k8s `home` | Broker — Shellys point here by IP |
 | ibgateway.bgalhardo.internal | **192.168.1.203** (MetalLB, pinned by annotation) `:4002` | k8s `trading` | IB Gateway, paper API |
 | git-ssh.bgalhardo.internal | **192.168.1.204** (MetalLB, pinned by annotation) `:22` → pod `:2222` | k8s `forgejo` | Forgejo built-in SSH (git clone/push) |
@@ -34,20 +34,15 @@
 - **Resolver:** Hermes (192.168.1.199:53), single upstream `1.1.1.1`,
   `no-resolv`. dnsmasq DHCP is disabled — fixed-IP reservations are set on
   the **UDM Pro** by MAC.
-- **Backup DNS:** HAProxy fallback (not redundant yet). **Future:** Pi4 as
-  backup dnsmasq.
 - **Wildcards + overrides:** dnsmasq has catch-alls
   `address=/.bgalhardo.internal/192.168.1.200` and
   `address=/.bgalhardo.com/192.168.1.201` (→ k8s ingress). Per-host
   `address=/host.bgalhardo.internal/IP` lines override them (dnsmasq
   longest-match). Explicit records exist for authentik, proxmox (→ .199
   HAProxy), unifi, omni, vault, athena, postgres, truenas.
-- ⚠️ **`apollo` / `hades` / `hermes` have no explicit record** → they hit
-  the `.200` wildcard (k8s ingress), not the real host. This is the
-  `plans/todos.md` P0 "Fix Apollo DNS Record" — the fix is three
-  `address=/…/` lines (`.197` / `.198` / `.199`), not a "bad" record.
-  Low severity in practice: nothing resolves these by name today (Proxmox
-  API is hit by IP; the HA name is `proxmox.bgalhardo.internal`).
+- **`apollo` / `hades` / `hermes` have no explicit record** and resolve to
+  the `.200` wildcard. Reach them by IP (`.197` / `.198` / `.199`); the
+  Proxmox API name is `proxmox.bgalhardo.internal`.
 
 ## Load Balancer (HAProxy on Hermes)
 
@@ -99,9 +94,7 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   └── pki_cert_manager — Second intermediate, separate chain
                         Used by cert-manager's `vault` Issuer inside the
                         elysium k8s cluster (path
-                        pki_cert_manager/sign/internal). Broken
-                        2025-12-12 → 2026-08-21 (see K8s auth incident
-                        below).
+                        pki_cert_manager/sign/internal).
 ```
 
 - **Renewal:** k8s certs renew via cert-manager; athena's leaf via its
@@ -109,8 +102,6 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   `vault write pki_infra/issue/internal common_name=<host>.bgalhardo.internal`
   and manually copied into each VM's `./certs/` (docker-compose volume,
   see `infra/olympus/services/<name>/`).
-  This lack of automation is what let every `pki_infra` leaf cert expire
-  silently in 2026 — building real renewal automation is still open.
 - **Leaf cert status (as of 2026-08-21):** reissued 2026-08-20, valid to
   2027-08-15 (360d, the role's current max_ttl).
   | Host | Status |
@@ -155,35 +146,17 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   `ssh root@192.168.1.197` works only from a workstation whose key is
   authorized there; the user keeps the keys off-cluster.
 
-## Known Access Gotchas
+## Manual renewals
 
-- **Authentik's SAML *signing* cert is separate from its TLS cert**, and
-  just as unrenewed. Found expired 2026-08-21 (`CN=authentik self-signed`,
-  expired 2026-05-25) — this breaks SSO into Omni specifically (SAML
-  assertion signature validation), independent of any TLS/PKI work. Fix
-  is in Authentik's own admin UI: System → Certificates → regenerate, then
-  set it as the Signing Certificate on the affected SAML Provider.
-  **After regenerating, the relying party (Omni) must be restarted** —
-  it caches the IdP's SAML metadata (fetched from
-  `.../application/saml/omni/metadata/`) and won't pick up the new
-  signing cert until it re-fetches. This will recur next time this cert
-  expires (~2027-08) unless something automates it.
-- **Omni's own service-account JWTs also expire silently and aren't
-  renewed automatically** — found one issued 2025-07-06, expired
-  2026-07-06 (46 days before being noticed). A fresh kubeconfig
-  (downloaded from the Omni UI after logging in) gets a new one; there's
-  no other renewal path currently.
-- **Vault kubernetes-auth outage, 2025-12-12 → 2026-08-21 (fixed):**
-  `auth/kubernetes/config` was missing `token_reviewer_jwt` (mandatory
-  since Vault runs off-cluster on Apollo, not as a pod) — every
-  kubernetes-auth login 403'd, breaking cert-manager's `vault` Issuer and
-  every VaultSecretsOperator secret. Fixed via
-  `infra/vault/k8s-auth-bootstrap.sh`, which now also
-  codifies the roles/policies/CA-refresh that used to live only in Vault
-  itself — re-run it if this recurs. Also fixed in passing: two
-  `VaultStaticSecret`s (`cloudflare-ddns`, `cloudflare-letsencrypt`) were
-  colliding on the same destination Secret name; the letsencrypt one now
-  targets `cloudflare-api-token-letsencrypt`.
+- **Authentik's SAML signing cert** is separate from its TLS cert and renewed
+  by hand: Authentik admin → System → Certificates → regenerate, set it as the
+  Signing Certificate on the SAML provider, then restart Omni (it caches the
+  IdP metadata from `.../application/saml/omni/metadata/`). Next due ~2027-08.
+- **Omni service-account JWTs** last a year. A fresh kubeconfig downloaded
+  from the Omni UI carries a new one.
+- **Vault kubernetes auth:** `auth/kubernetes/config` must keep
+  `token_reviewer_jwt` (Vault runs off-cluster). Re-run
+  `infra/vault/k8s-auth-bootstrap.sh` to restore the roles, policies and CA.
 
 ## Connectivity Summary
 

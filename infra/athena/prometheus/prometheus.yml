@@ -63,8 +63,10 @@ scrape_configs:
     metrics_path: /api/prometheus
     authorization:
       credentials_file: /etc/prometheus/secrets/homeassistant_token
+    tls_config:
+      ca_file: /etc/prometheus/ca.crt
     static_configs:
-      - targets: ["home.bgalhardo.com"]
+      - targets: ["home.bgalhardo.internal"]
 
   - job_name: blackbox
     static_configs:

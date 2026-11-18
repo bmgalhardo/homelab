@@ -50,6 +50,7 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./data/prometheus:/prometheus
       - ./secrets/prometheus:/etc/prometheus/secrets:ro   # rendered by vault-agent
+      - ./vault-agent/ca.crt:/etc/prometheus/ca.crt:ro      # internal root CA
     extra_hosts:
       - "host.docker.internal:host-gateway"   # node-exporter runs on the host network
   grafana:

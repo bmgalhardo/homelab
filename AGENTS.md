@@ -33,12 +33,36 @@ Network: `192.168.1.0/24`
 - `services.md` — What runs where, dependencies
 - `storage.md` — NFS, backups, snapshots
 - `deployment.md` — How to deploy (static compose per VM, no Ansible)
-- `plans/backup-strategy.md` — 3-2-1 plan, RTO/RPO
-- `plans/todos.md` — Actions, blockers, priorities
-- `plans/argus.md` — Centralized logging + daily report agent (design & progress)
-- `plans/ai-poc.md` — GPU node + MLOps POC (what the 750 Ti can run, build order)
 
-See `.agents/context/plans/todos.md` for full roadmap.
+**Plans, private:** `homelab/` in the context store (`overmind memory ls homelab`, `overmind memory get homelab/<file>`)
+- `backup-strategy.md` — 3-2-1 plan, RTO/RPO
+- `known-issues.md` — Open problems that are known and accepted for now. Argus
+  reads it every run, so a problem listed there is reported once as info,
+  not as a new finding each night. Short: one line per issue
+- `todos.md` — Actions, blockers, priorities: the plans behind the issues
+- `argus.md` — Centralized logging + daily report agent (design & progress)
+- `ai-poc.md` — GPU node + MLOps POC (what the 750 Ti can run, build order)
+
+### Public context vs private plans
+
+This repo is public.
+- `.agents/context/` (L1) is a neutral description of how the homelab is built
+  and run: what exists, where, how to operate it. It names no open weakness,
+  gap, incident, security finding or "not yet".
+- Plans, todos, known issues, incident write-ups, backup gaps and security
+  findings go in the private context store under `homelab/`, read and
+  written with `overmind memory` (`../ai-development/tools/overmind.sh memory`). Not in this repo, not
+  even git-ignored.
+- Point to a private file by path (`overmind memory get homelab/todos.md`). Never copy its content into a tracked
+  file, a manifest comment or a commit message.
+- Keep `homelab/known-issues.md` true, with `overmind memory put`, in the same task as
+  the change:
+  - a fix closes an issue: remove its line, describe the new state in L1,
+    and close the item in `todos.md`;
+  - a change opens a gap, or the user accepts a finding as known: add a line.
+
+  A stale line makes Argus treat a real problem as known; a missing one
+  makes it alert every night.
 
 ## Access for assistants/automation
 
@@ -57,7 +81,7 @@ cannot read Secrets, exec into pods, or mutate anything. Identity declared in
 Ask before doing anything the scoped identity cannot do — don't reach for the
 admin context to work around a Forbidden.
 
-**Home Assistant:** REST/websocket API at `https://home.bgalhardo.com` with
+**Home Assistant:** REST/websocket API at `https://home.bgalhardo.internal` (internal CA) with
 `.agents/secrets/ha-claude.token`. The token is admin; use it read-only unless
 the user asks for a change. HA logic goes in git packages, not through the API.
 
@@ -83,8 +107,9 @@ use `secretKeyRef`, never an inline password in `env:`.
   itself. No rationale, no incident history, no dated notes, no "do not
   re-add X because Y". A comment earns its place only when the line is
   actively misleading without it — and then it is one line.
-  `README.md` is for human facing instruction related only to that folder; incidents, decisions and
-  root causes belong in `.agents/context/`. Same rule this file states about
+  `README.md` is for human facing instruction related only to that folder; decisions belong in
+  `.agents/context/`; incidents, root causes and open issues in
+  the context store (`homelab/`). Same rule this file states about
   itself: keep it small, reference detailed docs, don't duplicate.
 - Terraform for VM provisioning (`infra/{olympus,elysium}/terraform`)
 - Static Docker Compose per VM for services (`infra/olympus/services/<name>/`)
@@ -130,7 +155,6 @@ Possible later: `qdevice` → `themis`.
 ## When to Update This File
 
 - Architecture changes (node additions, network changes)
-- New P0 blockers
 - Major decision points
 - **NOT:** Day-to-day operational updates (those go in context/)
 

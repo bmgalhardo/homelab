@@ -1,15 +1,24 @@
 services:
   argus:
     build: .
-    image: ghcr.io/bmgalhardo/argus:0.2.1
+    image: ghcr.io/bmgalhardo/argus:0.2.3
     env_file:
       - path: .env
       - path: ../athena/secrets/argus.env
         required: false
     environment:
-      CONTEXT_DIR: /context
+      CONTEXT_URLS: >-
+        https://raw.githubusercontent.com/bmgalhardo/homelab/main/.agents/context/hardware.md,
+        https://raw.githubusercontent.com/bmgalhardo/homelab/main/.agents/context/network.md,
+        https://raw.githubusercontent.com/bmgalhardo/homelab/main/.agents/context/services.md,
+        https://raw.githubusercontent.com/bmgalhardo/homelab/main/.agents/context/storage.md
+      CONTEXT_PRIVATE_URLS: https://git.bgalhardo.internal/api/v1/repos/bgalhardo/context/raw/homelab/known-issues.md
+      CONTEXT_CACHE_DIR: /cache
       CA_FILE: /ca/root-ca.crt
     volumes:
-      - ../.agents/context:/context:ro
+      - context-cache:/cache
       - ../infra/ca/root-ca.crt:/ca/root-ca.crt:ro
       - /etc/localtime:/etc/localtime:ro
+
+volumes:
+  context-cache:

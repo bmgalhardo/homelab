@@ -66,10 +66,19 @@ This repo is public.
 
 ## Access for assistants/automation
 
+**Credentials come from Vault**, as the read-only `claude` AppRole, through
+`infra/daedalus/agent-secret.sh` (`get`, `env`, `file`; see the script):
+`kv/agents/<service>` holds `unifi`, `homeassistant`, `forgejo`, `kube`,
+`proxmox`, `proxmox-power`, `omni`.
+
+- Capture a value into a variable or a file. Never print one: anything a
+  command prints leaves this host.
+- The role cannot write. The user rotates credentials in Vault.
+
 **Use the scoped kubeconfig, not the admin context:**
 
 ```sh
-export KUBECONFIG=.agents/secrets/kube-claude.yaml
+export KUBECONFIG=$(infra/daedalus/agent-secret.sh file kube kubeconfig)
 ```
 
 `~/.kube/config` is the human Omni OIDC identity with **full cluster-admin**.
@@ -82,8 +91,14 @@ Ask before doing anything the scoped identity cannot do — don't reach for the
 admin context to work around a Forbidden.
 
 **Home Assistant:** REST/websocket API at `https://home.bgalhardo.internal` (internal CA) with
-`.agents/secrets/ha-claude.token`. The token is admin; use it read-only unless
+`agent-secret.sh get homeassistant token`. The token is admin; use it read-only unless
 the user asks for a change. HA logic goes in git packages, not through the API.
+
+**UniFi (UDM Pro):** API at `https://unifi.bgalhardo.internal` (internal CA)
+with `X-API-KEY` from `agent-secret.sh get unifi api_key`. The key has write access;
+use it read-only. Change anything only after the user agrees to that change.
+Paths: `/proxy/network/api/s/default/...`, `/proxy/network/v2/api/site/default/...`,
+`/proxy/network/integration/v1/...`.
 
 **Proxmox / hosts:** SSH with the user's key (`~/.ssh/bastion`, root by IP).
 Read-only unless the user says otherwise.
@@ -94,7 +109,7 @@ reconcile; say so and let the user push.
 
 **What RBAC does not protect**, so don't rely on it alone:
 - pod **logs** and pod **env vars** leak credentials the app puts there
-- shell access reads any file the user can read (`.agents/secrets/*`, Vault
+- shell access reads any file the user can read (`~/.config/vault/claude/`, Vault
   tokens, `.env` files)
 
 The durable fix for the first one is keeping credentials out of pod specs —

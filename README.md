@@ -37,7 +37,7 @@ against the running cluster.
 `AGENTS.md` holds the shared instructions; `CLAUDE.md` is a symlink to it.
 `.agents/` holds shared files, with `.claude/` as a compatibility symlink.
 Both assistants use the same scoped access and read-only defaults described
-in `AGENTS.md`. Local credentials stay gitignored in `.agents/secrets/`.
+in `AGENTS.md`. Agent credentials live in Vault `kv/agents/*` (`infra/daedalus/agent-secret.sh`).
 
 `AGENTS.md` and `.agents/context/` are maintained as persistent operating
 context: hardware, network, services, storage and deployment docs kept

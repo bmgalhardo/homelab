@@ -40,7 +40,9 @@
 - **HA:** Standalone
 - **Depends on:** Postgres (by IP, 192.168.1.177 — not DNS), Vault (PKI
   cert only, not secrets injection)
-- **Dependents:** Proxmox UI, K8s API (auth provider), Omni (SAML)
+- **Dependents:** Proxmox UI, K8s API (auth provider), Omni (OIDC), Forgejo (OIDC)
+- **Outposts:** only the built-in embedded one; no Docker or Kubernetes-managed
+  outposts, so the worker has no Docker socket and runs as UID 1000
 - **Backup:** Database, through the Postgres backup
 - **Compose:** Yes — `infra/olympus/services/authentik/`, static file
 
@@ -48,7 +50,7 @@
 - **Location:** Apollo VM (`omni`)
 - **Role:** Talos cluster bootstrap & lifecycle management
 - **HA:** Standalone
-- **Depends on:** None (but manages K8s); auth via Authentik SAML
+- **Depends on:** None (but manages K8s); auth via Authentik OIDC (application `omni`)
 - **Dependents:** K8s cluster (talos-control, talos-worker)
 - **Compose:** Yes — `infra/olympus/services/omni/`, was always a hand-deployed
   static file, never templated by Ansible

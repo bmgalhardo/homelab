@@ -1,0 +1,71 @@
+machine:
+  network:
+    interfaces:
+      - deviceSelector:
+          physical: true
+        dhcp: false
+        addresses:
+          - 192.168.1.172/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.1
+  certSANs:
+    - 192.168.1.172
+    - gaia.bgalhardo.internal
+  logging:
+    destinations:
+      - endpoint: tcp://192.168.1.196:1516/
+        format: json_lines
+        extraTags:
+          node: gaia
+---
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/sda"
+installer:
+  image: factory.talos.dev/metal-installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.14.1
+---
+apiVersion: v1alpha1
+kind: DiscoveryServiceConfig
+name: default
+$patch: delete
+---
+# Single node: replaced without the control-plane taint and the
+# exclude-from-external-load-balancers label (MetalLB honours it).
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+$patch: delete
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  node-role.kubernetes.io/control-plane: ""
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: gaia
+auto: "off"
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+  - address: 192.168.1.199
+---
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  diskSelector:
+    match: system_disk
+---
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-path
+provisioning:
+  diskSelector:
+    match: '!system_disk'
+  minSize: 25GB
+filesystem:
+  type: xfs

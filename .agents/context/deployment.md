@@ -142,12 +142,14 @@ DNS + load balancer on the Pi 1. Configs live in `infra/hermes/`
   in git). `terraform.tfvars` (real Proxmox credentials) and
   `terraform.tfstate*` are gitignored. **Read
   `overmind memory get homelab/todos.md` "Full VM Provisioning" before running it.**
-- `infra/elysium/terraform/` — Talos k8s cluster VMs. Same pattern.
-- **A new workstation needs more than `.agents/secrets/`** to run Terraform:
-  `terraform.tfvars` (copy `terraform.tfvars.example`; a Proxmox token with
-  VM-create rights, not `claude-readonly`) and the matching
-  `terraform.tfstate`, per stack. Copy both from the workstation that last
-  applied.
+- Talos VMs: `infra/elysium/terraform/` and `infra/gaia/terraform/`, one
+  state each, both calling the shared module `infra/modules/talos-vm/`. Run
+  them through `infra/tf.sh <stack> <args>`: it reads the Proxmox token
+  (VM-create rights, not `claude-readonly`) from Vault
+  `kv/infra/proxmox-terraform`, or asks for it (Bitwarden) when Vault is
+  down, and passes it to that one run only.
+- **A new workstation** needs the matching `terraform.tfstate` per stack.
+  Copy it from the workstation that last applied.
 
 ## Certificate Management
 

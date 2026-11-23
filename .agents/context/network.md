@@ -131,15 +131,15 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 - **Version confirmed 2026-08-21:** PVE 9.2.3, both nodes (`apollo`,
   `hades`) online
 - **`claude@pve!claude-readonly` token — working as of 2026-08-25.**
-  Secret lives in `.agents/secrets/proxmox.env` (gitignored, not this
-  file — see repo root `.gitignore`).
+  Secret lives in Vault `kv/agents/proxmox` (read with
+  `infra/daedalus/agent-secret.sh env proxmox`).
   **Token-scoped ACLs don't work on this cluster** (privsep=1 tokens resolved
   to no permissions through PVE 9.2.11): use `--privsep 0` and grant the role
   to the user, as `automation@pve` and `claude@pve` do.
 - **`daedalus@pve!power` token** — start/stop VMs for daedalus. Role
   `VMPower` (`VM.PowerMgmt VM.Audit Sys.Audit Mapping.Use`) on the user,
   privsep 0, ACLs on `/vms`, `/nodes`, `/mapping/pci/nvidia_750ti`. Secret
-  in `.agents/secrets/proxmox-power.env`. No host power (`Sys.PowerMgmt`) —
+  in Vault `kv/agents/proxmox-power`. No host power (`Sys.PowerMgmt`) —
   hades is woken by WoL from daedalus, never shut down by it.
 - **SSH access to the Proxmox hosts themselves** — no jump host since
   2026-09-26 (`manager` deleted 2026-09-14, hermes no longer holds keys).
@@ -148,10 +148,6 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
 
 ## Manual renewals
 
-- **Authentik's SAML signing cert** is separate from its TLS cert and renewed
-  by hand: Authentik admin → System → Certificates → regenerate, set it as the
-  Signing Certificate on the SAML provider, then restart Omni (it caches the
-  IdP metadata from `.../application/saml/omni/metadata/`). Next due ~2027-08.
 - **Omni service-account JWTs** last a year. A fresh kubeconfig downloaded
   from the Omni UI carries a new one.
 - **Vault kubernetes auth:** `auth/kubernetes/config` must keep

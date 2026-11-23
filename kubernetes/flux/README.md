@@ -49,8 +49,9 @@ export GITHUB_TOKEN=...   # classic PAT, repo scope; or --token-auth for a deplo
 flux bootstrap git \
  --url=ssh://git@github.com/bmgalhardo/homelab.git \
  --branch=main \
- --path=kubernetes/flux/clusters/elysium
+ --path=kubernetes/flux/clusters/<cluster>   # elysium | gaia
 ```
+Run it with the admin context of that cluster (`--context`).
 
 This installs the controllers, adds a deploy key to the GitHub repo, and
 **commits a `flux-system/` dir** next to this file

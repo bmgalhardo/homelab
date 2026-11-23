@@ -1,0 +1,23 @@
+# The core services keep their old VM addresses. Never auto-assigned: a
+# Service takes one only by asking for it (metallb.io/loadBalancerIPs).
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: core
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.171/32   # omni
+    - 192.168.1.173/32   # vault
+    - 192.168.1.174/32   # authentik
+    - 192.168.1.177/32   # postgres
+  autoAssign: false
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: core
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - core

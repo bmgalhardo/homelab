@@ -93,6 +93,7 @@ rules:
       - kustomize.toolkit.fluxcd.io
       - source.toolkit.fluxcd.io
       - notification.toolkit.fluxcd.io
+      - postgresql.cnpg.io             # CloudNativePG Cluster/Backup specs
     resources: ["*"]
     verbs: ["get", "list", "watch"]
 ---

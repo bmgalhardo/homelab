@@ -84,16 +84,13 @@ scp elysium-nvidia*.iso root@hades.bgalhardo.internal:/var/lib/vz/template/iso/
 ```
 
 ### 3. Build the VMs
-Needs `terraform/terraform.tfvars` with a Proxmox token that can create VMs
-(copy `terraform.tfvars.example`) and the `terraform.tfstate` — both
-gitignored, neither in `.agents/secrets/`. The read-only `claude-readonly`
-token cannot apply.
+Needs the `terraform.tfstate` (gitignored). The Proxmox token comes from
+Vault through `infra/tf.sh`; the read-only `claude-readonly` token cannot apply.
 ```sh
-cd infra/elysium/terraform
-terraform init && terraform apply
+infra/tf.sh elysium init
+infra/tf.sh elysium apply
 ```
-virtiofs on elysium-hades — telmate can't express it; either set `pve_ssh`
-in tfvars or run on the Hades host:
+virtiofs on elysium-hades — telmate can't express it; run on the Hades host:
 ```sh
 for i in 0:series 1:movies 2:downloads 3:photos; do
   qm set 1102 -virtiofs${i%%:*} dirid=${i##*:},cache=auto
@@ -139,7 +136,7 @@ qm shutdown 1103 && qm start 102     # GPU → personal
 ```
 
 Workloads opt in with `runtimeClassName: nvidia` and a `nvidia.com/gpu: 1`
-limit. The GPU Operator (`kubernetes/10-infra-base/gpu-operator.yaml`) runs
+limit. The GPU Operator (`kubernetes/elysium/10-infra-base/gpu-operator.yaml`) runs
 with its driver/toolkit off — Talos extensions provide both — and schedules
 its node components wherever NFD finds an NVIDIA PCI device. Check:
 ```sh

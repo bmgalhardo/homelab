@@ -11,7 +11,7 @@ Two classes, and the distinction matters for backups:
 
 - **NFS is retired.** Hades' NFS server was turned off at the rebuild;
   `storageClassName: ""` + `volumeName:` now binds the static virtiofs PVs
-  (`kubernetes/20-infra-wiring/virtiofs-pvs.yaml`).
+  (`kubernetes/elysium/20-infra-wiring/virtiofs-pvs.yaml`).
 - **`series` runs full by design.** Hades `/mnt/series` (`sdc`, XFS) at
   ~100% is accepted, not actionable — the owner won't act on it.
 - **virtiofs is node-bound.** Each share exists only on its host's worker, so

@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
   - namespaces.yaml
-  - rbac-claude.yaml      # scoped read-only identity for assistants/automation
+  - ../../shared/rbac-claude.yaml
   - metallb-config.yaml     # IPAddressPool + L2Advertisement
   - virtiofs-pvs.yaml       # media (hades), immich (apollo)
   - vso-config.yaml         # VaultConnection + VaultAuth

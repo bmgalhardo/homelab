@@ -129,7 +129,7 @@ No Actions runner yet.
 read-only identity for assistants. See AGENTS.md.
 
 ### home — migrating (2026-10-18)
-`kubernetes/30-apps/home/`, pinned to Apollo.
+`kubernetes/elysium/30-apps/home/`, pinned to Apollo.
 - `homeassistant` — `home.bgalhardo.internal` on the `internal` Gateway (LAN/VPN). `/config`
   on local-path PVC `homeassistant-config`; recorder history on the `postgres`
   VM (`homeassistant` DB). Ships at `replicas: 0` until the restore from
@@ -140,7 +140,7 @@ read-only identity for assistants. See AGENTS.md.
   sensors). Shelly settings + scripts are in git (`infra/mqtt-devices/shelly/`,
   pushed with `apply_shelly.py`).
 - Config: `configuration.yaml` and `packages/` come from git
-  (`kubernetes/30-apps/home/config/`, ConfigMaps — a change rolls the pod).
+  (`kubernetes/elysium/30-apps/home/config/`, ConfigMaps — a change rolls the pod).
   Integrations, dashboards, registries stay UI-managed in `.storage` on the PVC.
   Recorder URL from Vault `kv/apps/homeassistant` → `recorder_db_url`.
 - MQTT device entities are YAML (`packages/mqtt_devices.yaml`), generated from
@@ -152,7 +152,7 @@ ps5-mqtt, hass-mqtt-device-healthcheck, esphome, node-red, whisper/piper/
 openwakeword, babybuddy, kiosk-server.
 
 ### Parked, not deployed
-`kubernetes/30-apps/_parked/`: `gaming`. `mediacenter` (plex, sonarr, radarr,
+`kubernetes/elysium/30-apps/_parked/`: `gaming`. `mediacenter` (plex, sonarr, radarr,
 sabnzbd, overseerr) is only in git history, `17e511d^`.
 
 ## Outside K8s (athena — Pi4, 192.168.1.196)

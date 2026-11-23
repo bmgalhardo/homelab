@@ -1,6 +1,6 @@
 # athena — Prometheus. Metrics companion to Loki. Small by design:
 # 30d / 5GB retention, local TSDB. Scrapes the local stack; elysium pushes via
-# remote_write (kubernetes/10-infra-base/monitoring.yaml).
+# remote_write (kubernetes/elysium/10-infra-base/monitoring.yaml).
 
 global:
   scrape_interval: 30s

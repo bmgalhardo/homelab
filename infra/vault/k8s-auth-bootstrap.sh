@@ -3,7 +3,7 @@
 # and roles, and the vault-ca Secret VSO uses to trust Vault. See README.md.
 #
 # Idempotent. Requires: vault CLI authenticated (VAULT_ADDR / VAULT_TOKEN),
-# kubectl on the admin context, tier 1 (kubernetes/10-infra-base) applied.
+# kubectl on the admin context, tier 1 (kubernetes/elysium/10-infra-base) applied.
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ vault write auth/kubernetes/config \
   token_reviewer_jwt="$REVIEWER_JWT" \
   disable_iss_validation=true
 
-# --- cert-manager: Issuer "vault", kubernetes/20-infra-wiring/issuer-vault.yaml ---
+# --- cert-manager: Issuer "vault", kubernetes/elysium/20-infra-wiring/issuer-vault.yaml ---
 vault policy write cert_manager - <<'EOF'
 path "pki_cert_manager/sign/internal" {
   capabilities = ["create", "update"]
@@ -40,7 +40,7 @@ vault write auth/kubernetes/role/issuer \
   policies=cert_manager \
   ttl=20m
 
-# --- vault-secrets-operator: VaultAuth "default", kubernetes/20-infra-wiring/vso-config.yaml ---
+# --- vault-secrets-operator: VaultAuth "default", kubernetes/elysium/20-infra-wiring/vso-config.yaml ---
 # KV v2: policies use kv/data/<path>; the CLI spelling kv/<path> grants nothing here.
 vault policy write vault-secrets-operator - <<'EOF'
 path "kv/data/infra/*" {

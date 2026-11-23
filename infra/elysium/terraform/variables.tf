@@ -1,34 +1,9 @@
-variable "proxmox_host" {}
-variable "proxmox_token_id" {}
-variable "proxmox_token_secret" {}
-
 variable "omni_iso" {
   description = "Proxmox volid of the Omni installer ISO, e.g. local:iso/omni-xxxx-amd64.iso"
   type        = string
 }
 
 variable "node_data" {
-  description = "Talos VMs for the elysium cluster"
-  type = map(object({
-    vmid      = number
-    node      = string # proxmox node: apollo | hades
-    mac       = string
-    cores     = number
-    memory    = number # MB
-    disk_size = string # system disk (Talos + EPHEMERAL only), e.g. "40G"
-    # Second disk backing the Talos `local-path` user volume — i.e. all PVCs.
-    # Omit for nodes that run no workloads (the control plane).
-    data_disk_size = optional(string)
-    # virtiofs directory mappings (PVE Datacenter -> Directory Mappings) to
-    # attach as virtiofsN devices. telmate can't express these — set by
-    # hand after create (README step 3), informational here only.
-    virtiofs = optional(list(string), [])
-    # PVE Resource Mapping id (Datacenter -> Resource Mappings -> PCI) to pass
-    # through; switches the VM to q35.
-    gpu = optional(string)
-    # Overrides omni_iso for this node (a preset with node-specific extensions).
-    iso = optional(string)
-    # false: not started at host boot, created stopped, powered by hand.
-    onboot = optional(bool, true)
-  }))
+  description = "Talos VMs for the elysium cluster (schema: ../../modules/talos-vm/variables.tf)"
+  type        = any
 }

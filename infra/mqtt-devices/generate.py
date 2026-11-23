@@ -15,7 +15,7 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 DEVICES = HERE / "devices.yml"
-PACKAGE = HERE.parents[1] / "kubernetes/30-apps/home/config/packages/mqtt_devices.yaml"
+PACKAGE = HERE.parents[1] / "kubernetes/elysium/30-apps/home/config/packages/mqtt_devices.yaml"
 BLE_SCRIPT = HERE / "shelly_scripts/ble2ha.js"
 
 COMMON = ["name", "unique_id", "state_topic", "value_template", "device_class", "icon", "entity_category"]

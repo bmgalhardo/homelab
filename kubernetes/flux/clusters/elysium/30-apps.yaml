@@ -9,7 +9,7 @@ spec:
   timeout: 5m
   dependsOn:
     - name: 20-infra-wiring
-  path: ./kubernetes/30-apps
+  path: ./kubernetes/elysium/30-apps
   prune: true
   sourceRef:
     kind: GitRepository

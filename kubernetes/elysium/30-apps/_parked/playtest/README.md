@@ -21,6 +21,6 @@ is live: `system/telemetry.yaml`.
 
 ## Unpark
 
-1. Move `play-route.yaml` to `kubernetes/30-apps/system/`.
+1. Move `play-route.yaml` to `kubernetes/elysium/30-apps/system/`.
 2. Add it to `system/kustomization.yaml`.
 3. Add each new game's two `GET`/`HEAD` matches.

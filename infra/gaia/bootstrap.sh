@@ -3,6 +3,7 @@
 # for the passphrase.
 #
 #   ./bootstrap.sh install ARCHIVE MAINT_IP  # VM in maintenance mode -> running cluster
+#   ./bootstrap.sh finish ARCHIVE            # the part after apply-config (safe to re-run)
 #   ./bootstrap.sh creds ARCHIVE             # (re)write talosconfig + kubeconfig only
 #
 # Admin credentials go to /run/user/$UID/gaia/ (tmpfs, gone at reboot):
@@ -63,9 +64,19 @@ install_cluster() {
   [ "$ok" = y ]
 
   talosctl apply-config --insecure -n "$maint" -f "$WORK/controlplane.yaml"
+  finish
+}
+
+etcd_bootstrapped() {  # bootstrap once; true when etcd is bootstrapped
+  local out
+  out=$("${T[@]}" bootstrap 2>&1) && return 0
+  case "$out" in *AlreadyExists*|*"already bootstrapped"*) return 0 ;; esac
+  return 1  # e.g. FailedPrecondition while the node installs and reboots
+}
+
+finish() {  # after apply-config; expects render() done
   T=(talosctl --talosconfig "$WORK/talosconfig")
-  wait_for "Talos API on $NODE" "${T[@]}" version
-  "${T[@]}" bootstrap
+  wait_for "etcd bootstrap on $NODE" etcd_bootstrapped
   save_creds
   K=(kubectl --kubeconfig "$CREDS/kubeconfig")
   wait_for "Kubernetes API" "${K[@]}" get --raw /readyz
@@ -76,6 +87,7 @@ install_cluster() {
 
 case "${1:-}" in
   install) shift; install_cluster "$@" ;;
+  finish)  shift; render "${1:?archive}"; finish ;;
   creds)   shift; render "${1:?archive}"; save_creds ;;
-  *)       sed -n '2,9p' "$0" >&2; exit 1 ;;
+  *)       sed -n '2,10p' "$0" >&2; exit 1 ;;
 esac

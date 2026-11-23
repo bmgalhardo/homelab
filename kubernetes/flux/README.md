@@ -1,23 +1,34 @@
-# Flux — GitOps for the elysium cluster
+# Flux — GitOps for the elysium and gaia clusters
 
-Flux reconciles everything under `kubernetes/` after the cluster is up.
+Each cluster's Flux reconciles only its own folder under `kubernetes/`.
 Only what is **committed** is reconciled.
 
 ## Layout
 
 ```
 kubernetes/
-├── flux/clusters/elysium/    Flux entrypoint: flux-system + one root Kustomization per tier
-├── 10-infra-base/            cert-manager, VSO, MetalLB, nginx-gateway-fabric,
-│                             Gateway API CRDs, local-path        (HelmReleases + CRDs)
-├── 20-infra-wiring/          Gateways, cert Issuers, MetalLB pool,
-│                             Hades virtiofs PVs, external-dns
-└── 30-apps/                  the workloads (system/, immich/, _parked/)
+├── flux/clusters/<cluster>/  Flux entrypoint: flux-system + one root Kustomization per tier
+├── shared/                   manifests used by both clusters, included by relative path
+│                             (rbac-claude.yaml)
+├── elysium/
+│   ├── 10-infra-base/        cert-manager, VSO, MetalLB, nginx-gateway-fabric,
+│   │                         Gateway API CRDs, local-path        (HelmReleases + CRDs)
+│   ├── 20-infra-wiring/      Gateways, cert Issuers, MetalLB pool,
+│   │                         Hades virtiofs PVs, external-dns
+│   └── 30-apps/              the workloads (system/, immich/, _parked/)
+└── gaia/                     same three tiers, the core services
 ```
 
 Reconcile order, via `dependsOn`: `10-infra-base` → `20-infra-wiring` →
 `30-apps`. Directory names and Kustomization names are identical, so
 `flux get kustomizations` maps 1:1 onto the tree.
+
+Moving a tier: move the folder and change its `path:` in
+`flux/clusters/<cluster>/` in the same commit. A path that points at nothing
+makes Flux prune everything the tier owned.
+
+Shared manifests stay identical on both clusters. Platform charts
+(cert-manager, MetalLB, ...) are per cluster, so each upgrades on its own.
 
 **Which tier does a thing go in?** If tier 1 has to install its API before
 the object can even be applied, it belongs in tier 2. Every custom resource

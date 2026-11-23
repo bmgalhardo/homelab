@@ -69,7 +69,7 @@ This repo is public.
 **Credentials come from Vault**, as the read-only `claude` AppRole, through
 `infra/daedalus/agent-secret.sh` (`get`, `env`, `file`; see the script):
 `kv/agents/<service>` holds `unifi`, `homeassistant`, `forgejo`, `kube`,
-`proxmox`, `proxmox-power`, `omni`.
+`kube-gaia`, `talos-gaia`, `proxmox`, `proxmox-power`, `omni`.
 
 - Capture a value into a variable or a file. Never print one: anything a
   command prints leaves this host.
@@ -78,14 +78,16 @@ This repo is public.
 **Use the scoped kubeconfig, not the admin context:**
 
 ```sh
-export KUBECONFIG=$(infra/daedalus/agent-secret.sh file kube kubeconfig)
+export KUBECONFIG=$(infra/daedalus/agent-secret.sh file kube kubeconfig)        # elysium
+export KUBECONFIG=$(infra/daedalus/agent-secret.sh file kube-gaia kubeconfig)   # gaia
+export TALOSCONFIG=$(infra/daedalus/agent-secret.sh file talos-gaia talosconfig) # gaia, os:reader
 ```
 
 `~/.kube/config` is the human Omni OIDC identity with **full cluster-admin**.
 The scoped one is a ServiceAccount (`automation/claude`) that is read-only and
 cannot read Secrets, exec into pods, or mutate anything. Identity declared in
-`kubernetes/20-infra-wiring/rbac-claude.yaml`; regenerate the kubeconfig with
-`infra/elysium/make-claude-kubeconfig.sh`.
+`kubernetes/shared/rbac-claude.yaml`; the user mints the credentials
+into Vault with `infra/make-claude-creds.sh`.
 
 Ask before doing anything the scoped identity cannot do — don't reach for the
 admin context to work around a Forbidden.
@@ -130,7 +132,7 @@ use `secretKeyRef`, never an inline password in `env:`.
 - Static Docker Compose per VM for services (`infra/olympus/services/<name>/`)
 - K8s manifests in `kubernetes/`
 - **Any app or service with an `HTTPRoute` also gets an entry in the homepage
-  dashboard** (`kubernetes/30-apps/system/homepage.yaml`, `services.yaml`):
+  dashboard** (`kubernetes/elysium/30-apps/system/homepage.yaml`, `services.yaml`):
   `icon`, `href` (the public hostname), and `siteMonitor` (the in-cluster
   `http://<service>.<namespace>[:port]`). Adding the route without the tile
   means the app exists but nothing links to it.
@@ -156,8 +158,9 @@ use `secretKeyRef`, never an inline password in `env:`.
 - `infra/hermes/` — DNS + LB configs (Pi 1, native Alpine, not compose).
   **There is no SSH bastion** — SSH is direct from a workstation whose key is
   authorized on the target; the user keeps the keys off-cluster
-- `kubernetes/` — k8s manifests for elysium, reconciled by Flux in three
-  tiers: `10-infra-base` → `20-infra-wiring` → `30-apps`. A thing belongs in
+- `kubernetes/` — k8s manifests per cluster (`elysium/`, `gaia/`), plus
+  `shared/` used by both, reconciled by Flux in three tiers:
+  `10-infra-base` → `20-infra-wiring` → `30-apps`. A thing belongs in
   tier 2 if tier 1 has to install its CRD first. See `kubernetes/flux/README.md`
 
 **Naming:** Greek pantheon. `olympus` = Proxmox cluster (Apollo, Hades).

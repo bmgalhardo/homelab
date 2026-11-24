@@ -74,11 +74,15 @@ spec:
         env:
         - name: TZ
           value: Europe/Lisbon
-        - name: HA_RECORDER_DB_URL
+        - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
               name: homeassistant-secrets
-              key: recorder_db_url
+              key: db_password
+        - name: PGSSLMODE
+          value: verify-full
+        - name: PGSSLROOTCERT
+          value: /certs/ca.crt
         ports:
         - name: http
           containerPort: 8123

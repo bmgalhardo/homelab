@@ -18,7 +18,7 @@ tts:
   - platform: google_translate
 
 recorder:
-  db_url: !env_var HA_RECORDER_DB_URL
+  db_url: postgresql://homeassistant@postgres.bgalhardo.internal:5432/homeassistant
 
 prometheus:
   namespace: hass

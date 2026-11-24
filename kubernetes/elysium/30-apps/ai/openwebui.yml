@@ -29,18 +29,27 @@ spec:
               key: master_key
         - name: WEBUI_AUTH
           value: "true"
-        - name: DATABASE_URL
+        - name: DATABASE_TYPE
+          value: postgresql
+        - name: DATABASE_HOST
+          value: postgres.bgalhardo.internal
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: openwebui
+        - name: DATABASE_USER
+          value: openwebui
+        - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: openwebui-secrets
-              key: database_url
+              key: db_password
+        - name: PGSSLMODE
+          value: verify-full
+        - name: PGSSLROOTCERT
+          value: /certs/ca.crt
         - name: VECTOR_DB
           value: pgvector
-        - name: PGVECTOR_DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: openwebui-secrets
-              key: database_url
         - name: RAG_EMBEDDING_ENGINE
           value: openai
         - name: RAG_OPENAI_API_BASE_URL

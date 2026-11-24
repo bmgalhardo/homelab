@@ -104,6 +104,8 @@ spec:
           value: redis.system
         - name: DB_HOSTNAME
           value: postgres.bgalhardo.internal
+        - name: DB_SSL_MODE
+          value: verify-full
         - name: DB_PORT
           value: "5432"
         - name: DB_DATABASE_NAME
@@ -199,6 +201,8 @@ spec:
           value: redis.system
         - name: DB_HOSTNAME
           value: postgres.bgalhardo.internal
+        - name: DB_SSL_MODE
+          value: verify-full
         - name: DB_PORT
           value: "5432"
         - name: DB_DATABASE_NAME

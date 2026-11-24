@@ -76,11 +76,21 @@ spec:
             secretKeyRef:
               name: litellm-secrets
               key: master_key
-        - name: DATABASE_URL
+        - name: DATABASE_HOST
+          value: postgres.bgalhardo.internal:5432
+        - name: DATABASE_NAME
+          value: litellm
+        - name: DATABASE_USERNAME
+          value: litellm
+        - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: litellm-secrets
-              key: database_url
+              key: db_password
+        - name: DATABASE_SSLMODE
+          value: verify-full
+        - name: DATABASE_SSLROOTCERT
+          value: /certs/ca.crt
         - name: ANTHROPIC_API_KEY
           valueFrom:
             secretKeyRef:

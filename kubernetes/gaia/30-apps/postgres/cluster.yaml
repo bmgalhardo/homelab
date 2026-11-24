@@ -5,6 +5,7 @@ metadata:
   namespace: postgres
 spec:
   instances: 1
+  enableSuperuserAccess: true
   imageName: ghcr.io/tensorchord/cloudnative-vectorchord:17.6-0.5.3
 
   postgresql:

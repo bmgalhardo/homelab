@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pg-backups
+  namespace: postgres
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pg-backup
+  namespace: postgres
+data:
+  known_hosts: |
+    192.168.1.198 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBZh8SlNSuxL2cVM8HyvD+IK2U1h+znXSedu16syfSUL
+  dump.sh: |
+    #!/bin/sh
+    set -eu
+    B=/backups
+    mkdir -p $B/daily $B/weekly $B/monthly
+    f=$B/daily/all_pg_daily_$(date +%F).sql.gz
+    pg_dumpall | gzip > $f.partial
+    mv $f.partial $f
+    echo "daily: $f ($(du -h $f | cut -f1))"
+    [ "$(date +%u)" = 7 ] && cp $f $B/weekly/all_pg_weekly_$(date +%G-W%V).sql.gz
+    [ "$(date +%d)" = 01 ] && cp $f $B/monthly/all_pg_monthly_$(date +%Y-%m).sql.gz
+    find $B/daily -type f -mtime +7 -delete
+    find $B/weekly -type f -mtime +28 -delete
+    find $B/monthly -type f -mtime +365 -delete
+    find $B -name '*.partial' -mmin +60 -delete
+  upload.sh: |
+    #!/bin/sh
+    # Mirror /backups to the SFTP drop on hades; skip quietly while hades is off.
+    set -eu
+    T=gaia-postgres@192.168.1.198
+    sftp_() { sftp -q -i /ssh/id_ed25519 -o UserKnownHostsFile=/etc/pg-backup/known_hosts \
+      -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 -b - "$T"; }
+    if ! echo pwd | sftp_ >/dev/null 2>&1; then echo "hades unreachable, skipped"; exit 0; fi
+    for d in daily weekly monthly; do
+      remote=$(printf -- '-mkdir %s\nls -1 %s\n' "$d" "$d" | sftp_ | grep -v '^sftp>' | sed 's#.*/##' | sort || true)
+      local_=$(ls -1 /backups/$d | grep -v '\.partial$' | sort || true)
+      batch=""
+      for f in $local_; do
+        echo "$remote" | grep -qx "$f" || batch="${batch}put /backups/$d/$f $d/$f.partial\nrename $d/$f.partial $d/$f\n"
+      done
+      for f in $remote; do
+        echo "$local_" | grep -qx "$f" || batch="${batch}rm $d/$f\n"
+      done
+      [ -n "$batch" ] && printf "$batch" | sftp_ && printf "$batch" | grep -E '^(rename|rm) ' | sed "s#^#$d: #"
+    done
+    echo "in sync"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-dump
+  namespace: postgres
+spec:
+  schedule: "0 2 * * *"
+  timeZone: Europe/Lisbon
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dump
+              image: ghcr.io/tensorchord/cloudnative-vectorchord:17.6-0.5.3
+              command: ["sh", "/etc/pg-backup/dump.sh"]
+              env:
+                - name: PGHOST
+                  value: pg-rw
+                - name: PGSSLMODE
+                  value: verify-ca
+                - name: PGSSLROOTCERT
+                  value: /ca/ca.crt
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef: { name: pg-superuser, key: username }
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: pg-superuser, key: password }
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { memory: 256Mi }
+              volumeMounts:
+                - { name: backups, mountPath: /backups }
+                - { name: scripts, mountPath: /etc/pg-backup }
+                - { name: ca, mountPath: /ca }
+          volumes:
+            - name: backups
+              persistentVolumeClaim: { claimName: pg-backups }
+            - name: scripts
+              configMap: { name: pg-backup }
+            - name: ca
+              secret: { secretName: root-ca }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-upload
+  namespace: postgres
+spec:
+  schedule: "30 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: upload
+              image: instrumentisto/rsync-ssh:alpine3.23-r3
+              command: ["sh", "/etc/pg-backup/upload.sh"]
+              resources:
+                requests: { cpu: 10m, memory: 16Mi }
+                limits: { memory: 64Mi }
+              volumeMounts:
+                - { name: backups, mountPath: /backups, readOnly: true }
+                - { name: scripts, mountPath: /etc/pg-backup }
+                - { name: ssh, mountPath: /ssh }
+          volumes:
+            - name: backups
+              persistentVolumeClaim: { claimName: pg-backups }
+            - name: scripts
+              configMap: { name: pg-backup }
+            - name: ssh
+              secret: { secretName: pg-backup-ssh, defaultMode: 0400 }

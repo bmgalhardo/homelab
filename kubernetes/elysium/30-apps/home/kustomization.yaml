@@ -5,6 +5,7 @@ namespace: home
 resources:
   - homeassistant.yaml
   - mosquitto.yaml
+  - postgres-ca.yaml
 
 configMapGenerator:
   - name: homeassistant-configuration

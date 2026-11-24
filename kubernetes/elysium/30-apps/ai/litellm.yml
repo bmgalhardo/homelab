@@ -95,10 +95,19 @@ spec:
         - mountPath: /app/config.yaml
           name: litellm-config
           subPath: config.yaml
+        - mountPath: /certs
+          name: postgres-ca
+          readOnly: true
       volumes:
       - name: litellm-config
         configMap:
           name: litellm-config
+      - name: postgres-ca
+        secret:
+          secretName: postgres-ca
+          items:
+          - key: ca
+            path: ca.crt
 ---
 apiVersion: v1
 kind: Service

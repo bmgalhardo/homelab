@@ -52,6 +52,17 @@ spec:
               key: master_key
         - name: RAG_EMBEDDING_MODEL
           value: nomic-embed-text
+        volumeMounts:
+        - mountPath: /certs
+          name: postgres-ca
+          readOnly: true
+      volumes:
+      - name: postgres-ca
+        secret:
+          secretName: postgres-ca
+          items:
+          - key: ca
+            path: ca.crt
 ---
 apiVersion: v1
 kind: Service

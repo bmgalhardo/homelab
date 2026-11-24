@@ -99,6 +99,9 @@ spec:
           name: dashboards
         - mountPath: /config/www/homelab
           name: www
+        - mountPath: /certs
+          name: postgres-ca
+          readOnly: true
       volumes:
       - name: config
         persistentVolumeClaim:
@@ -115,6 +118,12 @@ spec:
       - name: www
         configMap:
           name: homeassistant-www
+      - name: postgres-ca
+        secret:
+          secretName: postgres-ca
+          items:
+          - key: ca
+            path: ca.crt
 ---
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret

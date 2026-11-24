@@ -8,6 +8,7 @@ resources:
   - llama-cpp-gpu.yml
   - litellm.yml
   - openwebui.yml
+  - postgres-ca.yaml
 
 patches:
   - target: { kind: Deployment, name: llama-cpp|openwebui|litellm }

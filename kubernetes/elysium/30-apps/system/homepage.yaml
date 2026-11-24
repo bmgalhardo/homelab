@@ -115,23 +115,23 @@ data:
           siteMonitor: http://plex.mediacenter:32400
       - Overseerr:
           icon: overseerr.png
-          href: http://overseerr.bgalhardo.com
+          href: https://overseerr.bgalhardo.internal
           siteMonitor: http://overseerr.mediacenter:5055
       - Sonarr:
           icon: sonarr.png
-          href: http://sonarr.bgalhardo.internal
+          href: https://sonarr.bgalhardo.internal
           siteMonitor: http://sonarr.mediacenter:8989
       - Radarr:
           icon: radarr.png
-          href: http://radarr.bgalhardo.internal
+          href: https://radarr.bgalhardo.internal
           siteMonitor: http://radarr.mediacenter:7878
       - Prowlarr:
           icon: prowlarr.png
-          href: http://prowlarr.bgalhardo.internal
+          href: https://prowlarr.bgalhardo.internal
           siteMonitor: http://prowlarr.mediacenter:9696
       - SABnzbd:
           icon: sabnzbd.png
-          href: http://sabnzbd.bgalhardo.internal
+          href: https://sabnzbd.bgalhardo.internal
           siteMonitor: http://sabnzbd.mediacenter:8080
     - Monitoring:
       - Home Assistant:

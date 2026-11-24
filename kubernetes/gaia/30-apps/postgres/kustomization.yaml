@@ -6,6 +6,7 @@ resources:
   - issuer-vault.yaml
   - certificate.yaml
   - cluster.yaml
+  - service-lb.yaml
 
 secretGenerator:
   - name: root-ca

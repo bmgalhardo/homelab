@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - issuer-vault.yaml
+  - certificate.yaml
+  - cluster.yaml
+
+secretGenerator:
+  - name: root-ca
+    namespace: postgres
+    files:
+      - ca.crt=../../../../infra/ca/root-ca.crt
+    options:
+      disableNameSuffixHash: true

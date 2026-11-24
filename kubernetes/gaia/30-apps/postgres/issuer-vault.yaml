@@ -1,0 +1,42 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vault
+  namespace: postgres
+spec:
+  vault:
+    server: https://vault.bgalhardo.internal
+    caBundleSecretRef:
+      name: root-ca
+      key: ca.crt
+    path: pki_cert_manager/sign/internal
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes-gaia
+        role: issuer
+        serviceAccountRef:
+          name: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager-vault-token-creator
+  namespace: postgres
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: allow-cert-manager-to-create-tokens
+  namespace: postgres
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+roleRef:
+  kind: Role
+  name: cert-manager-vault-token-creator
+  apiGroup: rbac.authorization.k8s.io

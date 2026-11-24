@@ -1,0 +1,71 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: postgres
+spec:
+  instances: 1
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:17.6-0.5.3
+
+  postgresql:
+    shared_preload_libraries: ["vchord.so"]
+    parameters:
+      max_connections: "100"
+      shared_buffers: 128MB
+
+  certificates:
+    serverTLSSecret: pg-server
+    serverCASecret: pg-server
+
+  storage:
+    size: 15Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+  bootstrap:
+    initdb:
+      import:
+        type: monolith
+        source:
+          externalCluster: vm
+        databases:
+          - authentik
+          - babybuddy
+          - forgejo
+          - homeassistant
+          - immich
+          - litellm
+          - openwebui
+          - prowlarr-log
+          - prowlarr-main
+          - radarr-log
+          - radarr-main
+          - sonarr-log
+          - sonarr-main
+        roles:
+          - authentik
+          - babybuddy
+          - forgejo
+          - homeassistant
+          - immich
+          - litellm
+          - openwebui
+          - prowlarr
+          - radarr
+          - sonarr
+
+  externalClusters:
+    - name: vm
+      connectionParameters:
+        host: 192.168.1.177
+        user: postgres
+        dbname: postgres
+        sslmode: disable
+      password:
+        name: pg-import-source
+        key: password

@@ -6,6 +6,7 @@ resources:
   - metallb.yaml
   - cert-manager.yaml
   - cloudnative-pg.yaml
+  - vault-auth.yaml
   - https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.37/deploy/local-path-storage.yaml
 
 patches:

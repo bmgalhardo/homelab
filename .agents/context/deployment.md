@@ -41,7 +41,7 @@ infra/
 ├── vault/                 ← Vault-side setup. Talks ONLY to Vault; never shipped
 │   ├── approle-bootstrap.sh   ← one parameterised script for every VM/node service
 │   ├── roles/<service>.env    ← ROLE / COMMON_NAME / KV_PATH / IP_SAN
-│   └── k8s-auth-bootstrap.sh  ← elysium kubernetes auth + vault-ca Secret
+│   └── k8s-auth-bootstrap.sh  ← kubernetes auth per cluster (+ vault-ca Secret on elysium)
 ├── ca/                    ← root-ca.crt — public, committed on purpose
 ├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
 └── elysium/               ← Talos k8s cluster: terraform/ (VMs) + omni/ (machine config)

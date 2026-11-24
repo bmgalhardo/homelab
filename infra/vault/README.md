@@ -45,6 +45,28 @@ KV_SEED="user=admin password=@random"   # optional — @random generates one
 DEPLOY_DIR=/root/myservice              # default /root/<ROLE>
 ```
 
+A role without `COMMON_NAME` gets no PKI path. Optional token settings:
+`TOKEN_TTL` (default 1h), `TOKEN_MAX_TTL` (0), `TOKEN_PERIOD` (1h; 0 = not
+periodic), `SECRET_ID_CIDRS` (binds the secret_id and its tokens to these
+addresses), `CRED_DIR` (where the printed delivery commands write).
+
+## Agents — the `claude` role
+
+`roles/claude.env`: read-only on `kv/agents/*`, bound to daedalus
+(192.168.1.170), tokens of 8h. One entry per service, under
+`kv/agents/<service>`: `unifi`, `homeassistant`, `forgejo`, `kube`,
+`proxmox`, `proxmox-power`, `omni`.
+
+```sh
+./approle-bootstrap.sh roles/claude.env   # deliver to ~/.config/vault/claude/ on daedalus
+./seed-agents-kv.sh --dry-run             # key names only
+./seed-agents-kv.sh                       # files in .agents/secrets/ -> kv/agents/*
+```
+
+Rotating a credential: `vault kv patch -mount=kv agents/<service> <key>=@<file>`.
+Cluster credentials (kubeconfigs, gaia's talosconfig) are written straight
+into `kv/agents/*` by `infra/make-claude-creds.sh`.
+
 Then copy `vault-agent/` from `infra/athena/` into the service dir and adjust
 `config.hcl` + `templates/` for the new paths. Deploy steps: `infra/athena/README.md`.
 
@@ -55,13 +77,14 @@ Then copy `vault-agent/` from `infra/athena/` into the service dir and adjust
   `IP_SAN`, or issuing with `ip_sans` is rejected.
 - Keep each policy to one host and one KV path — `secret_id`s do not expire.
 
-## elysium — kubernetes auth
+## Kubernetes auth
 
 ```sh
-./k8s-auth-bootstrap.sh
+./k8s-auth-bootstrap.sh <cluster>   # elysium | gaia
 ```
 
-Configures `auth/kubernetes`, the `cert_manager` and `vault-secrets-operator`
+elysium: `auth/kubernetes`, the `cert_manager` and `vault-secrets-operator`
 policies and roles, and the `vault-ca` Secret the `VaultConnection` trusts.
+gaia: `auth/kubernetes-gaia` with only the cert-manager `issuer` role.
 Needs the admin kubeconfig (it reads the `vault-auth` token Secret) and tier 1
 applied. Re-run after a cluster rebuild or a root CA change.

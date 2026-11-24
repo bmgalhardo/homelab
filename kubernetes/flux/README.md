@@ -44,17 +44,29 @@ gate, tier 2's custom resources would race the CRDs into existence.
 
 ## Bootstrap
 
+With a classic GitHub token (`repo` scope, short expiry):
 ```sh
-export GITHUB_TOKEN=...   # classic PAT, repo scope; or --token-auth for a deploy key
-flux bootstrap git \
- --url=ssh://git@github.com/bmgalhardo/homelab.git \
- --branch=main \
- --path=kubernetes/flux/clusters/<cluster>   # elysium | gaia
+export GITHUB_TOKEN=...
+flux bootstrap github \
+  --context=<admin context> \
+  --owner=bmgalhardo \
+  --repository=homelab \
+  --branch=main \
+  --path=kubernetes/flux/clusters/<cluster> \
+  --personal                                  # <cluster>: elysium | gaia
 ```
-Run it with the admin context of that cluster (`--context`).
 
 This installs the controllers, adds a deploy key to the GitHub repo, and
-**commits a `flux-system/` dir** next to this file
+**commits a `flux-system/` dir** under `flux/clusters/<cluster>/`.
+
+The uploaded deploy key goes away with the token. Replace it with one added
+by hand, then delete the token:
+```sh
+flux create secret git flux-system --context=<admin context> \
+  --url=ssh://git@github.com/bmgalhardo/homelab
+# GitHub: repo Settings → Deploy keys → add the printed key, read-only, as flux-<cluster>
+flux reconcile source git flux-system --context=<admin context>
+```
 
 Watching it:
 ```sh
@@ -67,5 +79,5 @@ the admin kubeconfig (see `infra/vault/README.md`):
 ```sh
 VAULT_ADDR=https://vault.bgalhardo.internal \
 VAULT_TOKEN=... \
-./infra/vault/k8s-auth-bootstrap.sh
+./infra/vault/k8s-auth-bootstrap.sh <cluster>   # elysium | gaia
 ```

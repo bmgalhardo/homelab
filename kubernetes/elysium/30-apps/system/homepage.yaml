@@ -168,6 +168,10 @@ data:
           icon: sh-litellm.png
           href: https://litellm.bgalhardo.internal/ui/
           siteMonitor: http://litellm.ai:4000
+      - FaceFusion:
+          icon: mdi-face-recognition
+          href: https://facefusion.bgalhardo.internal
+          siteMonitor: http://facefusion.ai:7860
   bookmarks.yaml: |
     - Developer:
       - Github:

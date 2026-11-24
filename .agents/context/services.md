@@ -94,6 +94,10 @@ covered by its `pg_backup` sidecar (local disk only).
 `llama-cpp` (CPU, chat + embed containers), `llama-cpp-gpu` (GPU node,
 Pending while it's off), `litellm` (gateway, falls back from `qwen-gpu` to CPU
 `llama-mini`), `openwebui`. Replaced Ollama 2026-11-02 — see `overmind memory get homelab/ai-poc.md`.
+`facefusion` — FaceFusion web UI (`facefusion/facefusion:<ver>-cpu`, Gradio
+on 7860) at `facefusion.bgalhardo.internal` (internal gateway, LAN/VPN only),
+CPU on Hades. Models, caches and jobs on local-path PVC `facefusion-data`
+(downloaded on first use). Uploads capped at 2g on the route.
 
 ### trading — new 2026-11-09
 `ib-gateway` (`ghcr.io/gnzsnz/ib-gateway`, IB Gateway + IBC), pinned to Apollo.

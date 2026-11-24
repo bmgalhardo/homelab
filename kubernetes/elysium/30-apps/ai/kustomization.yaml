@@ -8,10 +8,11 @@ resources:
   - llama-cpp-gpu.yml
   - litellm.yml
   - openwebui.yml
+  - facefusion.yml
   - postgres-ca.yaml
 
 patches:
-  - target: { kind: Deployment, name: llama-cpp|openwebui|litellm }
+  - target: { kind: Deployment, name: llama-cpp|openwebui|litellm|facefusion }
     patch: |
       - op: add
         path: /spec/template/spec/nodeSelector

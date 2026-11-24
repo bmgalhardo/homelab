@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facefusion
+  namespace: ai
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: facefusion
+  template:
+    metadata:
+      labels:
+        app: facefusion
+    spec:
+      containers:
+      - name: facefusion
+        image: facefusion/facefusion:3.9.2-cpu
+        imagePullPolicy: IfNotPresent
+        command: ["python", "facefusion.py", "run", "--execution-providers", "cpu"]
+        ports:
+        - containerPort: 7860
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            memory: 4Gi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7860
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /
+            port: 7860
+          periodSeconds: 10
+          failureThreshold: 60
+        volumeMounts:
+        - { name: data, mountPath: /facefusion/.assets, subPath: assets }
+        - { name: data, mountPath: /facefusion/.caches, subPath: caches }
+        - { name: data, mountPath: /facefusion/.jobs, subPath: jobs }
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: facefusion-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: facefusion-data
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: facefusion
+  namespace: ai
+spec:
+  selector:
+    app: facefusion
+  ports:
+    - port: 7860
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: facefusion
+  namespace: ai
+spec:
+  hostnames:
+  - facefusion.bgalhardo.internal
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: internal
+    sectionName: https
+    namespace: system
+  rules:
+  - backendRefs:
+    - name: facefusion
+      port: 7860
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: gateway.nginx.org/v1alpha1
+kind: ClientSettingsPolicy
+metadata:
+  name: facefusion-client-settings
+  namespace: ai
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: facefusion
+  body:
+    maxSize: 2g

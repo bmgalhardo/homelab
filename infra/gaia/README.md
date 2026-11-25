@@ -39,8 +39,8 @@ Authentik, Omni). Standalone Talos, not managed by Omni. Flux reconciles
    It renders the config from `talos/patch.yaml` + the archive's Talos
    secrets + `infra/ca/root-ca.crt`, applies it, bootstraps etcd and applies
    the archive's `k8s/` Secrets. The node comes up on `192.168.1.172`.
-   `./bootstrap.sh creds ARCHIVE` rewrites the admin talosconfig/kubeconfig
-   into `/run/user/$UID/gaia/`.
+   `./bootstrap.sh creds ARCHIVE` rewrites the admin kubeconfig to
+   `~/.kube/gaia` and the talosconfig to `~/.talos/gaia`.
 
 ## Secrets
 

@@ -6,15 +6,16 @@
 #   ./bootstrap.sh finish ARCHIVE            # the part after apply-config (safe to re-run)
 #   ./bootstrap.sh creds ARCHIVE             # (re)write talosconfig + kubeconfig only
 #
-# Admin credentials go to /run/user/$UID/gaia/ (tmpfs, gone at reboot):
-#   export TALOSCONFIG=/run/user/$UID/gaia/talosconfig KUBECONFIG=/run/user/$UID/gaia/kubeconfig
+# Admin credentials go to ~/.kube/gaia and ~/.talos/gaia (mode 600):
+#   export KUBECONFIG=~/.kube/config:~/.kube/gaia TALOSCONFIG=~/.talos/gaia
 
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 NODE=192.168.1.172
 ENDPOINT=https://$NODE:6443
-CREDS="/run/user/$(id -u)/gaia"
+KUBE_CREDS="$HOME/.kube/gaia"
+TALOS_CREDS="$HOME/.talos/gaia"
 
 render() {  # $1 archive -> $WORK/{bundle,controlplane.yaml,talosconfig}
   WORK=$(umask 077 && mktemp -d "/run/user/$(id -u)/gaia-build.XXXX")
@@ -37,11 +38,11 @@ render() {  # $1 archive -> $WORK/{bundle,controlplane.yaml,talosconfig}
 }
 
 save_creds() {
-  (umask 077 && mkdir -p "$CREDS")
-  install -m 600 "$WORK/talosconfig" "$CREDS/talosconfig"
-  talosctl --talosconfig "$CREDS/talosconfig" kubeconfig --force "$CREDS/kubeconfig" >/dev/null
-  chmod 600 "$CREDS/kubeconfig"
-  echo "credentials in $CREDS/"
+  (umask 077 && mkdir -p "$(dirname "$KUBE_CREDS")" "$(dirname "$TALOS_CREDS")")
+  install -m 600 "$WORK/talosconfig" "$TALOS_CREDS"
+  talosctl --talosconfig "$TALOS_CREDS" kubeconfig --force "$KUBE_CREDS" >/dev/null
+  chmod 600 "$KUBE_CREDS"
+  echo "credentials in $KUBE_CREDS and $TALOS_CREDS"
 }
 
 wait_for() {  # $1 description, rest: command
@@ -78,7 +79,7 @@ finish() {  # after apply-config; expects render() done
   T=(talosctl --talosconfig "$WORK/talosconfig")
   wait_for "etcd bootstrap on $NODE" etcd_bootstrapped
   save_creds
-  K=(kubectl --kubeconfig "$CREDS/kubeconfig")
+  K=(kubectl --kubeconfig "$KUBE_CREDS")
   wait_for "Kubernetes API" "${K[@]}" get --raw /readyz
   "${K[@]}" apply -f "$WORK/bundle/k8s/"
   wait_for "node Ready" "${K[@]}" wait --for=condition=Ready node/gaia --timeout=10s

@@ -71,7 +71,7 @@ Verified 2026-09-16 with the scoped kubeconfig.
 
 Live namespaces: `ai`, `automation`, `cert-manager`, `external-dns`,
 `flux-system`, `gpu-operator` (GPU Operator + node-feature-discovery),
-`immich`, `local-path-storage`, `metallb-system`, `monitoring`,
+`immich`, `local-path-storage`, `mediacenter`, `metallb-system`, `monitoring`,
 `nginx-gateway`, `system`, `vault-secrets-operator` (+ `kube-*`).
 
 ### system namespace
@@ -155,9 +155,32 @@ Not migrated from hal9000 (manifests only in git history, `17e511d^:kubernetes/h
 ps5-mqtt, hass-mqtt-device-healthcheck, esphome, node-red, whisper/piper/
 openwakeword, babybuddy, kiosk-server.
 
+### mediacenter
+`kubernetes/elysium/30-apps/mediacenter/`, every Deployment pinned to Hades
+(the media shares are virtiofs on `elysium-hades` only). Hades off → all
+Pending, expected. Deployed: `sabnzbd`, `sonarr`, `radarr`, `prowlarr`, at
+`<app>.bgalhardo.internal`. `plex.yaml` and `overseerr.yaml` sit in the folder,
+not yet listed in its kustomization.
+- `sabnzbd` — `/config` on local-path PVC `sabnzbd-config`. Downloads to
+  `/downloads/{incomplete,complete}` (virtiofs `downloads`, same disk as
+  `movies`, so movie imports hardlink).
+- `sonarr` (v5, linuxserver `develop` channel), `radarr`, `prowlarr` —
+  stateless. Their state is in the `postgres` VM (`<app>-main`, `<app>-log`,
+  owner `<app>`), reached over TLS with `SSL Mode=VerifyFull` against the
+  internal root CA (`kv/infra/root-ca`). No `config.xml`: settings come from
+  `<APP>__AUTH__*` / `<APP>__POSTGRES__*` env vars, the password from
+  `PGPASSWORD`. Vault `kv/apps/<app>` → `api_key`, `db_password`. `/config` is
+  an `emptyDir` (posters, logs). A postStart hook on sonarr/radarr refreshes
+  every series/movie, which re-downloads metadata and covers.
+- `plex` (when listed) — `plex.bgalhardo.com` on the `external` Gateway,
+  libraries at `/series` and `/movies`, `/config` on PVC `plex-config`.
+- Restore: `plex` and `sabnzbd` have a `restore` init container. When `/config`
+  is empty it extracts the newest `plex-*.tar` / `sabnzbd-*.tar` from
+  `downloads/.restore/` (Hades `/mnt/movies/Downloads/.restore/`), which holds
+  copies of the archives in `/odin/backups/{plex,sabnzbd}/`.
+
 ### Parked, not deployed
-`kubernetes/elysium/30-apps/_parked/`: `gaming`. `mediacenter` (plex, sonarr, radarr,
-sabnzbd, overseerr) is only in git history, `17e511d^`.
+`kubernetes/elysium/30-apps/_parked/`: `gaming`.
 
 ## Outside K8s (athena — Pi4, 192.168.1.196)
 
@@ -270,7 +293,8 @@ Hermes DNS/LB (independent, service discovery)
   └─→ HAProxy (proxmox.*, postgres.* entries)
 
 Hades virtiofs (media/photos, elysium-hades only)
-  └─→ Immich
+  ├─→ Immich
+  └─→ mediacenter (plex, sabnzbd, sonarr, radarr)
 
 Apollo LXC Corosync (voting node)
   └─→ Proxmox cluster quorum (2-node)

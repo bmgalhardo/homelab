@@ -6,7 +6,7 @@ Two classes, and the distinction matters for backups:
 
 | class | backing | used for | survives node loss? |
 |-------|---------|----------|---------------------|
-| **virtiofs** (static PVs) | host disks, node-bound: Hades → `elysium-hades`, Apollo → `elysium-apollo` | Hades: `series`, `movies`, `downloads`. Apollo: `immich` | yes — lives on the host |
+| **virtiofs** (static PVs) | host disks, node-bound: Hades → `elysium-hades`, Apollo → `elysium-apollo` | Hades: `series`, `movies`, `downloads` (mediacenter). Apollo: `immich` | yes — lives on the host |
 | **local-path** | per-node data disk (`scsi1`), Talos user volume at `/var/mnt/local-path` | every other PVC | **no — treat as volatile** |
 
 - **NFS is retired.** Hades' NFS server was turned off at the rebuild;

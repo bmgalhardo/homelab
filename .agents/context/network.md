@@ -16,7 +16,8 @@
 | omni.bgalhardo.internal | **192.168.1.171** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:BA:BA:F8`) | Apollo VM | Talos/k8s management |
 | vault.bgalhardo.internal | **192.168.1.173** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:08:37:CD`) | Apollo VM | Secrets |
 | authentik.bgalhardo.internal | **192.168.1.174** (confirmed 2026-09-08 — ARP/MAC `BC:24:11:67:A4:00`) | Apollo VM | Identity |
-| postgres.bgalhardo.internal | **192.168.1.177** (confirmed 2026-08-21) | Apollo VM | Database |
+| gaia (k8s) | **192.168.1.172** (static in the Talos config, MAC `02:00:00:00:03:00`) `:6443` | Apollo VM 1200 | Single-node Talos, core services |
+| postgres.bgalhardo.internal | **192.168.1.177** (gaia MetalLB, pool `core`, Service `postgres/pg-lb`) | gaia | Database (TLS, root-CA chain) |
 | control-1 (k8s) | **192.168.1.180** (also the Talos CP VIP `:6443`) | Apollo VM | k8s control plane |
 | proxmox.bgalhardo.internal | HAProxy → .197 / .198 | Apollo/Hades | Proxmox HA |
 | home.bgalhardo.internal | Gateway `internal` → 192.168.1.200 | k8s `home` | Home Assistant (LAN/VPN) |
@@ -52,12 +53,6 @@
 - **Purpose:** HA Proxmox access (failover to healthy node)
 - **Protocol:** HTTP/HTTPS
 
-### Backend: postgres
-- **Target:** postgres-vm on Apollo
-- **DNS Entry:** postgres.bgalhardo.internal
-- **Purpose:** HA database access
-- **Protocol:** TCP 5432
-
 ## VLANs (on UDM)
 
 - **VLAN 1 (default):** Primary network — all homelab services
@@ -92,9 +87,10 @@ pki_root (self-signed Root CA, 2025-07-01 → 2035-06-29)
   │                 allows subdomains + wildcards, max_ttl=360d
   │
   └── pki_cert_manager — Second intermediate, separate chain
-                        Used by cert-manager's `vault` Issuer inside the
-                        elysium k8s cluster (path
-                        pki_cert_manager/sign/internal).
+                        Used by cert-manager's `vault` Issuers in elysium
+                        and gaia (path pki_cert_manager/sign/internal;
+                        RSA keys only, max TTL 30 days — never set
+                        `duration`/`renewBefore`).
 ```
 
 - **Renewal:** k8s certs renew via cert-manager; athena's leaf via its

@@ -35,7 +35,9 @@ Grafana `hosts/Rack power`. "Network & Pis" = feed − Apollo − Hades.
     services.md). Needs `--onboot 1`.
   - LXC: `cerberus` — Protect kiosk on Apollo's HDMI (LXC 105, on/off
     by hand, no onboot; see services.md)
-  - VMs: vault, authentik, postgres, omni, talos-control, talos-worker
+  - VMs: vault, authentik, omni, talos-control, talos-worker
+  - VM 1200 `gaia` (2 cores, 4 GB) — single-node Talos for the core services
+  - VM 201 `postgres` — stopped, `onboot 0` (replaced by gaia's Postgres)
   - VM 101 `daedalus` (remote agents)
   - K8s workloads: see services.md
 - **Network:** Bridged to UDM (no bonding)

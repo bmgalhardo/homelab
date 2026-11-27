@@ -26,12 +26,7 @@ infra/
 │       ├── authentik/
 │       │   ├── docker-compose.yml
 │       │   └── .env.example
-│       ├── postgres/
-│       │   ├── docker-compose.yml
-│       │   ├── backup.sh
-│       │   ├── restore.sh
-│       │   ├── vault-agent/    ← TLS leaf only
-│       │   └── .env.example
+│       ├── postgres/       ← retired VM 201 (stopped); Postgres runs on gaia
 │       └── omni/
 │           └── docker-compose.yml   ← no secrets baked in, none needed
 ├── athena/                ← athena logging+metrics stack (Pi4 node, not Olympus)
@@ -44,8 +39,13 @@ infra/
 │   └── k8s-auth-bootstrap.sh  ← kubernetes auth per cluster (+ vault-ca Secret on elysium)
 ├── ca/                    ← root-ca.crt — public, committed on purpose
 ├── hermes/                ← DNS + LB configs (Pi 1, native Alpine, not compose)
-└── elysium/               ← Talos k8s cluster: terraform/ (VMs) + omni/ (machine config)
+├── elysium/               ← Talos k8s cluster: terraform/ (VMs) + omni/ (machine config)
+└── gaia/                  ← single-node Talos (core services): terraform/ + talos/ + bootstrap.sh
 ```
+
+gaia's workloads are Flux-managed from `kubernetes/gaia/`; there is nothing
+to copy onto its VM. Its Talos and admin kube credentials come from the
+gaia secrets archive (`infra/gaia/README.md`), never from git.
 
 (There was also an `infra/proxmox/` proxmoxer helper script — removed, gone
 as of 2026-09-07. Don't reintroduce it; the Proxmox API is reached directly
@@ -66,7 +66,6 @@ only works where that workstation's key is in the target's
 ```
 ssh root@vault.bgalhardo.internal
 ssh root@authentik.bgalhardo.internal
-ssh root@postgres.bgalhardo.internal
 ssh root@omni.bgalhardo.internal
 ssh root@192.168.1.196        # athena
 ```
@@ -97,7 +96,6 @@ in git lists the variable names so it's clear what's needed:
 
 - `vault`: `VAULT_UNSEAL_KEY`
 - `authentik`: `AUTHENTIK_SECRET_KEY`, `PG_PASS`
-- `postgres`: `POSTGRES_PASSWORD`
 - `omni`: none (all config is non-secret CLI flags)
 - `athena` (the logging stack): none in `.env` — uses
   the Vault Agent sidecar (below)

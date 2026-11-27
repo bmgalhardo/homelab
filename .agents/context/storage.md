@@ -22,6 +22,9 @@ Two classes, and the distinction matters for backups:
   data lost. Manifests come back from git via Flux; only *data* needs
   restoring.
 
+gaia has the same `local-path` class on its own `scsi1` (30G), holding the
+Postgres data (`pg-1`, 15Gi) and its dumps (`pg-backups`, 10Gi).
+
 The local-path disk is selected in `infra/elysium/omni/patches/local-path.yaml`.
 Talos reports these disks' transport as **virtio** (the `virtio-scsi-single`
 controller), although they appear as `/dev/sdX`. `talosctl get volumestatus`
@@ -43,7 +46,7 @@ shows the volume's state.
 ## VM Storage (Apollo + Hades)
 
 ### Local Proxmox Storage
-- **Purpose:** VMs (vault, authentik, postgres, omni, talos nodes)
+- **Purpose:** VMs (vault, authentik, omni, talos nodes, gaia)
 - **Backend:** Proxmox local storage on each node
 - **Capacity:** TODO
 
@@ -58,9 +61,22 @@ shows the volume's state.
 
 | What | How | When |
 |------|-----|------|
-| Postgres | `pg_backup` daily dump on the VM | 02:00 |
+| Postgres (gaia) | CronJob `pg-dump`: `pg_dumpall` over TLS to PVC `pg-backups` (daily 7, weekly 4, monthly 12) | 02:00 Europe/Lisbon |
+| Postgres → Hades | CronJob `pg-upload`: SFTP mirror to `/odin/k8s-backups/gaia-postgres` (skips while Hades is off) | hourly :30 |
 | Immich library | Hades `photos-mirror` pulls apollo `/mnt/immich` → `/odin/photos` | boot + 03:00 (needs Hades up) |
 | `odin/photos` | sanoid snapshots 7d/4w/6m | sanoid.timer |
 | Forgejo | `forgejo dump` CronJob to its PVC | 03:30 |
+
+**Hades SFTP drop** (`infra/olympus/hosts/README.md`): ZFS `odin/k8s-backups`
+(200G quota), one chrooted SFTP-only user per client. Clients: `gaia-postgres`.
+The client's private key lives only in its cluster Secret (gaia:
+`postgres/pg-backup-ssh`, key `id_ed25519`). After a rebuild, generate a new
+key, re-run `k8s-backup-client.sh <client> <pubkey>` on Hades, and recreate
+the Secret; nothing needs restoring.
+
+**Restore (Postgres):** `gunzip -c all_pg_daily_<date>.sql.gz | psql -U postgres -d postgres`
+into a fresh instance with `vchord.so` preloaded. The only expected error is
+`role "postgres" already exists`. Verified 2026-11-24: all databases, roles and
+extensions identical to live.
 
 Targets and plan: `overmind memory get homelab/backup-strategy.md`.

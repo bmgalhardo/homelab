@@ -69,10 +69,18 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 26        # postgres in the CNPG image
+            runAsGroup: 26
+            seccompProfile: { type: RuntimeDefault }
           containers:
             - name: dump
               image: ghcr.io/tensorchord/cloudnative-vectorchord:17.6-0.5.3
               command: ["sh", "/etc/pg-backup/dump.sh"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
               env:
                 - name: PGHOST
                   value: pg-rw
@@ -115,10 +123,19 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534     # nobody; the dumps are world-readable
+            runAsGroup: 65534
+            fsGroup: 65534       # makes the key readable through its group
+            seccompProfile: { type: RuntimeDefault }
           containers:
             - name: upload
               image: instrumentisto/rsync-ssh:alpine3.23-r3
               command: ["sh", "/etc/pg-backup/upload.sh"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
               resources:
                 requests: { cpu: 10m, memory: 16Mi }
                 limits: { memory: 64Mi }
@@ -132,4 +149,4 @@ spec:
             - name: scripts
               configMap: { name: pg-backup }
             - name: ssh
-              secret: { secretName: pg-backup-ssh, defaultMode: 0400 }
+              secret: { secretName: pg-backup-ssh, defaultMode: 0440 }

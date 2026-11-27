@@ -30,7 +30,8 @@ Network: `192.168.1.0/24`
 **Quick Reference:** Start in `.agents/context`
 - `hardware.md` — Rack layout, specs, devices
 - `network.md` — IPs, DNS, VLANs
-- `services.md` — What runs where, dependencies
+- `services.md` — What runs where, dependencies; where to read the last
+  Argus report (athena section)
 - `storage.md` — NFS, backups, snapshots
 - `deployment.md` — How to deploy (static compose per VM, no Ansible)
 

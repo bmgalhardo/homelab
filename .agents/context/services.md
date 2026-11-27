@@ -198,6 +198,10 @@ k8s outage. Static docker compose at `/root/athena/`, source `infra/athena/`.
   are provisioned from files, so the Vault admin password applies on every
   boot rather than only at first init. Dashboards are exported back to files
   with `grafana/export-dashboards.sh`.
+- **argus** — the nightly report agent, `/root/argus` (root cron 03:30), source
+  `argus/`. Each report is a JSON line in Loki:
+  `curl -sG http://192.168.1.196:3100/loki/api/v1/query_range --data-urlencode 'query={job="argus", mode="sent"}' --data-urlencode limit=1`
+  (add `start=` in ns; the default window is one hour).
 - Build status: `overmind memory get homelab/argus.md`.
 
 ## Outside K8s (Hermes, Independent)
